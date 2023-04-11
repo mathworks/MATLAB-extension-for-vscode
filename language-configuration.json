@@ -1,0 +1,113 @@
+{
+    "comments": {
+        "blockComment": [
+            "\n%{\n",
+            "\n%}\n"
+        ],
+        "lineComment": "%"
+    },
+    "brackets": [
+        [
+            "(",
+            ")"
+        ],
+        [
+            "[",
+            "]"
+        ],
+        [
+            "{",
+            "}"
+        ],
+        [
+            "%{",
+            "%}"
+        ]
+    ],
+    "autoClosingPairs": [
+        {
+            "open": "(",
+            "close": ")"
+        },
+        {
+            "open": "[",
+            "close": "]"
+        },
+        {
+            "open": "{",
+            "close": "}"
+        },
+        {
+            "open": "'",
+            "close": "'",
+            "notIn": ["comment", "string"]
+        },
+        {
+            "open": "\"",
+            "close": "\"",
+            "notIn": ["comment", "string"]
+        },
+        {
+            "open": "%{",
+            "close": "%}",
+            "notIn": ["string"]
+        }
+    ],
+    "surroundingPairs": [
+        [
+            "(",
+            ")"
+        ],
+        [
+            "[",
+            "]"
+        ],
+        [
+            "{",
+            "}"
+        ],
+        [
+            "'",
+            "'"
+        ],
+        [
+            "\"",
+            "\""
+        ]
+    ],
+    "folding": {
+        "markers": {
+            "start": "^\\s*\\b(?:for|parfor|spmd|if|while|try|switch|function|classdef|properties|enumeration|events|methods|arguments)\\b",
+            "end": "\\bend\\b"
+        }
+    },
+    "indentationRules": {
+        "increaseIndentPattern": "^\\s*\\b(?:for|parfor|spmd|if|elseif|else|while|try|catch|switch|function|classdef|properties|enumeration|events|methods|arguments)\\b",
+        "decreaseIndentPattern": "^\\s*\\b(?:elseif|else|catch|end)\\b"
+    },
+    "onEnterRules": [
+        {
+            "beforeText": "%(?!{).*$",
+            "afterText": "\\S",
+            "action": {
+                "indent": "none",
+                "appendText": "% "
+            }
+        },
+        {
+            "previousLineText": ".*(?<!\\.\\.\\.)$",
+            "beforeText": "\\.\\.\\.\\s*$",
+            "afterText": "^\\s*$",
+            "action": {
+                "indent": "indent"
+            }
+        },
+        {
+            "beforeText": "^\\s*(\\bcase\\s.+|\\botherwise)\\s*$",
+            "afterText": "\\s*",
+            "action": {
+                "indent": "indent"
+            }
+        }
+    ]
+}

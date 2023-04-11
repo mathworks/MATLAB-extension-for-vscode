@@ -1,0 +1,107 @@
+{
+    "For Loop": {
+        "prefix": "for",
+        "body": [
+            "for ${1:index} = ${2:values}",
+            "\t$0",
+            "end"
+        ],
+        "description": "for loop to repeat specified number of times"
+    },
+    "Parallel For Loop": {
+        "prefix": "parfor",
+        "body": [
+            "parfor ${1:index} = ${2:values}",
+            "\t$0",
+            "end"
+        ],
+        "description": "Parallel for loop (requires Parallel Computing Toolbox)"
+    },
+    "Execute Parallel Code": {
+        "prefix": "spmd",
+        "body": [
+            "spmd",
+            "\t$0",
+            "end"
+        ],
+        "description": "Execute code in parallel on workers of parallel pool (requires Parallel Computing Toolbox)"
+    },
+    "If Statement": {
+        "prefix": "if",
+        "body": [
+            "if ${1:condition}",
+            "\t$0",
+            "end"
+        ],
+        "description": "Execute statements if condition is true"
+    },
+    "If-Else Statement": {
+        "prefix": "ifelse",
+        "body": [
+            "if ${1:condition}",
+            "\t$0",
+            "else",
+            "\t",
+            "end"
+        ],
+        "description": "Execute some statements if condition is true, and others if statement is false"
+    },
+    "While Loop": {
+        "prefix": "while",
+        "body": [
+            "while ${1:condition}",
+            "\t$0",
+            "end"
+        ],
+        "description": "while loop to repeat when condition is true"
+    },
+    "Try-Catch Statement": {
+        "prefix": "try",
+        "body": [
+            "try",
+            "\t$0",
+            "catch ${1:exception}",
+            "\t",
+            "end"
+        ],
+        "description": "Execute statements and catch resulting errors"
+    },
+    "Switch Statement": {
+        "prefix": "switch",
+        "body": [
+            "switch ${1:switch_expression}",
+            "\tcase ${2:case_expression}",
+            "\t\t$0",
+            "\totherwise",
+            "\t\t",
+            "end"
+        ],
+        "description": "Execute one of several groups of statements"
+    },
+    "Function Definition": {
+        "prefix": "function",
+        "body": [
+            "function ${1:output} = ${2:name}(${3:input})",
+            "\t$0",
+            "end"
+        ],
+        "description": "Declare function name, inputs, and outputs"
+    },
+    "Class Definition": {
+        "prefix": "classdef",
+        "body": [
+            "classdef ${1:ClassName}",
+            "\tproperties",
+            "\t\t${2:Property1}",
+            "\tend",
+            "",
+            "\tmethods",
+            "\t\tfunction obj = $1(${3:inputArg1})",
+            "\t\t\t$0",
+            "\t\tend",
+            "\tend",
+            "end"
+        ],
+        "description": "Defines a class"
+    }
+}
