@@ -1,10 +1,10 @@
 # MATLAB extension for Visual Studio Code
 This extension provides support for editing MATLAB&reg; code in Visual Studio&reg; Code and includes features such as syntax highlighting, code analysis, navigation support, and more. 
 
-You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced code-editing features of the extension, you must have MATLAB R2021a or later installed. For more information, see the **Get Started** section.
+You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced code-editing features of the extension, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
 
 ## Installation
-You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/vscode). After installing the extension, you might need to configure it to make full use of all the features. For more information, see the **Configuration** section.
+You can install the extension from within Visual Studio Code or download it from Visual Studio Code Marketplace. After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
 
 ## Get Started
 To get started using the extension, open any MATLAB code file, or create a new file and set the language to MATLAB.
@@ -66,7 +66,7 @@ For more information, see the [MathWorks Privacy Policy](https://www.mathworks.c
 ## Troubleshooting
 If the MATLAB install path is not properly configured, you get an error when you try to use certain advanced features, such as document formatting and code navigation.
 
-To resolve the error, set the MATLAB install path to the location of the MATLAB executable. For more information, see the **Configuration > MATLAB Install Path Setting** section above.
+To resolve the error, set the MATLAB install path to the location of the MATLAB executable. For more information, see the [Configuration > MATLAB Install Path Setting](#matlab-install-path-setting) section.
 
 ## Contact Us
 We encourage all feedback. If you encounter a technical issue or have an enhancement request, create an issue here or contact MathWorks at support@mathworks.com.
@@ -74,6 +74,6 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 ## Release Notes
 
 ### 1.0.0
-Release date: *date*
+Release date: 2023-04-25
 
 * Initial release.
