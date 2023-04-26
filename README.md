@@ -4,7 +4,7 @@ This extension provides support for editing MATLAB&reg; code in Visual Studio&re
 You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced code-editing features of the extension, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
 
 ## Installation
-You can install the extension from within Visual Studio Code or download it from Visual Studio Code Marketplace. After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
+You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MathWorks.language-matlab). After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
 
 ## Get Started
 To get started using the extension, open any MATLAB code file, or create a new file and set the language to MATLAB.
