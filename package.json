@@ -1,6 +1,6 @@
 {
 	"name": "language-matlab",
-	"displayName": "MATLAB",
+	"displayName": "MATLAB (MathWorks)",
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",

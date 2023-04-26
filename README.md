@@ -74,6 +74,6 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 ## Release Notes
 
 ### 1.0.0
-Release date: 2023-04-25
+Release date: 2023-04-26
 
 * Initial release.
