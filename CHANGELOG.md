@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2023-04-27
+
+### Changed
+
+- Updated display name from "MATLAB (MathWorks)" to "MATLAB"
+
 ## [1.0.0] - 2023-04-26
 
 - Initial Release
