@@ -1,0 +1,51 @@
+# Run Extension tests
+
+name: test
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test-smoke:
+    name: smoke-${{ matrix.version }}-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2023a]
+        os: [windows-latest, ubuntu-latest]
+    env:
+        MATHWORKS_SKIP_ACTIVATION: true
+        MLM_WEB_LICENSE: true
+        MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
+        MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v1.2.3
+        with:
+          release: ${{ matrix.version }}
+      - name: Setup node
+        uses: actions/setup-node@v3.5.1
+      - name: npm clean install
+        run: npm ci
+      - name: Start Xvfb 
+        run: /usr/bin/Xvfb :17 -screen 0 1024x768x24 > /dev/null 2>&1 & echo "Started xvfb"
+        shell: bash
+        if: ${{ success() && matrix.os == 'ubuntu-latest' }}
+      - name: Run tests
+        run: npm run test
+        env:
+          DISPLAY: ":17.0"
+          

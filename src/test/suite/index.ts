@@ -8,7 +8,7 @@ export async function run (): Promise<void> {
     const mocha = new Mocha({
         ui: 'tdd',
         color: true,
-        timeout: 120000 // set default timeout to 2 minutes
+        timeout: 600000 // set suite timeout to 10 minutes
     })
 
     const testsRoot = path.resolve(__dirname)
