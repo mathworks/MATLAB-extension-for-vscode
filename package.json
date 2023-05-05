@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -60,16 +60,16 @@
 					"description": "Automatically index all MATLAB code files (.m) in the current workspace.",
 					"scope": "window"
 				},
-                "MATLAB.telemetry": {
-                    "type": "boolean",
-                    "default": true,
-                    "markdownDescription": "Help improve this extension by sending user experience information to MathWorks. For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).",
-                    "scope": "window",
-                    "tags": [
-                        "telemetry",
-                        "usesOnlineServices"
-                    ]
-                }
+				"MATLAB.telemetry": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Help improve this extension by sending user experience information to MathWorks. For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).",
+					"scope": "window",
+					"tags": [
+						"telemetry",
+						"usesOnlineServices"
+					]
+				}
 			}
 		},
 		"languages": [
@@ -120,6 +120,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.36.1",
 		"@typescript-eslint/parser": "^5.36.1",
 		"@vscode/test-electron": "^2.1.5",
+		"@vscode/vsce": "^2.19.0",
 		"copyfiles": "^2.4.1",
 		"eslint": "^8.23.0",
 		"eslint-config-standard-with-typescript": "^22.0.0",
@@ -128,8 +129,7 @@
 		"eslint-plugin-promise": "^6.0.1",
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
-		"typescript": "^4.8.3",
-		"vsce": "^2.11.0"
+		"typescript": "^4.8.3"
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",
