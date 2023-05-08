@@ -11,7 +11,7 @@ export const pause = async (ms: number): Promise<void> => await new Promise((res
  * Poll for a function return the expected value. Default timeout is 30s
  */
 // eslint-disable-next-line
-export async function poll (fn: (...args: any[]) => any, value: any, message = '', timeout = 20000): Promise<void> {
+export async function poll (fn: (...args: any[]) => any, value: any, message = '', timeout = 30000): Promise<void> {
     const interval = 1000
     const maxIterations = Math.ceil(timeout / interval)
     let i = 0
