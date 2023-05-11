@@ -35,10 +35,10 @@
             "timeout": 20000,
             "outFiles": [
                 "${workspaceFolder}/server/out/**/*.js"
-            ]//,
-            // "sourceMapPathOverrides": {
-            //     "webpack://matlab-language-server/*": "${workspaceFolder}/server/*",
-            // }
+            ],
+            "sourceMapPathOverrides": {
+                "webpack://matlab-language-server/*": "${workspaceFolder}/server/*",
+            }
         }
 	],
     "compounds": [
