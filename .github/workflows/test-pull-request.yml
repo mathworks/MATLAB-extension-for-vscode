@@ -1,20 +1,20 @@
 # Run Extension tests
 
-name: test
+name: test-pull-request
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push events for the "main" branch
-  push:
-    branches: [ main ]
+  # Triggers the workflow on pull request that contain the label 'safe to test'
+pull_request_target:
+    types: [ labeled ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+permissions: {}    
 
 jobs:
   test-smoke:
     name: smoke-${{ matrix.version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    if: contains(github.event.pull_request.labels.*.name, 'safe to test')
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +30,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+          ref: "refs/pull/${{ github.event.number }}/merge"
+          persist-credentials: false
+      - name: Verify Head^
+        run: |
+          if [ "$(git rev-parse HEAD^)" != "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "HEAD^ does not match github.event.pull_request.head.sha"
+            exit 1
+          fi
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v1.2.3
         with:
