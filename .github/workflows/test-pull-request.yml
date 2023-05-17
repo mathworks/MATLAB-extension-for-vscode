@@ -4,8 +4,8 @@ name: test-pull-request
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on pull request that contain the label 'safe to test'
-pull_request_target:
+  # Triggers the workflow on pull requests that contain the label 'safe to test'
+  pull_request_target:
     types: [ labeled ]
 
 permissions: {}    
