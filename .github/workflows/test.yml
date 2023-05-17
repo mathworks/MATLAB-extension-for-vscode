@@ -6,9 +6,9 @@ name: test
 on:
   # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
+  pull_request_target:
+    types: [ labeled ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -17,6 +17,7 @@ jobs:
   test-smoke:
     name: smoke-${{ matrix.version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')}}
     strategy:
       fail-fast: false
       matrix:
@@ -28,10 +29,17 @@ jobs:
         MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
         MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
     steps:
-      - name: Check out repository
+      - name: Checkout
+        if: ${{ github.event_name == 'push'}}
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: Checkout merge
+        if: ${{ github.event_name == 'pull_request_target'}}
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          ref: "refs/pull/${{ github.event.number }}/merge"
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v1.2.3
         with:
@@ -48,4 +56,3 @@ jobs:
         run: npm run test
         env:
           DISPLAY: ":17.0"
-          
