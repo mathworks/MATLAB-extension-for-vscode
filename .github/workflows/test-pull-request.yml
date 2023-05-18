@@ -30,7 +30,7 @@ jobs:
       - name: Verify Head
         shell: bash
         run: |
-          if [ "$(git ls-remote origin ${{ github.event.number }}/head)" != "${{ github.event.pull_request.head.sha }}" ]; then
+          if [ "$(git ls-remote origin ${{ github.event.number }}/head | awk '{print $1}')" != "${{ github.event.pull_request.head.sha }}" ]; then
             echo "HEAD does not match github.event.pull_request.head.sha"
             exit 1
           fi
