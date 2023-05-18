@@ -20,11 +20,6 @@ jobs:
       matrix:
         version: [R2021b, R2023a]
         os: [windows-latest, ubuntu-latest]
-    env:
-        MATHWORKS_SKIP_ACTIVATION: true
-        MLM_WEB_LICENSE: true
-        MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
-        MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -34,6 +29,8 @@ jobs:
         uses: matlab-actions/setup-matlab@v1.2.3
         with:
           release: ${{ matrix.version }}
+        env:
+          MATHWORKS_SKIP_ACTIVATION: true   
       - name: Setup node
         uses: actions/setup-node@v3.5.1
       - name: npm clean install
@@ -45,4 +42,7 @@ jobs:
       - name: Run tests
         run: npm run test
         env:
+          MLM_WEB_LICENSE: true
+          MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
+          MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
           DISPLAY: ":17.0"
