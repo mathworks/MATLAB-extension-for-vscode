@@ -27,11 +27,11 @@ jobs:
           submodules: recursive
           ref: "refs/pull/${{ github.event.number }}/merge"
           persist-credentials: false
-      - name: Verify Head^
+      - name: Verify Head
         shell: bash
         run: |
-          if [ "$(git rev-parse HEAD^)" != "${{ github.event.pull_request.head.sha }}" ]; then
-            echo "HEAD^ does not match github.event.pull_request.head.sha"
+          if [ "$(git rev-parse HEAD)" != "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "HEAD does not match github.event.pull_request.head.sha"
             exit 1
           fi
       - name: Set up MATLAB
