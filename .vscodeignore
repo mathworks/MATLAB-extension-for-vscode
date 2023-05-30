@@ -3,6 +3,7 @@
 out/test/**
 
 src/**
+.github
 .gitignore
 .gitmodules
 .yarnrc
@@ -17,10 +18,12 @@ syntaxes/test/**
 syntaxes/*.m
 syntaxes/.travis.yml
 syntaxes/.git
+syntaxes/.github
 syntaxes/.gitignore
 
 server/.eslintrc
 server/.git
+server/.github
 server/.gitattributes
 server/.gitignore
 server/webpack.config.js
