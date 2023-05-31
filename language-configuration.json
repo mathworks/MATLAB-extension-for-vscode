@@ -75,12 +75,6 @@
             "\""
         ]
     ],
-    "folding": {
-        "markers": {
-            "start": "^\\s*\\b(?:for|parfor|spmd|if|while|try|switch|function|classdef|properties|enumeration|events|methods|arguments)\\b",
-            "end": "\\bend\\b"
-        }
-    },
     "indentationRules": {
         "increaseIndentPattern": "^\\s*\\b(?:for|parfor|spmd|if|elseif|else|while|try|catch|switch|function|classdef|properties|enumeration|events|methods|arguments)\\b",
         "decreaseIndentPattern": "^\\s*\\b(?:elseif|else|catch|end)\\b"
