@@ -73,6 +73,15 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 
 ## Release Notes
 
+### 1.1.0
+Release date: 2023-06-5
+
+Added:
+* Document symbol and outline support
+
+Fixed:
+* Code folding no longer matches `end` when used in strings, comments, and to denote the end of a matrix
+
 ### 1.0.0
 Release date: 2023-04-26
 
