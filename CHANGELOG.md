@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2023-07-10
+
+### Fixed
+
+- Diagnostic suppression should be placed at correct location when '%' is contained within string
+- Improved navigation to files inside MATLAB packages within the VS Code workspace but not on the MATLAB path
+- Prevented navigation to private/local functions from other files
+- MATLAB sign-in is no longer blocked on Windows
+
 ## [1.1.0] - 2023-06-05
 
 ### Added
