@@ -4,6 +4,7 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import * as extension from '../../extension'
 import * as PollingUtils from './PollingUtils'
+import * as fs from 'fs/promises'
 
 /**
  * Change 'MATLAB Connection' to connect to MATLAB
@@ -95,4 +96,28 @@ export async function closeActiveDocument (): Promise<void> {
  */
 export async function closeAllDocuments (): Promise<void> {
     return await vscode.commands.executeCommand('workbench.action.closeAllEditors')
+}
+
+/**
+ * Search in the /Applications/ dir and return the path of an installed MATLAB on a Mac.
+ */
+export async function _getInstallPathForMac (): Promise<string> {
+    const directory = '/Applications/'
+    const files = await fs.readdir(directory)
+    const matlabAppRegex = /^MATLAB\w+\.app$/
+    const matlabAppFile = files.find((file: string) => matlabAppRegex.test(file))
+    if (matlabAppFile !== undefined) {
+        const filePath = path.join(directory, matlabAppFile)
+        console.log('MATLAB installation path: ', filePath)
+        return filePath
+    } else {
+        throw new Error('MATLAB installation not found.')
+    }
+}
+
+/**
+ * Update extension settings with the provided MATLAB install path.
+ */
+export async function setInstallPath (path: string): Promise<void> {
+    return await vscode.workspace.getConfiguration('MATLAB').update('installPath', path, true)
 }
