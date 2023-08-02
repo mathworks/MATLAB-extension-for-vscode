@@ -107,7 +107,10 @@ export async function _getInstallPathForMac (): Promise<string> {
     const matlabAppRegex = /^MATLAB_/
     const matlabAppFile = files.find((file: string) => matlabAppRegex.test(file))
     if (matlabAppFile !== undefined) {
-        const filePath = path.join(directory, matlabAppFile)
+        let filePath = path.join(directory, matlabAppFile)
+        if (!filePath.endsWith('.app')) {
+            filePath += '.app';
+          }
         console.log('MATLAB installation path: ', filePath)
         return filePath
     } else {
