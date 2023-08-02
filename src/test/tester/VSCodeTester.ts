@@ -108,18 +108,9 @@ export async function _getInstallPathForMac (): Promise<string> {
     const matlabAppFile = files.find((file: string) => matlabAppRegex.test(file))
     if (matlabAppFile !== undefined) {
         let filePath = path.join(directory, matlabAppFile)
+        // if a folder was detected, the app file must be in that folder
         if (!filePath.endsWith('.app')) {
-            const innerDirectory = filePath
-            const innerFiles = await fs.readdir(innerDirectory)
-            innerFiles.forEach(file => {
-                console.log(file)
-            })
-            const innerMatlabAppFile = innerFiles.find((file: string) => matlabAppRegex.test(file))
-            if (innerMatlabAppFile !== undefined) {
-                filePath = path.join(innerDirectory, innerMatlabAppFile)
-            } else {
-                throw new Error('MATLAB installation not found (inner).')
-            }
+            filePath = path.join(directory, matlabAppFile, `${matlabAppFile}.app`)
         }
         console.log('MATLAB installation path: ', filePath)
         return filePath
@@ -129,8 +120,23 @@ export async function _getInstallPathForMac (): Promise<string> {
 }
 
 /**
+ * Get the current extension setting for MATLAB install path.
+ */
+export function _getInstallPath (): string {
+    return vscode.workspace.getConfiguration('MATLAB').get('installPath') ?? ''
+}
+
+/**
+ * Assert the extension setting for MATLAB install path.
+ */
+export async function assertInstallPath (installPath: string): Promise<void> {
+    return await PollingUtils.poll(_getInstallPath, installPath)
+}
+
+/**
  * Update extension settings with the provided MATLAB install path.
  */
 export async function setInstallPath (path: string): Promise<void> {
-    return await vscode.workspace.getConfiguration('MATLAB').update('installPath', path, true)
+    await vscode.workspace.getConfiguration('MATLAB').update('installPath', path, true)
+    return await assertInstallPath(path)
 }
