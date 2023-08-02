@@ -102,8 +102,9 @@ export async function closeAllDocuments (): Promise<void> {
  * Search in the /Applications/ dir and return the path of an installed MATLAB on a Mac.
  */
 export async function _getInstallPathForMac (): Promise<string> {
-    const directory = '/Applications/'
+    const directory = '/Applications'
     const files = await fs.readdir(directory)
+    console.log(files)
     const matlabAppRegex = /^MATLAB\w+\.app$/
     const matlabAppFile = files.find((file: string) => matlabAppRegex.test(file))
     if (matlabAppFile !== undefined) {
