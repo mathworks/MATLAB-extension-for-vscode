@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         version: [R2021b, R2023a]
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [macos-13, macos-11	, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
