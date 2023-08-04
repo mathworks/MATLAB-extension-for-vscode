@@ -3,6 +3,7 @@
 import * as path from 'path'
 import { runTests } from '@vscode/test-electron'
 import { GlobSync } from 'glob'
+import * as os from 'os'
 
 async function main (): Promise<void> {
     try {
@@ -28,7 +29,8 @@ async function main (): Promise<void> {
                     version,
                     extensionDevelopmentPath,
                     extensionTestsPath,
-                    extensionTestsEnv: { test }
+                    extensionTestsEnv: { test },
+                    launchArgs: ['--user-data-dir', `${os.tmpdir()}`]
                 })
             }
         }
