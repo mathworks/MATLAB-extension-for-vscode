@@ -235,7 +235,6 @@ function handleTelemetryReceived (event: TelemetryEvent): void {
 function getServerArgs (context: vscode.ExtensionContext): string[] {
     const configuration = vscode.workspace.getConfiguration('MATLAB')
     const args = [
-        `--matlabCertDir=${context.storageUri?.fsPath ?? ''}`,
         `--matlabInstallPath=${configuration.get<string>('installPath') ?? ''}`,
         `--matlabConnectionTiming=${configuration.get<string>('launchMatlab') ?? 'onStart'}`
     ]
