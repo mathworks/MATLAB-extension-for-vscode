@@ -82,7 +82,11 @@
 				"extensions": [
 					".m"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configuration.json",
+                "icon": {
+                    "light": "./public/fileIcon_24x24.png",
+                    "dark": "./public/fileIcon_24x24.png"
+                }
 			}
 		],
 		"grammars": [

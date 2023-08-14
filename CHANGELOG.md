@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Patched CVE-2023-26136 and CVE-2022-25883
+- Added missing file icon for MATLAB files
 
 ## [1.1.1] - 2023-07-10
 
