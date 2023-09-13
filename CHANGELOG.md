@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2023-09-14
+
+### Fixed
+- Fixed issue connecting to MATLAB with Visual Studio Code version 1.82 and later
+
 ## [1.1.2] - 2023-08-14
 
 ### Fixed
