@@ -1,12 +1,11 @@
-# Run Extension tests
+# Run extension tests nightly on vscode insiders version
 
-name: test
+name: test-nightly
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push events for the "main" branch
-  push:
-    branches: [ main ]
+  schedule:
+    - cron: "45 11 * * *"
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -40,7 +39,7 @@ jobs:
         shell: bash
         if: ${{ success() && matrix.os == 'ubuntu-latest' }}
       - name: Run tests
-        run: npm run test
+        run: npm run test-insiders
         env:
           MLM_WEB_LICENSE: true
           MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
