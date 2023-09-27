@@ -112,7 +112,7 @@
 		"lint": "eslint src --ext ts",
 		"lint:fix": "eslint src --ext ts --fix",
 		"test": "node ./out/test/runTest.js",
-		"test-insiders": "node ./out/test/runTest.js --insiders",
+		"test-insiders": "npm run pretest && node ./out/test/runTest.js --insiders",
 		"postinstall": "cd server && npm install && cd ..",
 		"package": "vsce package"
 	},
