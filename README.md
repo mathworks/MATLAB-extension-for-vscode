@@ -1,9 +1,9 @@
 # MATLAB extension for Visual Studio Code
-[![Open in MATLAB Online](https://www.mathworks.com/images/responsive/global/open-in-matlab-online.svg)](https://matlab.mathworks.com/open/github/v1?repo=mathworks/MATLAB-extension-for-vscode)
-
 This extension provides support for editing MATLAB&reg; code in Visual Studio&reg; Code and includes features such as syntax highlighting, code analysis, navigation support, and more. 
 
 You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced code-editing features of the extension, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
+
+For an overview of the major features of this extension, you can watch the [Introducing the New MATLAB Extension for Visual Studio Code](https://www.youtube.com/watch?v=kYTBAr9LlGg) video.
 
 ## Installation
 You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MathWorks.language-matlab). After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
@@ -26,6 +26,7 @@ If you have MATLAB R2021a or later installed on your system, you have access to 
 * Source code formatting (document formatting)
 * Code navigation
 * Code analysis, such as continuous code checking and automatic fixes
+* Code outline
 
 ![MATLAB Extension Demo](public/AdvancedFeatures.gif)
 
@@ -42,12 +43,10 @@ For example, run the `matlabroot` command in the MATLAB Command Window.
 matlabroot
 ans =
     'C:\Program Files\MATLAB\R2022b'
-
 ```
 In the extension settings, set the `matlab.installPath` setting to the value returned by the `matlabroot` command.
-```
-matlab.installPath = "C:\Program Files\MATLAB\R2022b"
-```
+
+![MATLAB Install Path Setting](public/InstallPathSetting.png)
 
 ### MATLAB Index Workspace Setting
 By default, the extension indexes all the MATLAB code files (`.m`) in your current workspace. Indexing allows the extension to find and navigate between your MATLAB code files. 
