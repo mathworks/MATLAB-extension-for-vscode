@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.1.4",
+	"version": "1.1.5",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
