@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.5] - 2023-12-06
 
 ### Fixed
-- Fixed code navigation when using R2024a
+- Fixed code navigation when using with MATLAB R2024a
 - Handle symbolic link to MATLAB when linting with mlint (Thanks @MoetaYuko!)
 - Handle maca64 architecture when linting with mlint (Thanks @tiagovla!)
 
