@@ -87,7 +87,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: [{ scheme: 'file', language: 'matlab' }]
+        documentSelector: ['matlab']
     }
 
     // Create and start the language client
