@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.6] - 2024-01-12
+
 ### Fixed
 - Enabled language server features in untitled MATLAB files
 - Fixed linting with mlint on Windows
