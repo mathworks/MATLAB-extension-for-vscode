@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Enabled language server features in untitled MATLAB files
+- Fixed linting with mlint on Windows
+- Fixed regression with code navigation when using with MATLAB R2024a
 
 ## [1.1.5] - 2023-12-06
 
