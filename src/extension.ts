@@ -1,4 +1,4 @@
-// Copyright 2022 - 2023 The MathWorks, Inc.
+// Copyright 2022 - 2024 The MathWorks, Inc.
 
 import * as path from 'path'
 import * as vscode from 'vscode'
@@ -87,7 +87,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: [{ scheme: 'file', language: 'matlab' }]
+        documentSelector: ['matlab']
     }
 
     // Create and start the language client
