@@ -1,15 +1,15 @@
 # MATLAB extension for Visual Studio Code
-This extension provides support for editing MATLAB&reg; code in Visual Studio&reg; Code and includes features such as syntax highlighting, code analysis, navigation support, and more. 
+This extension provides support for editing and running MATLAB&reg; code in Visual Studio&reg; Code and includes features such as syntax highlighting, code analysis, navigation support, and more. 
 
-You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced code-editing features of the extension, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
+You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced features of the extension or run MATLAB code, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
 
-For an overview of the major features of this extension, you can watch the [Introducing the New MATLAB Extension for Visual Studio Code](https://www.youtube.com/watch?v=kYTBAr9LlGg) video.
+For an overview of some of the major features of this extension, you can watch the [Introducing the New MATLAB Extension for Visual Studio Code](https://www.youtube.com/watch?v=kYTBAr9LlGg) video.
 
 ## Installation
 You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MathWorks.language-matlab). After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
 
 ## Get Started
-To get started using the extension, open any MATLAB code file, or create a new file and set the language to MATLAB.
+To get started using the extension, open any MATLAB code file (.m), or create a new file and set the language to MATLAB.
 
 ### Basic Features (MATLAB not required)
 The extension provides several basic features, regardless of whether you have MATLAB installed on your system. These features include:
@@ -21,7 +21,8 @@ The extension provides several basic features, regardless of whether you have MA
 ![MATLAB Extension Demo](public/BasicFeatures.gif)
 
 ### Advanced Features (requires MATLAB installed on your system)
-If you have MATLAB R2021a or later installed on your system, you have access to an additional set of advanced code-editing features. These features include:
+If you have MATLAB R2021a or later installed on your system, you have access to an additional set of advanced features. These features include:
+* Code execution
 * Automatic code completion
 * Source code formatting (document formatting)
 * Code navigation
@@ -29,6 +30,19 @@ If you have MATLAB R2021a or later installed on your system, you have access to 
 * Code outline
 
 ![MATLAB Extension Demo](public/AdvancedFeatures.gif)
+
+## Run MATLAB Code
+You can run a MATLAB code file or a selection within a MATLAB code file in Visual Studio Code using the Run button at the top of the file or the `Run File` or `Run Current Selection` commands. When you run the file, output displays in the "Terminal" pane of Visual Studio Code. You also can enter MATLAB code directly in the MATLAB terminal. To stop execution of MATLAB code, press **Ctrl+C**.
+
+![MATLAB Execution Demo](public/CodeExecution.gif)
+
+### Limitations
+There are some limitations to running MATLAB code in Visual Studio Code:
+* Debugging is not supported.
+* The **pause** and **input** functions are not supported.
+* Output from timers, callbacks, and DataQueue objects is not shown in the Command Window.
+* Creating a custom run configuration for a file is not supported.
+
 
 ## Configuration
 To configure the extension, go to the extension settings and select from the available options.
@@ -74,8 +88,14 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 
 ## Release Notes
 
+### 1.2.0
+Release date: 2024-03-05
+
+Added:
+* Code execution support
+
 ### 1.1.0
-Release date: 2023-06-5
+Release date: 2023-06-05
 
 Added:
 * Document symbol and outline support

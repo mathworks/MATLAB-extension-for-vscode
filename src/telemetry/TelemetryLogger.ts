@@ -1,4 +1,4 @@
-// Copyright 2023 The MathWorks, Inc.
+// Copyright 2023-2024 The MathWorks, Inc.
 
 import fetch from 'node-fetch'
 import { env, workspace } from 'vscode'
@@ -24,7 +24,7 @@ export default class TelemetryLogger {
     }
 
     private shouldLogTelemetry (): boolean {
-        const configuration = workspace.getConfiguration('matlab')
+        const configuration = workspace.getConfiguration('MATLAB')
         return env.isTelemetryEnabled && (configuration.get<boolean>('telemetry') ?? true)
     }
 
