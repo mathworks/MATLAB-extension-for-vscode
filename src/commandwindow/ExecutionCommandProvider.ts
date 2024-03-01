@@ -134,10 +134,10 @@ export default class ExecutionCommandProvider {
                     break;
                 case FILE_PATH_STATE.FILE_NOT_ON_PATH:
                 case FILE_PATH_STATE.FILE_SHADOWED_BY_TBX:
-                    await this._handleNotOnPath(fileParts, commandToRun);
+                    await this._handleNotOnPath(filePath, commandToRun);
                     break;
                 case FILE_PATH_STATE.FILE_SHADOWED_BY_PWD:
-                    await this._handleShadowedByPwd(fileParts, commandToRun);
+                    await this._handleShadowedByPwd(filePath, commandToRun);
                     break;
                 default:
                     void vscode.window.showErrorMessage('Unable to run file as it is shadowed by another file in the same folder.');
@@ -153,13 +153,13 @@ export default class ExecutionCommandProvider {
      * @param commandToRun
      * @returns
      */
-    private async _handleNotOnPath (fileParts: string[], commandToRun: string): Promise<void> {
+    private async _handleNotOnPath (filePath: string, commandToRun: string): Promise<void> {
         const choice = await vscode.window.showWarningMessage('File is not found in the current folder or on the MATLAB path.', 'Add to Path', 'Change Folder', 'Cancel');
         if (choice === undefined || choice === 'Cancel') {
             return;
         }
 
-        const filePathWithoutFilename = path.join(...fileParts.slice(0, fileParts.length - 1));
+        const filePathWithoutFilename = path.dirname(filePath);
         if (choice === 'Add to Path') {
             await this._mvm.feval('addpath', 0, [filePathWithoutFilename]);
         } else {
@@ -169,12 +169,12 @@ export default class ExecutionCommandProvider {
         this._terminalService.getCommandWindow().insertCommandForEval(commandToRun);
     }
 
-    private async _handleShadowedByPwd (fileParts: string[], commandToRun: string): Promise<void> {
+    private async _handleShadowedByPwd (filePath: string, commandToRun: string): Promise<void> {
         const choice = await vscode.window.showWarningMessage('File is shadowed by another file in the current folder.', 'Change Folder', 'Cancel');
         if (choice === undefined || choice === 'Cancel') {
             return;
         }
-        const filePathWithoutFilename = path.join(...fileParts.slice(0, fileParts.length - 1));
+        const filePathWithoutFilename = path.dirname(filePath);
         await this._mvm.feval('cd', 0, [filePathWithoutFilename]);
         await this._terminalService.openTerminalOrBringToFront();
         this._terminalService.getCommandWindow().insertCommandForEval(commandToRun);
