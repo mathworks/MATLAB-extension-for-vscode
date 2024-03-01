@@ -48,6 +48,14 @@
 			{
 				"command": "matlab.interrupt",
 				"title": "MATLAB: Interrupt"
+			},
+			{
+				"command": "matlab.addToPath",
+				"title": "MATLAB: Add Folder To Path"
+			},
+			{
+				"command": "matlab.changeDirectory",
+				"title": "MATLAB: Change current directory"
 			}
 		],
 		"keybindings": [
@@ -69,6 +77,16 @@
 			}
 		],
 		"menus": {
+			"commandPalette": [
+				{
+					"command": "matlab.addToPath",
+					"when": "false"
+				},
+				{
+					"command": "matlab.changeDirectory",
+					"when": "false"
+				}
+			],
 			"editor/title/run": [
 				{
 					"command": "matlab.runFile",
@@ -91,6 +109,16 @@
 					"command": "matlab.runSelection",
 					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections",
 					"group": "1_run"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "matlab.addToPath",
+					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.changeDirectory",
+					"when": "explorerResourceIsFolder"
 				}
 			]
 		},
