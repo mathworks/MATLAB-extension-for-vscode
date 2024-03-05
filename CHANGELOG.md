@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2024-03-05
+
+### Added
+- Code execution support
+
+### Fixed
+- Fixed linting diagnostic suppression with MATLAB R2024a
+
 ## [1.1.6] - 2024-01-16
 
 ### Fixed

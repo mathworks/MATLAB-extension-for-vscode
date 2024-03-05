@@ -7,6 +7,11 @@ import {
 } from 'vscode-languageclient/node'
 import NotificationConstants from './NotificationConstants'
 import TelemetryLogger, { TelemetryEvent } from './telemetry/TelemetryLogger'
+import MVM from './commandwindow/MVM'
+import { Notifier } from './commandwindow/Utilities'
+import TerminalService from './commandwindow/TerminalService'
+import Notification from './Notifications'
+import ExecutionCommandProvider from './commandwindow/ExecutionCommandProvider'
 
 let client: LanguageClient
 
@@ -23,19 +28,9 @@ export let connectionStatusNotification: vscode.StatusBarItem
 
 let telemetryLogger: TelemetryLogger
 
-enum Notification {
-    // Connection Status Updates
-    MatlabConnectionClientUpdate = 'matlab/connection/update/client',
-    MatlabConnectionServerUpdate = 'matlab/connection/update/server',
-
-    // Errors
-    MatlabLaunchFailed = 'matlab/launchfailed',
-    MatlabFeatureUnavailable = 'feature/needsmatlab',
-    MatlabFeatureUnavailableNoMatlab = 'feature/needsmatlab/nomatlab',
-
-    // Telemetry
-    LogTelemetryData = 'telemetry/logdata'
-}
+let mvm: MVM;
+let terminalService: TerminalService;
+let executionCommandProvider: ExecutionCommandProvider;
 
 export async function activate (context: vscode.ExtensionContext): Promise<void> {
     // Initialize telemetry logger
@@ -99,11 +94,22 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     )
 
     // Set up notification listeners
-    client.onNotification(Notification.MatlabConnectionServerUpdate, data => handleConnectionStatusChange(data))
+    client.onNotification(Notification.MatlabConnectionServerUpdate, (data: { connectionStatus: string }) => handleConnectionStatusChange(data))
     client.onNotification(Notification.MatlabLaunchFailed, () => handleMatlabLaunchFailed())
     client.onNotification(Notification.MatlabFeatureUnavailable, () => handleFeatureUnavailable())
     client.onNotification(Notification.MatlabFeatureUnavailableNoMatlab, () => handleFeatureUnavailableWithNoMatlab())
-    client.onNotification(Notification.LogTelemetryData, data => handleTelemetryReceived(data))
+    client.onNotification(Notification.LogTelemetryData, (data: TelemetryEvent) => handleTelemetryReceived(data))
+
+    mvm = new MVM(client as Notifier);
+    terminalService = new TerminalService(client as Notifier, mvm);
+    executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
+
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.runFile', async () => await executionCommandProvider.handleRunFile()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.interrupt', () => executionCommandProvider.handleInterrupt()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.addToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddToPath(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
 
     await client.start()
 }
@@ -123,6 +129,7 @@ function handleChangeMatlabConnection (): void {
             sendConnectionActionNotification('connect')
         } else if (choice === 'Disconnect from MATLAB') {
             sendConnectionActionNotification('disconnect')
+            terminalService.closeTerminal();
         }
     })
 }
@@ -137,6 +144,7 @@ function handleConnectionStatusChange (data: { connectionStatus: string }): void
     if (data.connectionStatus === 'connected') {
         connectionStatusNotification.text = CONNECTION_STATUS_LABELS.CONNECTED
     } else if (data.connectionStatus === 'disconnected') {
+        terminalService.closeTerminal();
         if (connectionStatusNotification.text === CONNECTION_STATUS_LABELS.CONNECTED) {
             const message = NotificationConstants.MATLAB_CLOSED.message
             const options = NotificationConstants.MATLAB_CLOSED.options
@@ -170,6 +178,7 @@ function handleMatlabLaunchFailed (): void {
     const options = NotificationConstants.MATLAB_LAUNCH_FAILED.options
     const url = 'https://www.mathworks.com/products/get-matlab.html'
 
+    terminalService.closeTerminal();
     vscode.window.showErrorMessage(message, ...options).then(choice => {
         switch (choice) {
             case options[0]: // Get MATLAB
@@ -189,6 +198,7 @@ function handleFeatureUnavailable (): void {
     const message = NotificationConstants.FEATURE_UNAVAILABLE.message
     const options = NotificationConstants.FEATURE_UNAVAILABLE.options
 
+    terminalService.closeTerminal();
     vscode.window.showErrorMessage(
         message,
         ...options
@@ -209,6 +219,7 @@ function handleFeatureUnavailableWithNoMatlab (): void {
     const options = NotificationConstants.FEATURE_UNAVAILABLE_NO_MATLAB.options
     const url = 'https://www.mathworks.com/products/get-matlab.html'
 
+    terminalService.closeTerminal();
     vscode.window.showErrorMessage(message, ...options).then(choice => {
         switch (choice) {
             case options[0]: // Get MATLAB
