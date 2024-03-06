@@ -29,7 +29,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v2
         with:
           release: ${{ matrix.version }}
-          cache: true
       - name: Setup node
         uses: actions/setup-node@v4
       - name: npm clean install
