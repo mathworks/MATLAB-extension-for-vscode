@@ -18,21 +18,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2023a]
+        version: [R2021b, latest]
         os: [windows-latest, ubuntu-latest, macos-13]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up MATLAB
-        uses: matlab-actions/setup-matlab@v1.2.3
+        uses: matlab-actions/setup-matlab@v2
         with:
           release: ${{ matrix.version }}
-        env:
-          MATHWORKS_SKIP_ACTIVATION: true   
+          cache: true
       - name: Setup node
-        uses: actions/setup-node@v3.5.1
+        uses: actions/setup-node@v4
       - name: npm clean install
         run: npm ci
       - name: Start Xvfb 
