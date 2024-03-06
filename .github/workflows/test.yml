@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, latest]
+        version: [R2021a, latest]
         os: [windows-latest, ubuntu-latest, macos-13]
     steps:
       - name: Checkout
