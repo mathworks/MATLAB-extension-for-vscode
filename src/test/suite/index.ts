@@ -13,14 +13,6 @@ export async function run (): Promise<void> {
         timeout: 600000 // set suite timeout to 10 minutes
     })
 
-    mocha.suite.beforeAll(async function () {
-        // if on a mac, try to find the matlab install path and update the settings
-        if (os.platform() === 'darwin') {
-            const installPath = await vs._getInstallPathForMac()
-            await vs.setInstallPath(installPath)
-        }
-    })
-
     mocha.suite.beforeEach(async function () {
         await vs.closeAllDocuments()
     })
