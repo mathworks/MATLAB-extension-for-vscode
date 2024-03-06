@@ -4,7 +4,6 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import * as extension from '../../extension'
 import * as PollingUtils from './PollingUtils'
-import * as fs from 'fs/promises'
 
 /**
  * Change 'MATLAB Connection' to connect to MATLAB

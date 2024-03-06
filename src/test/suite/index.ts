@@ -3,7 +3,6 @@
 import * as path from 'path'
 import * as Mocha from 'mocha'
 import * as vs from '../tester/VSCodeTester'
-import * as os from 'os'
 
 export async function run (): Promise<void> {
     // Create the mocha test
