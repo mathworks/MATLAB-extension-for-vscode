@@ -31,6 +31,8 @@ jobs:
           release: ${{ matrix.version }}
       - name: Setup node
         uses: actions/setup-node@v4
+        with:
+          "node-version": 18.x
       - name: npm clean install
         run: npm ci
       - name: Start Xvfb 
