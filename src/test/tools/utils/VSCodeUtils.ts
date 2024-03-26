@@ -1,10 +1,14 @@
-// Copyright 2023 The MathWorks, Inc.
+// Copyright 2023-2024 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import * as path from 'path'
-import * as extension from '../../extension'
+import * as extension from '../../../extension'
 import * as PollingUtils from './PollingUtils'
-import * as fs from 'fs/promises'
+
+/**
+ * VSCodeUtils
+ * This is used for the smoke tests under test/smoke. These tests run using vscode/test-electron
+*/
 
 /**
  * Change 'MATLAB Connection' to connect to MATLAB
@@ -47,7 +51,7 @@ export async function assertMATLABDisconnected (): Promise<void> {
  * Open a file from the 'test-files' directory
  */
 export async function openDocument (fileName: string): Promise<vscode.TextEditor> {
-    const filePath = path.resolve(__dirname, '../', './test-files', fileName)
+    const filePath = path.resolve(__dirname, '..', '..', 'test-files', fileName)
     const document = await vscode.workspace.openTextDocument(filePath)
     return await vscode.window.showTextDocument(document)
 }
@@ -96,27 +100,6 @@ export async function closeActiveDocument (): Promise<void> {
  */
 export async function closeAllDocuments (): Promise<void> {
     return await vscode.commands.executeCommand('workbench.action.closeAllEditors')
-}
-
-/**
- * Search the /Applications/ dir and return the path of an installed MATLAB.
- */
-export async function _getInstallPathForMac (): Promise<string> {
-    const directory = '/Applications'
-    const files = await fs.readdir(directory)
-    const matlabAppRegex = /^MATLAB_/
-    const matlabAppFile = files.find((file: string) => matlabAppRegex.test(file))
-    if (matlabAppFile !== undefined) {
-        let filePath = path.join(directory, matlabAppFile)
-        // if a folder was detected, the app file must be in that folder
-        if (!filePath.endsWith('.app')) {
-            filePath = path.join(directory, matlabAppFile, `${matlabAppFile}.app`)
-        }
-        console.log('MATLAB installation path: ', filePath)
-        return filePath
-    } else {
-        throw new Error('MATLAB installation not found.')
-    }
 }
 
 /**

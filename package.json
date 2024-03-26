@@ -73,7 +73,7 @@
 				"command": "matlab.interrupt",
 				"key": "Ctrl+C",
 				"mac": "Cmd+C",
-				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused)) " 
+				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused)) "
 			}
 		],
 		"menus": {
@@ -175,10 +175,10 @@
 					".m"
 				],
 				"configuration": "./language-configuration.json",
-                "icon": {
-                    "light": "./public/fileIcon_24x24.png",
-                    "dark": "./public/fileIcon_24x24.png"
-                }
+				"icon": {
+					"light": "./public/fileIcon_24x24.png",
+					"dark": "./public/fileIcon_24x24.png"
+				}
 			}
 		],
 		"grammars": [
@@ -207,12 +207,14 @@
 		"vscode:prepublish": "npm run compile && cd server && npm prune --production && cd ..",
 		"compile": "tsc -p ./ && cd server && npm run compile && cd ..",
 		"watch": "tsc -watch -p ./ && cd server && npm run watch && cd ..",
-		"pretest": "npm run compile && npm run lint && npm run copy-test-files",
+		"test-setup": "npm run compile && npm run lint && npm run copy-test-files && npm run copy-config-files",
 		"copy-test-files": "cd src && copyfiles ./test/test-files/**/*.m ./../out/ && cd ..",
+		"copy-config-files": "cd src && copyfiles ./test/tools/config/*.* ./../out/ -all && cd ..",
 		"lint": "eslint src --ext ts",
 		"lint:fix": "eslint src --ext ts --fix",
-		"test": "node ./out/test/runTest.js",
-		"test-insiders": "npm run pretest && node ./out/test/runTest.js --insiders",
+		"test-smoke": "npm run test-setup && node ./out/test/smoke/runTest.js",
+		"test-ui": "npm run test-setup && node ./out/test/ui/runTest.js",
+		"test": "npm run test-smoke && npm run test-ui",
 		"postinstall": "cd server && npm install && cd ..",
 		"package": "vsce package"
 	},
@@ -234,7 +236,8 @@
 		"eslint-plugin-promise": "^6.0.1",
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
-		"typescript": "^4.8.3"
+		"typescript": "^4.8.3",
+		"vscode-extension-tester": "^7.1.1"
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",

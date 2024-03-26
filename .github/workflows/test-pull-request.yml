@@ -46,8 +46,19 @@ jobs:
         run: /usr/bin/Xvfb :17 -screen 0 1024x768x24 > /dev/null 2>&1 & echo "Started xvfb"
         shell: bash
         if: ${{ success() && matrix.os == 'ubuntu-latest' }}
-      - name: Run tests
-        run: npm run test
+      - name: Package vsix
+        run: npm run package
+      - name: npm install
+        run: npm install
+      - name: Run Smoke tests
+        run: npm run test-smoke
+        env:
+          MLM_WEB_LICENSE: true
+          MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
+          MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
+          DISPLAY: ":17.0"
+      - name: Run UI tests
+        run: npm run test-ui
         env:
           MLM_WEB_LICENSE: true
           MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
