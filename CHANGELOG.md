@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2024-04-04
+
+### Added
+- Extension now works with the New Desktop for MATLAB
+
 ## [1.2.0] - 2024-03-05
 
 ### Added
