@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Extension now works with the New Desktop for MATLAB
 
+### Fixed
+- Fixed launching App Designer and Simulink through MATLAB code execution
+
 ## [1.2.0] - 2024-03-05
 
 ### Added
