@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Tweaks to telemetry logging
+
 ## [1.2.1] - 2024-04-04
 
 ### Added
