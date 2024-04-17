@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Tweaks to telemetry logging
+
 ### Fixed
 - Resolved packaging failure on Mac
 

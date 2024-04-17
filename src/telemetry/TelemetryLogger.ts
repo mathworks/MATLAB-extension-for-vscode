@@ -18,14 +18,26 @@ export default class TelemetryLogger {
     constructor (private readonly extensionVersion: string) {}
 
     logEvent (event: TelemetryEvent): void {
-        if (this.shouldLogTelemetry()) {
+        if (this.shouldLogTelemetry(event)) {
             this.sendEvent(event)
         }
     }
 
-    private shouldLogTelemetry (): boolean {
+    private shouldLogTelemetry (event: TelemetryEvent): boolean {
+        if (!env.isTelemetryEnabled) {
+            // Never log when VS Code's general telemetry is disabled
+            console.log('Logging DDUX')
+            return false
+        }
+
+        if (event.eventKey === 'ML_VS_CODE_SETTING_CHANGE') {
+            // Do log when the `matlab.telemetry` setting changes
+            return (event.data as { setting_name: string }).setting_name === 'telemetry'
+        }
+
+        // Otherwise, adhere to the `matlab.telemetry` setting
         const configuration = workspace.getConfiguration('MATLAB')
-        return env.isTelemetryEnabled && (configuration.get<boolean>('telemetry') ?? true)
+        return configuration.get<boolean>('telemetry') ?? true
     }
 
     private sendEvent (event: TelemetryEvent): void {
