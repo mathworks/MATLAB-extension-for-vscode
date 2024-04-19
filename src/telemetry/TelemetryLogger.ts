@@ -26,7 +26,6 @@ export default class TelemetryLogger {
     private shouldLogTelemetry (event: TelemetryEvent): boolean {
         if (!env.isTelemetryEnabled) {
             // Never log when VS Code's general telemetry is disabled
-            console.log('Logging DDUX')
             return false
         }
 
