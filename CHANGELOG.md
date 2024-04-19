@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Resolved packaging failure on Mac
+- Resolved connecting to MATLAB in proxy environment
 
 ## [1.2.1] - 2024-04-04
 
