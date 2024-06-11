@@ -10,6 +10,9 @@ enum Notification {
     MatlabFeatureUnavailable = 'feature/needsmatlab',
     MatlabFeatureUnavailableNoMatlab = 'feature/needsmatlab/nomatlab',
 
+    // MATLAB Version Deprecation
+    MatlabVersionDeprecation = 'matlab/version/deprecation',
+
     // Execution
     MatlabRequestInstance = 'matlab/request',
 

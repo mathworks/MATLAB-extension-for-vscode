@@ -12,6 +12,7 @@ import { Notifier } from './commandwindow/Utilities'
 import TerminalService from './commandwindow/TerminalService'
 import Notification from './Notifications'
 import ExecutionCommandProvider from './commandwindow/ExecutionCommandProvider'
+import DeprecationPopupService from './DeprecationPopupService'
 
 let client: LanguageClient
 
@@ -27,6 +28,8 @@ const CONNECTION_STATUS_COMMAND = 'matlab.changeMatlabConnection'
 export let connectionStatusNotification: vscode.StatusBarItem
 
 let telemetryLogger: TelemetryLogger
+
+let deprecationPopupService: DeprecationPopupService
 
 let mvm: MVM;
 let terminalService: TerminalService;
@@ -110,6 +113,9 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
+
+    deprecationPopupService = new DeprecationPopupService(context)
+    deprecationPopupService.initialize(client)
 
     await client.start()
 }

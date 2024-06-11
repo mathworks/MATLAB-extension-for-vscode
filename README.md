@@ -3,6 +3,8 @@ This extension provides support for editing and running MATLAB&reg; code in Visu
 
 You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced features of the extension or run MATLAB code, you must have MATLAB R2021a or later installed. For more information, see the [Get Started](#get-started) section.
 
+**Note:** This extension will no longer support MATLAB R2021a in a future release. To make use of the advanced features of the extension or run MATLAB code, you will need to have MATLAB R2021b or later installed.
+
 For an overview of some of the major features of this extension, you can watch the [Introducing the New MATLAB Extension for Visual Studio Code](https://www.youtube.com/watch?v=kYTBAr9LlGg) video.
 
 ## Installation
