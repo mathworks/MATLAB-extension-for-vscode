@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2024-06-11
+
+### Notice
+- This extension will no longer support MATLAB R2021a in a future release. To make use of the advanced features of the extension or run MATLAB code, you will need to have MATLAB R2021b or later installed.
+
+### Added
+- Popups will be shown to inform the user when the connected MATLAB is not supported by the extension, or if support is planned to be removed in a future update.
+
+### Fixed
+- Resolved issue with connecting to Intel MATLAB installation on Apple Silicon machines
+- Resolved error if MATLAB process is killed unexpectedly
+- Fixed bug where "never" startup timing was ignored
+
 ## [1.2.2] - 2024-05-17
 
 ### Changed
