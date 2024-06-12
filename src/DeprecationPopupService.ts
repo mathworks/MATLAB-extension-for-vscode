@@ -159,12 +159,12 @@ export default class DeprecationPopupService {
         const options = ['Dismiss']
 
         if (deprecationType === DeprecationType.NEVER_SUPPORTED) {
-            message = `This extension does not support MATLAB ${deprecationInfo.matlabVersion}. To make use of the advanced features of the extension or run MATLAB code, you must have MATLAB ${deprecationInfo.minVersion} or later installed.`
+            message = `This extension does not support MATLAB ${deprecationInfo.matlabVersion}. To use advanced features or run MATLAB code, install MATLAB ${deprecationInfo.minVersion} or later.`
         } else if (deprecationType === DeprecationType.DEPRECATED) {
-            message = `This extension no longer supports MATLAB ${deprecationInfo.matlabVersion}. To make use of the advanced features of the extension or run MATLAB code, you must have MATLAB ${deprecationInfo.minVersion} or later installed.`
+            message = `This extension no longer supports MATLAB ${deprecationInfo.matlabVersion}. To use advanced features or run MATLAB code, use a previous version of this extension or install MATLAB ${deprecationInfo.minVersion} or later.`
             options.push(`Do not show again for ${deprecationInfo.matlabVersion}`)
         } else if (deprecationType === DeprecationType.TO_BE_DEPRECATED) {
-            message = `This extension will no longer support MATLAB ${deprecationInfo.matlabVersion} in a future release. To make use of the advanced features of the extension or run MATLAB code, you will need to have MATLAB ${deprecationInfo.futureMinVersion} or later installed.`
+            message = `This extension will no longer support MATLAB ${deprecationInfo.matlabVersion} in a future release. To use advanced features or run MATLAB code, you will need to have MATLAB ${deprecationInfo.futureMinVersion} or later installed.`
             options.push(`Do not show again for ${deprecationInfo.matlabVersion}`)
         }
 
