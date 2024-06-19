@@ -131,8 +131,8 @@
 			"properties": {
 				"MATLAB.installPath": {
 					"type": "string",
-					"markdownDescription": "The full path to the top-level directory of the MATLAB installation you want to use with this extension. You can determine the full path to your MATLAB installation using the `matlabroot` command in MATLAB. For more information, refer to the [README](https://github.com/mathworks/MATLAB-extension-for-vscode/blob/main/README.md).",
-					"scope": "machine"
+					"markdownDescription": "The full path to the top-level directory of the MATLAB installation you want to use with this extension. You can determine the full path to your MATLAB installation using the `matlabroot` command in MATLAB. For more information, refer to the [README](https://github.com/mathworks/MATLAB-extension-for-vscode/blob/main/README.md). This setting can be applied globally underneath the Users tab, or overridden on a per-workspace basis in the Workspace tab.",
+					"scope": "window"
 				},
 				"MATLAB.matlabConnectionTiming": {
 					"type": "string",
