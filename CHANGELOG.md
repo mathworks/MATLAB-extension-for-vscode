@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Enabled users to specify workspace-specific MATLAB install paths
 
+### Fixed
+- Patched CVE-2024-37890
+
 ## [1.2.3] - 2024-06-14
 
 ### Notice
