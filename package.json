@@ -58,6 +58,10 @@
 				"title": "MATLAB: Change current directory"
 			},
 			{
+				"command": "matlab.openFigure",
+				"title": "MATLAB: Open Figure"
+			},
+			{
 				"command": "matlab.resetDeprecationPopups",
 				"title": "MATLAB: Reset Deprecation Warning Popups"
 			}
@@ -123,6 +127,10 @@
 				{
 					"command": "matlab.changeDirectory",
 					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.openFigure",
+					"when": "resourceExtname == .fig"
 				}
 			]
 		},
