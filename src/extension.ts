@@ -113,6 +113,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.openFigure', async (uri: vscode.Uri) => await executionCommandProvider.handleOpenFigure(uri)))
 
     deprecationPopupService = new DeprecationPopupService(context)
     deprecationPopupService.initialize(client)

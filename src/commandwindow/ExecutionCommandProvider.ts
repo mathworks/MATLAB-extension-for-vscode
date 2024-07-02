@@ -273,4 +273,29 @@ export default class ExecutionCommandProvider {
 
         void this._mvm.feval('cd', 0, [uri.fsPath]);
     }
+
+    /**
+     * Implements the open figure action
+     * @param uri The file path to the figure that MATLAB should open
+     * @returns
+     */
+    async handleOpenFigure(uri: vscode.Uri): Promise<void> {
+        this._telemetryLogger.logEvent({
+            eventKey: 'ML_VS_CODE_ACTIONS',
+            data: {
+                action_type: 'openFigure',
+                result: ''
+            }
+        });
+
+        await this._terminalService.openTerminalOrBringToFront();
+
+        try {
+            await this._mvm.getReadyPromise();
+        } catch (e) {
+            return;
+        }
+
+        void this._mvm.feval('openfig', 0, [uri.fsPath]);
+    }
 }
