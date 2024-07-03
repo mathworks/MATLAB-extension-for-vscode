@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2024-06-12
+
 ### Added
-- Enabled users to specify workspace-specific MATLAB install paths
+- Enable users to specify workspace-specific MATLAB install paths
+- Improvements to code folding (requires MATLAB R2024b or later)
 
 ### Fixed
-- Patched CVE-2024-37890
+- Patches CVE-2024-37890
+- Allow connection to MATLAB when a single quote appears in the extension installation path
+- Resolve error with code navigation when using with MATLAB R2024b
+- Various syntax highlighting improvements (Thanks @watermarkhu!)
 
 ## [1.2.3] - 2024-06-14
 
