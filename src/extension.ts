@@ -200,7 +200,7 @@ function handleMatlabLaunchFailed (): void {
                     break
                 case options[2]: // Do not show again
                     // Selected to not show again
-                    configuration.update('showFeatureNotAvailableError', false, true)
+                    void configuration.update('showFeatureNotAvailableError', false, true)
                     break
             }
         }, reject => console.error(reject))
@@ -231,7 +231,7 @@ function handleFeatureUnavailable (): void {
                     break
                 case options[1]: // Do not show again
                     // Selected to not show again
-                    configuration.update('showFeatureNotAvailableError', false, true)
+                    void configuration.update('showFeatureNotAvailableError', false, true)
                     break
             }
         }, reject => console.error(reject))
@@ -263,7 +263,7 @@ function handleFeatureUnavailableWithNoMatlab (): void {
                     break
                 case options[2]: // Do not show again
                     // Selected to not show again
-                    configuration.update('showFeatureNotAvailableError', false, true)
+                    void configuration.update('showFeatureNotAvailableError', false, true)
             }
         }, reject => console.error(reject))
     }
