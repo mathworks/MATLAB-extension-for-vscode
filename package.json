@@ -50,8 +50,12 @@
 				"title": "MATLAB: Interrupt"
 			},
 			{
-				"command": "matlab.addToPath",
-				"title": "MATLAB: Add Folder To Path"
+				"command": "matlab.addFolderToPath",
+				"title": "Selected Folder"
+			},
+			{
+				"command": "matlab.addFolderAndSubfoldersToPath",
+				"title": "Selected Folder and Subfolders"
 			},
 			{
 				"command": "matlab.changeDirectory",
@@ -83,7 +87,11 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "matlab.addToPath",
+					"command": "matlab.addFolderToPath",
+					"when": "false"
+				},
+				{
+					"command": "matlab.addFolderAndSubfoldersToPath",
 					"when": "false"
 				},
 				{
@@ -117,15 +125,31 @@
 			],
 			"explorer/context": [
 				{
-					"command": "matlab.addToPath",
+					"submenu": "matlab.addPath",
 					"when": "explorerResourceIsFolder"
 				},
 				{
 					"command": "matlab.changeDirectory",
 					"when": "explorerResourceIsFolder"
 				}
+			],
+			"matlab.addPath": [
+				{
+					"command": "matlab.addFolderToPath",
+					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.addFolderAndSubfoldersToPath",
+					"when": "explorerResourceIsFolder"
+				}
 			]
 		},
+		"submenus": [
+			{
+				"id": "matlab.addPath",
+				"label": "MATLAB: Add to Path"
+			}
+		],
 		"configuration": {
 			"title": "MATLAB",
 			"properties": {
@@ -248,7 +272,7 @@
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
 		"typescript": "^4.8.3",
-		"vscode-extension-tester": "*"
+		"vscode-extension-tester": "8.3.1"
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",
