@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.5] - 2024-08-16
 
 ### Added
+- Symbol rename support
 - Enables users to hide "feature not available" error popups
 - Provides context menu option to add selected folder and subfolders to the path
 
