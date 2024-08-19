@@ -111,7 +111,8 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.interrupt', () => executionCommandProvider.handleInterrupt()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.addToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddToPath(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderToPath(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
 
     deprecationPopupService = new DeprecationPopupService(context)
@@ -185,16 +186,26 @@ function handleMatlabLaunchFailed (): void {
     const url = 'https://www.mathworks.com/products/get-matlab.html'
 
     terminalService.closeTerminal();
-    vscode.window.showErrorMessage(message, ...options).then(choice => {
-        switch (choice) {
-            case options[0]: // Get MATLAB
-                void vscode.env.openExternal(vscode.Uri.parse(url))
-                break
-            case options[1]: // Open Settings
-                void vscode.commands.executeCommand(OPEN_SETTINGS_ACTION, MATLAB_INSTALL_PATH_SETTING)
-                break
-        }
-    }, reject => console.error(reject))
+
+    const configuration = vscode.workspace.getConfiguration('MATLAB')
+    const shouldShowPopup = configuration.get<boolean>('showFeatureNotAvailableError') ?? true
+
+    if (shouldShowPopup) {
+        vscode.window.showErrorMessage(message, ...options).then(choice => {
+            switch (choice) {
+                case options[0]: // Get MATLAB
+                    void vscode.env.openExternal(vscode.Uri.parse(url))
+                    break
+                case options[1]: // Open settings
+                    void vscode.commands.executeCommand(OPEN_SETTINGS_ACTION, MATLAB_INSTALL_PATH_SETTING)
+                    break
+                case options[2]: // Do not show again
+                    // Selected to not show again
+                    void configuration.update('showFeatureNotAvailableError', false, true)
+                    break
+            }
+        }, reject => console.error(reject))
+    }
 }
 
 /**
@@ -205,15 +216,27 @@ function handleFeatureUnavailable (): void {
     const options = NotificationConstants.FEATURE_UNAVAILABLE.options
 
     terminalService.closeTerminal();
-    vscode.window.showErrorMessage(
-        message,
-        ...options
-    ).then(choice => {
-        if (choice != null) {
-            // Selected to start MATLAB
-            sendConnectionActionNotification('connect')
-        }
-    }, reject => console.error(reject))
+
+    const configuration = vscode.workspace.getConfiguration('MATLAB')
+    const shouldShowPopup = configuration.get<boolean>('showFeatureNotAvailableError') ?? true
+
+    if (shouldShowPopup) {
+        vscode.window.showErrorMessage(
+            message,
+            ...options
+        ).then(choice => {
+            switch (choice) {
+                case options[0]: // Get MATLAB
+                    // Selected to start MATLAB
+                    sendConnectionActionNotification('connect')
+                    break
+                case options[1]: // Do not show again
+                    // Selected to not show again
+                    void configuration.update('showFeatureNotAvailableError', false, true)
+                    break
+            }
+        }, reject => console.error(reject))
+    }
 }
 
 /**
@@ -226,16 +249,25 @@ function handleFeatureUnavailableWithNoMatlab (): void {
     const url = 'https://www.mathworks.com/products/get-matlab.html'
 
     terminalService.closeTerminal();
-    vscode.window.showErrorMessage(message, ...options).then(choice => {
-        switch (choice) {
-            case options[0]: // Get MATLAB
-                void vscode.env.openExternal(vscode.Uri.parse(url))
-                break
-            case options[1]: // Open Settings
-                void vscode.commands.executeCommand(OPEN_SETTINGS_ACTION, MATLAB_INSTALL_PATH_SETTING)
-                break
-        }
-    }, reject => console.error(reject))
+
+    const configuration = vscode.workspace.getConfiguration('MATLAB')
+    const shouldShowPopup = configuration.get<boolean>('showFeatureNotAvailableError') ?? true
+
+    if (shouldShowPopup) {
+        vscode.window.showErrorMessage(message, ...options).then(choice => {
+            switch (choice) {
+                case options[0]: // Get MATLAB
+                    void vscode.env.openExternal(vscode.Uri.parse(url))
+                    break
+                case options[1]: // Open settings
+                    void vscode.commands.executeCommand(OPEN_SETTINGS_ACTION, MATLAB_INSTALL_PATH_SETTING)
+                    break
+                case options[2]: // Do not show again
+                    // Selected to not show again
+                    void configuration.update('showFeatureNotAvailableError', false, true)
+            }
+        }, reject => console.error(reject))
+    }
 }
 
 function handleTelemetryReceived (event: TelemetryEvent): void {

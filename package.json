@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.2.4",
+	"version": "1.2.5",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -50,8 +50,12 @@
 				"title": "MATLAB: Interrupt"
 			},
 			{
-				"command": "matlab.addToPath",
-				"title": "MATLAB: Add Folder To Path"
+				"command": "matlab.addFolderToPath",
+				"title": "Selected Folder"
+			},
+			{
+				"command": "matlab.addFolderAndSubfoldersToPath",
+				"title": "Selected Folder and Subfolders"
 			},
 			{
 				"command": "matlab.changeDirectory",
@@ -83,7 +87,11 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "matlab.addToPath",
+					"command": "matlab.addFolderToPath",
+					"when": "false"
+				},
+				{
+					"command": "matlab.addFolderAndSubfoldersToPath",
 					"when": "false"
 				},
 				{
@@ -117,15 +125,31 @@
 			],
 			"explorer/context": [
 				{
-					"command": "matlab.addToPath",
+					"submenu": "matlab.addPath",
 					"when": "explorerResourceIsFolder"
 				},
 				{
 					"command": "matlab.changeDirectory",
 					"when": "explorerResourceIsFolder"
 				}
+			],
+			"matlab.addPath": [
+				{
+					"command": "matlab.addFolderToPath",
+					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.addFolderAndSubfoldersToPath",
+					"when": "explorerResourceIsFolder"
+				}
 			]
 		},
+		"submenus": [
+			{
+				"id": "matlab.addPath",
+				"label": "MATLAB: Add to Path"
+			}
+		],
 		"configuration": {
 			"title": "MATLAB",
 			"properties": {
@@ -165,6 +189,12 @@
 						"telemetry",
 						"usesOnlineServices"
 					]
+				},
+				"MATLAB.showFeatureNotAvailableError": {
+					"type": "boolean",
+					"default": true,
+					"description": "Display an error when a feature requires MATLAB and MATLAB is unable to start.",
+					"scope": "window"
 				}
 			}
 		},

@@ -229,7 +229,7 @@ export default class ExecutionCommandProvider {
      * @param uri The file path that should be added to the MATLAB path
      * @returns
      */
-    async handleAddToPath (uri: vscode.Uri): Promise<void> {
+    async handleAddFolderToPath (uri: vscode.Uri): Promise<void> {
         this._telemetryLogger.logEvent({
             eventKey: 'ML_VS_CODE_ACTIONS',
             data: {
@@ -247,6 +247,30 @@ export default class ExecutionCommandProvider {
         }
 
         void this._mvm.feval('addpath', 0, [uri.fsPath]);
+    }
+
+    async handleAddFolderAndSubfoldersToPath (uri: vscode.Uri): Promise<void> {
+        this._telemetryLogger.logEvent({
+            eventKey: 'ML_VS_CODE_ACTIONS',
+            data: {
+                action_type: 'addFolderAndSubfoldersToPath',
+                result: ''
+            }
+        });
+
+        await this._terminalService.openTerminalOrBringToFront();
+
+        try {
+            await this._mvm.getReadyPromise();
+        } catch (e) {
+            return;
+        }
+
+        // Escape any single quotes in the folder's path
+        const escapedPath = uri.fsPath.replace(/'/g, "''");
+
+        const command = `addpath(genpath('${escapedPath}'))`;
+        void this._mvm.eval(command);
     }
 
     /**

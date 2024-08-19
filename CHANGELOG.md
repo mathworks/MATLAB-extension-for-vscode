@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2024-08-16
+
+### Added
+- Symbol rename support
+- Enables users to hide "feature not available" error popups
+- Provides context menu option to add selected folder and subfolders to the path
+
+### Fixed
+- Leading or trailing whitespace in `installPath` setting is ignored when connecting to MATLAB
+
 ## [1.2.4] - 2024-07-12
 
 ### Added
