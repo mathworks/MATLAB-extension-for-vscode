@@ -30,6 +30,7 @@ If you have MATLAB R2021a or later installed on your system, you have access to 
 * Code navigation
 * Code analysis, such as continuous code checking and automatic fixes
 * Code outline
+* Symbol renaming
 
 ![MATLAB Extension Demo](public/AdvancedFeatures.gif)
 
@@ -78,7 +79,10 @@ Note: Some functionality is available only with MATLAB running in the background
 ### MATLAB Telemetry Setting
 You can help improve the extension by sending user experience information to MathWorks&reg;. By default, the extension sends user experience information to MathWorks. To disable sending information, set the `matlab.telemetry` setting to `false`.
 
-For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html). 
+For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).
+
+### MATLAB Show Feature Not Available Error
+By default, the extension displays an error when a feature requires MATLAB and MATLAB is unable to start. To not display an error, set the `matlab.showFeatureNotAvailableError` setting to `false`.
 
 ## Troubleshooting
 If the MATLAB install path is not properly configured, you get an error when you try to use certain advanced features, such as document formatting and code navigation.
