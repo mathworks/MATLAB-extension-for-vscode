@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2024-09-20
+
 ### Fixed
 - Patches CVE-2024-4067 and CVE-2024-43788
+- Resolves issue preventing code navigation and variable renaming for variables followed by a matrix operation (e.g. `x.^2`)
+- Improves syntax highlighting in MATLAB class definitions
 
 ## [1.2.5] - 2024-08-16
 
