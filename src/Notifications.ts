@@ -29,7 +29,16 @@ enum Notification {
     MVMStateChange = 'mvmStateChange',
 
     // Telemetry
-    LogTelemetryData = 'telemetry/logdata'
+    LogTelemetryData = 'telemetry/logdata',
+
+    // Sections generated for Section Styling
+    MatlabSections = 'matlab/sections',
+
+    // Licensing
+    LicensingServerUrl = 'licensing/server/url',
+    LicensingData = 'licensing/data',
+    LicensingDelete = 'licensing/delete',
+    LicensingError = 'licensing/error'
 }
 
 export default Notification

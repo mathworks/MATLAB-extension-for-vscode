@@ -27,3 +27,9 @@ server/.github
 server/.gitattributes
 server/.gitignore
 server/webpack.config.js
+
+# Skip packaging the the source code in licensing/gui folder as it is already built and moved into
+# out/ directory by the "compile" script in server/package.json. 
+
+# The server/src/licensing/*.ts files compilation is already handled by server/tsconfig.json 
+server/src/licensing/
