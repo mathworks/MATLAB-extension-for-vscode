@@ -266,7 +266,7 @@
 		"test-smoke": "npm run test-setup && node ./out/test/smoke/runTest.js",
 		"test-ui": "npm run test-setup && node ./out/test/ui/runTest.js",
 		"test": "npm run test-smoke && npm run test-ui",
-		"postinstall": "cd server && npm install && cd src/licensing/ && npm install && cd gui && npm install && cd ../../..",
+		"postinstall": "cd server && npm install && cd ..",
 		"package": "vsce package"
 	},
 	"devDependencies": {
