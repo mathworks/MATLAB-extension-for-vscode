@@ -29,16 +29,16 @@ export function getMinimalLicensingInfo (): string {
  */
 export function setupLicensingListeners (client: LanguageClient): void {
     if (!isInitialized) {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         licensingUrlNotificationListener = client.onNotification(Notification.LicensingServerUrl, async (url: string) => {
             const result = await vscode.window.showInformationMessage(
                 'Sign in required to open MATLAB. Click OK to open your system browser and sign in.',
                 'OK'
-              );
+            );
 
-              if (result === 'OK') {
+            if (result === 'OK') {
                 void openUrlInExternalBrowser(url);
-              } 
-
+            }
         })
         licensingDataNotificationListener = client.onNotification(Notification.LicensingData, (data: string) => {
             minimalLicensingInfo = data
