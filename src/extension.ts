@@ -12,10 +12,10 @@ import { Notifier } from './commandwindow/Utilities'
 import TerminalService from './commandwindow/TerminalService'
 import Notification from './Notifications'
 import ExecutionCommandProvider from './commandwindow/ExecutionCommandProvider'
+import * as LicensingUtils from './utils/LicensingUtils'
 import DeprecationPopupService from './DeprecationPopupService'
-
+import SectionStylingService from './styling/SectionStylingService'
 let client: LanguageClient
-
 const OPEN_SETTINGS_ACTION = 'workbench.action.openSettings'
 const MATLAB_INSTALL_PATH_SETTING = 'matlab.installPath'
 
@@ -27,9 +27,14 @@ export const CONNECTION_STATUS_LABELS = {
 const CONNECTION_STATUS_COMMAND = 'matlab.changeMatlabConnection'
 export let connectionStatusNotification: vscode.StatusBarItem
 
+// Command to enable or disable Sign In options for MATLAB
+const MATLAB_ENABLE_SIGN_IN_COMMAND = 'matlab.enableSignIn'
+
 let telemetryLogger: TelemetryLogger
 
 let deprecationPopupService: DeprecationPopupService
+
+let sectionStylingService: SectionStylingService;
 
 let mvm: MVM;
 let terminalService: TerminalService;
@@ -53,9 +58,20 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     connectionStatusNotification.text = CONNECTION_STATUS_LABELS.NOT_CONNECTED
     connectionStatusNotification.command = CONNECTION_STATUS_COMMAND
     connectionStatusNotification.show()
-    context.subscriptions.push(connectionStatusNotification)
 
+    context.subscriptions.push(connectionStatusNotification)
     context.subscriptions.push(vscode.commands.registerCommand(CONNECTION_STATUS_COMMAND, () => handleChangeMatlabConnection()))
+    // Event handler when VSCode configuration is changed by the user and executes corresponding functions for specific settings.
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+        const configuration = vscode.workspace.getConfiguration('MATLAB')
+
+        // Updates the licensing status bar item and listeners based on the 'signIn' setting.
+        if (configuration.get<boolean>(LicensingUtils.LICENSING_SETTING_NAME) ?? false) {
+            LicensingUtils.setupLicensingListeners(client)
+        } else {
+            LicensingUtils.removeLicensingListeners()
+        }
+    }))
 
     // Set up langauge server
     const serverModule: string = context.asAbsolutePath(
@@ -102,7 +118,6 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     client.onNotification(Notification.MatlabFeatureUnavailable, () => handleFeatureUnavailable())
     client.onNotification(Notification.MatlabFeatureUnavailableNoMatlab, () => handleFeatureUnavailableWithNoMatlab())
     client.onNotification(Notification.LogTelemetryData, (data: TelemetryEvent) => handleTelemetryReceived(data))
-
     mvm = new MVM(client as Notifier);
     terminalService = new TerminalService(client as Notifier, mvm);
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
@@ -115,30 +130,112 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
 
+    // Register a custom command which allows the user enable / disable Sign In options.
+    // Using this custom command would be an alternative approach to going to enabling the setting.
+    context.subscriptions.push(vscode.commands.registerCommand(MATLAB_ENABLE_SIGN_IN_COMMAND, async () => await handleEnableSignIn()))
+
+    // Setup listeners only if licensing workflows are enabled.
+    // Any further changes to the configuration settings will be handled by configChangeListener.
+    if (LicensingUtils.isSignInSettingEnabled()) {
+        LicensingUtils.setupLicensingListeners(client)
+    }
+
     deprecationPopupService = new DeprecationPopupService(context)
     deprecationPopupService.initialize(client)
 
+    sectionStylingService = new SectionStylingService(context)
+    sectionStylingService.initialize(client);
+
     await client.start()
+}
+
+/**
+ * Handles enabling MATLAB licensing workflows.
+ *
+ * Checks if the `signIn` setting is enabled. If it is not enabled,
+ * updates the setting to enable it and displays a message indicating the workflows
+ * have been enabled. If it is already enabled, displays a message indicating that.
+ *
+ * @param context - The context in which the extension is running.
+ * @returns A promise that resolves when the operation is complete.
+ */
+async function handleEnableSignIn (): Promise<void> {
+    const configuration = vscode.workspace.getConfiguration('MATLAB');
+    const enable = 'Enable'
+    const disable = 'Disable';
+
+    const choices = LicensingUtils.isSignInSettingEnabled() ? [disable] : [enable]
+
+    const choice = await vscode.window.showQuickPick(choices, {
+        placeHolder: 'Manage Sign In Options'
+    })
+
+    if (choice == null) {
+        return
+    }
+
+    if (choice === 'Enable') {
+        await configuration.update(LicensingUtils.LICENSING_SETTING_NAME, true, vscode.ConfigurationTarget.Global);
+        void vscode.window.showInformationMessage('Sign In Options enabled.')
+    } else if (choice === 'Disable') {
+        await configuration.update(LicensingUtils.LICENSING_SETTING_NAME, false, vscode.ConfigurationTarget.Global);
+        void vscode.window.showInformationMessage('Sign In Options disabled.')
+    }
 }
 
 /**
  * Handles user input about whether to connect or disconnect from MATLAB®
  */
 function handleChangeMatlabConnection (): void {
-    void vscode.window.showQuickPick(['Connect to MATLAB', 'Disconnect from MATLAB'], {
+    const connect = 'Connect to MATLAB';
+    const disconnect = 'Disconnect from MATLAB';
+    const options = [connect, disconnect]
+
+    const isSignInEnabled = LicensingUtils.isSignInSettingEnabled()
+    const signOut = 'Sign Out of MATLAB'
+    const isLicensed = LicensingUtils.getMinimalLicensingInfo() !== ''
+    const isMatlabConnecting = connectionStatusNotification.text === CONNECTION_STATUS_LABELS.CONNECTING
+
+    // Only show signout option when signin setting is enabled, MATLAB is connected and is licensed
+    if (isSignInEnabled && isLicensed && isMatlabConnected()) {
+        options.push(signOut)
+    }
+
+    void vscode.window.showQuickPick(options, {
         placeHolder: 'Change MATLAB Connection'
     }).then(choice => {
         if (choice == null) {
             return
         }
 
-        if (choice === 'Connect to MATLAB') {
+        if (choice === connect) {
+            // Opens the browser tab with licensing URL.
+            // This will only occur when the tab is accidentally closed by the user and wants to
+            // connect to MATLAB
+            if (isSignInEnabled && !isLicensed && isMatlabConnecting) {
+                void client.sendNotification(Notification.LicensingServerUrl)
+            }
             sendConnectionActionNotification('connect')
-        } else if (choice === 'Disconnect from MATLAB') {
+        } else if (choice === disconnect) {
             sendConnectionActionNotification('disconnect')
             terminalService.closeTerminal();
+        } else if (choice === signOut) {
+            void client.sendNotification(Notification.LicensingDelete)
+            sendConnectionActionNotification('disconnect')
         }
     })
+}
+
+/**
+ * Checks if a connection to MATLAB is currently established.
+ *
+ * This function determines the connection status by checking if the connection status
+ * notification text includes a specific label indicating a successful connection.
+ *
+ * @returns `true` if MATLAB is connected, otherwise `false`.
+ */
+function isMatlabConnected (): boolean {
+    return connectionStatusNotification.text.includes(CONNECTION_STATUS_LABELS.CONNECTED)
 }
 
 /**
@@ -150,9 +247,14 @@ function handleChangeMatlabConnection (): void {
 function handleConnectionStatusChange (data: { connectionStatus: string }): void {
     if (data.connectionStatus === 'connected') {
         connectionStatusNotification.text = CONNECTION_STATUS_LABELS.CONNECTED
+        const licensingInfo = LicensingUtils.getMinimalLicensingInfo()
+
+        if (LicensingUtils.isSignInSettingEnabled() && licensingInfo !== '') {
+            connectionStatusNotification.text += licensingInfo
+        }
     } else if (data.connectionStatus === 'disconnected') {
         terminalService.closeTerminal();
-        if (connectionStatusNotification.text === CONNECTION_STATUS_LABELS.CONNECTED) {
+        if (isMatlabConnected()) {
             const message = NotificationConstants.MATLAB_CLOSED.message
             const options = NotificationConstants.MATLAB_CLOSED.options
             vscode.window.showWarningMessage(message, ...options

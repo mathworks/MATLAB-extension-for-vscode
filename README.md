@@ -81,8 +81,16 @@ You can help improve the extension by sending user experience information to Mat
 
 For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).
 
-### MATLAB Show Feature Not Available Error
+### MATLAB Show Feature Not Available Error Setting
 By default, the extension displays an error when a feature requires MATLAB and MATLAB is unable to start. To not display an error, set the `matlab.showFeatureNotAvailableError` setting to `false`.
+
+### MATLAB Max File Size for Analysis Setting
+By default, the extension analyzes all files, regardless of their size, for features such as linting, code navigation, and symbol renaming. To limit the maximum number of characters a file can contain, set the `matlab.maxFileSizeForAnalysis` setting. For example, to limit the number of characters to 50,000, set the `matlab.maxFileSizeForAnalysis` setting to `50000`. If a file contains more than the maximum number of characters, features such as linting, code navigation, and symbol renaming are disabled for that file. To remove the limit and analyze all files regardless of their size, set the `matlab.maxFileSizeForAnalysis` setting to `0`.
+
+### MATLAB Sign In Setting
+By default, the extension assumes that the MATLAB installation specified in the Install Path setting is activated.
+
+To enable browser-based sign in to your MathWorks account using the Online License Manager or a Network License Manager, set the `matlab.signIn` setting to true. When this setting is enabled, the extension prompts you to sign in when it starts MATLAB.
 
 ## Troubleshooting
 If the MATLAB install path is not properly configured, you get an error when you try to use certain advanced features, such as document formatting and code navigation.

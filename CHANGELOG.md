@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2024-11-07
+
+### Added
+- Visual indication of code sections
+- Enable browser-based sign in using the `signIn` setting
+- Specify the maximum file size for code analysis using the new `maxFileSizeForAnalysis` setting
+- Linting support in untitled files and in MATLAB files with different file extensions
+
+### Fixed
+- The `installPath` setting no longer syncs between machines
+
 ## [1.2.6] - 2024-09-20
 
 ### Fixed
@@ -18,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Symbol rename support
-- Enables users to hide "feature not available" error popups
+- Enable hiding "feature not available" error popups
 - Provides context menu option to add selected folder and subfolders to the path
 
 ### Fixed
@@ -27,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.4] - 2024-07-12
 
 ### Added
-- Enable users to specify workspace-specific MATLAB install paths
+- Enable specifying workspace-specific MATLAB install paths
 - Improvements to code folding (requires MATLAB R2024b or later)
 
 ### Fixed
@@ -42,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This extension will no longer support MATLAB R2021a in a future release. To make use of the advanced features of the extension or run MATLAB code, you will need to have MATLAB R2021b or later installed.
 
 ### Added
-- Popups will be shown to inform the user when the connected MATLAB is not supported by the extension, or if support is planned to be removed in a future update.
+- Popups will be shown to inform when the connected MATLAB is not supported by the extension, or if support is planned to be removed in a future update.
 
 ### Fixed
 - Resolved issue with connecting to Intel MATLAB installation on Apple Silicon machines
