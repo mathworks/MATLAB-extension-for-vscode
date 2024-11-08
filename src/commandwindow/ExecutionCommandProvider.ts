@@ -297,4 +297,29 @@ export default class ExecutionCommandProvider {
 
         void this._mvm.feval('cd', 0, [uri.fsPath]);
     }
+
+    /**
+     * Implements the open file action
+     * @param uri The file path to the file that should be opened
+     * @returns
+     */
+    async handleOpenFile(uri: vscode.Uri): Promise<void> {
+        this._telemetryLogger.logEvent({
+            eventKey: 'ML_VS_CODE_ACTIONS',
+            data: {
+                action_type: 'openFile',
+                result: ''
+            }
+        });
+
+        await this._terminalService.openTerminalOrBringToFront();
+
+        try {
+            await this._mvm.getReadyPromise();
+        } catch (e) {
+            return;
+        }
+
+        void this._mvm.feval('open', 0, [uri.fsPath]);
+    }
 }

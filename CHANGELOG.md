@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Open non-code MATLAB files (e.g. `.slx`, `.fig`) via the context menu
+
 ## [1.2.7] - 2024-11-07
 
 ### Added
