@@ -132,7 +132,8 @@
 				},
 				{
 					"command": "matlab.openFile",
-					"when": "editorLangId == matlab && editorHasSelection && resourceExtname != '.m'"
+					"when": "editorHasSelection",
+					"group": "files"
 				}
 			],
 			"explorer/context": [
