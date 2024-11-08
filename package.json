@@ -66,6 +66,10 @@
 				"title": "MATLAB: Manage Sign In Options"
 			},
 			{
+				"command": "matlab.openFile",
+				"title": "MATLAB: Open File"
+			},
+			{
 				"command": "matlab.resetDeprecationPopups",
 				"title": "MATLAB: Reset Deprecation Warning Popups"
 			}
@@ -125,6 +129,10 @@
 					"command": "matlab.runSelection",
 					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections",
 					"group": "1_run"
+				},
+				{
+					"command": "matlab.openFile",
+					"when": "editorLangId == matlab && editorHasSelection && resourceExtname != '.m'"
 				}
 			],
 			"explorer/context": [
