@@ -129,7 +129,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.openFile', async (uri: vscode.Uri) => await executionCommandProvider.handleOpenFile(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.openFile', async (uris: vscode.Uri[]) => await executionCommandProvider.handleOpenFile(uris)))
 
     // Register a custom command which allows the user enable / disable Sign In options.
     // Using this custom command would be an alternative approach to going to enabling the setting.

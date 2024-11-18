@@ -300,10 +300,10 @@ export default class ExecutionCommandProvider {
 
     /**
      * Implements the open file action
-     * @param uri The file path to the file that should be opened
+     * @param uris The file paths to the files that should be opened
      * @returns
      */
-    async handleOpenFile(uri: vscode.Uri): Promise<void> {
+    async handleOpenFile (uris: vscode.Uri[]): Promise<void> {
         this._telemetryLogger.logEvent({
             eventKey: 'ML_VS_CODE_ACTIONS',
             data: {
@@ -320,6 +320,8 @@ export default class ExecutionCommandProvider {
             return;
         }
 
-        void this._mvm.feval('open', 0, [uri.fsPath]);
+        for (const uri of uris) {
+            void this._mvm.feval('open', 0, [uri.fsPath]);
+        }
     }
 }
