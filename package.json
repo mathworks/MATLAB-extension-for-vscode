@@ -129,11 +129,6 @@
 					"command": "matlab.runSelection",
 					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections",
 					"group": "1_run"
-				},
-				{
-					"command": "matlab.openFile",
-					"when": "editorHasSelection",
-					"group": "files"
 				}
 			],
 			"explorer/context": [
@@ -144,6 +139,11 @@
 				{
 					"command": "matlab.changeDirectory",
 					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.openFile",
+					"when": "!explorerResourceIsFolder",
+					"group": "files"
 				}
 			],
 			"matlab.addPath": [
