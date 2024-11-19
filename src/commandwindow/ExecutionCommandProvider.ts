@@ -303,7 +303,7 @@ export default class ExecutionCommandProvider {
      * @param uri The file path to the file that should be opened
      * @returns
      */
-    async handleOpenFile(uri: vscode.Uri): Promise<void> {
+    async handleOpenFile (uri: vscode.Uri): Promise<void> {
         this._telemetryLogger.logEvent({
             eventKey: 'ML_VS_CODE_ACTIONS',
             data: {
