@@ -66,6 +66,10 @@
 				"title": "MATLAB: Manage Sign In Options"
 			},
 			{
+				"command": "matlab.openFile",
+				"title": "MATLAB: Open File"
+			},
+			{
 				"command": "matlab.resetDeprecationPopups",
 				"title": "MATLAB: Reset Deprecation Warning Popups"
 			}
@@ -135,6 +139,11 @@
 				{
 					"command": "matlab.changeDirectory",
 					"when": "explorerResourceIsFolder"
+				},
+				{
+					"command": "matlab.openFile",
+					"when": "!explorerResourceIsFolder",
+					"group": "files"
 				}
 			],
 			"matlab.addPath": [
