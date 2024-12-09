@@ -396,7 +396,7 @@ function getServerArgs (context: vscode.ExtensionContext): string[] {
     const args = [
         `--matlabInstallPath=${configuration.get<string>('installPath') ?? ''}`,
         `--matlabConnectionTiming=${configuration.get<string>('launchMatlab') ?? 'onStart'}`,
-        `--snippetIgnoreList='For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block'`
+        '--snippetIgnoreList=\'For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block\''
     ]
 
     if (configuration.get<boolean>('indexWorkspace') ?? false) {

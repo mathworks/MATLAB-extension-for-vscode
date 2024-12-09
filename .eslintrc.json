@@ -20,6 +20,7 @@
         "@typescript-eslint/semi": "off",
         "@typescript-eslint/no-inferrable-types": "off",
         "@typescript-eslint/promise-function-async": "off",
+        "@typescript-eslint/consistent-type-assertions": "off",
         "@typescript-eslint/indent": ["error", 4, {
             "SwitchCase": 1,
             "VariableDeclarator": 1,
