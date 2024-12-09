@@ -1,8 +1,8 @@
 // Copyright 2024 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
-import MVM, { MatlabState } from './MVM'
-import { TextEvent } from './MVMInterface'
+import { MVM, MatlabState } from './MVM'
+import { TextEvent, PromptState } from './MVMInterface'
 
 /**
  * Direction of cursor movement
@@ -68,7 +68,10 @@ const ACTION_KEYS = {
 };
 
 const PROMPTS = {
-    IDLE_PROMPT: '>> '
+    IDLE_PROMPT: '>> ',
+    DEBUG_PROMPT: 'K>> ',
+    FAKE_INPUT_PROMPT: '? ',
+    BUSY_PROMPT: ''
 };
 
 /**
@@ -79,30 +82,29 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private readonly _writeEmitter: vscode.EventEmitter<string>;
 
     private _initialized: boolean = false;
-    private _isBusy: boolean = false;
-    private readonly _currentPrompt = PROMPTS.IDLE_PROMPT;
+    private _currentPrompt = PROMPTS.IDLE_PROMPT;
+    private _currentState: PromptState = PromptState.INITIALIZING;
 
-    private _currentLine: string = this._currentPrompt;
+    private _currentPromptLine: string = this._currentPrompt;
     private _cursorIndex: number = 0;
     private _anchorIndex?: number = undefined;
+
+    private _lastOutputLine: string = '';
 
     private readonly _commandHistory: string[] = [];
     private _historyIndex: number = 0;
     private _lastKnownCurrentLine: string = '';
 
-    private _isLineDirty: boolean = false;
-
     private _terminalDimensions: vscode.TerminalDimensions;
     private _lastSentTerminalDimensions: vscode.TerminalDimensions | null = null;
 
-    private readonly _inputQueue: string[] = [];
-
-    private _justTypedLastInRow: boolean = false;
+    private _justTypedLastInColumn: boolean = false;
 
     constructor (mvm: MVM) {
         this._mvm = mvm;
-        this._mvm.onOutput = this.addOutput.bind(this);
-        this._mvm.onClc = this.clear.bind(this);
+        this._mvm.on(MVM.Events.output, this.addOutput.bind(this));
+        this._mvm.on(MVM.Events.clc, this.clear.bind(this));
+        this._mvm.on(MVM.Events.promptChange, this._handlePromptChange.bind(this));
 
         this._initialized = false;
 
@@ -110,7 +112,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this.onDidWrite = this._writeEmitter.event;
         this._terminalDimensions = { rows: 30, columns: 100 };
 
-        this._mvm.addStateChangeListener(this._handleMatlabStateChange.bind(this));
+        this._mvm.on(MVM.Events.stateChanged, this._handleMatlabStateChange.bind(this));
 
         this._updateHasSelectionContext();
     }
@@ -130,16 +132,14 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
         const currentMatlabState = this._mvm.getMatlabState();
         if (currentMatlabState === MatlabState.READY) {
-            this._isBusy = false;
             this._initialized = true;
-            this._writeCurrentLine();
+            this._writeCurrentPromptLine();
         } else if (currentMatlabState === MatlabState.DISCONNECTED) {
             this._clearState();
-            this._isBusy = false;
             this._initialized = false;
+            this._currentState = PromptState.INITIALIZING;
         } else if (currentMatlabState === MatlabState.BUSY) {
             this._clearState();
-            this._isBusy = true;
             this._initialized = true;
         }
     }
@@ -164,16 +164,13 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
         if (newState === MatlabState.READY) {
             this._clearState();
-            this._isBusy = false;
             this._initialized = true;
-            this._writeCurrentLine();
+            this._writeCurrentPromptLine();
         } else if (newState === MatlabState.DISCONNECTED) {
             this._clearState();
-            this._isBusy = false;
             this._initialized = false;
         } else if (newState === MatlabState.BUSY) {
             this._clearState();
-            this._isBusy = true;
             this._initialized = true;
         }
     }
@@ -182,11 +179,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      * Clear current line and selection
      */
     private _setToEmptyPrompt (): void {
-        this._currentLine = this._currentPrompt;
-        this._lastKnownCurrentLine = this._currentLine;
+        this._currentPromptLine = this._currentPrompt;
+        this._lastKnownCurrentLine = '';
         this._cursorIndex = 0;
         this._anchorIndex = undefined;
         this._updateHasSelectionContext();
+        this._updateWhetherJustTypedInLastColumn();
     }
 
     /**
@@ -194,11 +192,11 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      * @param command
      */
     insertCommandForEval (command: string): void {
-        if (this._currentLine !== this._currentPrompt) {
+        if (this._currentPromptLine !== this._currentPrompt) {
             this._setToEmptyPrompt();
-            this._writeCurrentLine();
+            this._writeCurrentPromptLine();
         }
-        // TODO: handle partially enter commands when run is hit
+
         this.handleInput(command + ACTION_KEYS.NEWLINE);
     }
 
@@ -208,26 +206,16 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      * @returns
      */
     handleInput (data: string): void {
-        if (!this._initialized) {
+        if (!this._initialized || this._currentState === PromptState.INITIALIZING) {
             return;
         }
 
-        this._inputQueue.push(data);
-        this._processQueueUntilBusy();
-    }
-
-    private _processQueueItem (): void {
-        const nextItem = this._inputQueue.shift();
-        if (nextItem === undefined) {
+        if (this._currentState === PromptState.PAUSE) {
+            this._mvm.unpause();
             return;
         }
-        this.handleText(nextItem, false);
-    }
 
-    private _processQueueUntilBusy (): void {
-        while (this._inputQueue.length > 0 && !this._isBusy) {
-            this._processQueueItem();
-        }
+        this.handleText(data, false);
     }
 
     /**
@@ -237,71 +225,16 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      * @returns
      */
     handleText (data: string, isOutput: boolean): void {
-        if (data.startsWith(ESC)) {
-            /* eslint-disable-next-line no-control-regex */
-            const match = data.match(/^\x1b\[(?<row>[0-9]+);(?<col>[0-9]+)R$/)
-            if (match !== null && 'groups' in match && (match.groups != null) && 'row' in match.groups && 'col' in match.groups) {
+        if (this._isSpecialKey(data)) {
+            // For now, disallow output from containing control characters.
+            if (isOutput) {
                 return;
             }
 
-            switch (data) {
-                case ACTION_KEYS.LEFT:
-                    this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.MOVE);
-                    break;
-                case ACTION_KEYS.RIGHT:
-                    this._handleLeftRight(CursorDirection.RIGHT, AnchorPolicy.MOVE);
-                    break;
-                case ACTION_KEYS.SHIFT_LEFT:
-                    this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.KEEP);
-                    break;
-                case ACTION_KEYS.SHIFT_RIGHT:
-                    this._handleLeftRight(CursorDirection.RIGHT, AnchorPolicy.KEEP);
-                    break;
-                case ACTION_KEYS.END:
-                    this._handleEnd(AnchorPolicy.MOVE);
-                    break;
-                case ACTION_KEYS.SHIFT_END:
-                    this._handleEnd(AnchorPolicy.KEEP);
-                    break;
-                case ACTION_KEYS.HOME:
-                    this._handleHome(AnchorPolicy.MOVE);
-                    break;
-                case ACTION_KEYS.SHIFT_HOME:
-                    this._handleHome(AnchorPolicy.KEEP);
-                    break;
-                case ACTION_KEYS.DELETE:
-                    this._handleDelete();
-                    break;
-                case ACTION_KEYS.UP:
-                    this._handleNavigateHistory(HistoryDirection.BACKWARDS);
-                    break;
-                case ACTION_KEYS.DOWN:
-                    this._handleNavigateHistory(HistoryDirection.FORWARDS);
-                    break;
-                case ACTION_KEYS.ESCAPE:
-                    this._handleEscape();
-            }
-
-            if (this._isLineDirty) {
-                this._writeCurrentLine();
+            if (this._handleActionKeys(data)) {
+                this._writeCurrentPromptLine();
             }
             return;
-        }
-
-        switch (data) {
-            case ACTION_KEYS.BACKSPACE:
-            case ACTION_KEYS.BACKSPACE_ALTERNATIVE:
-                this._handleBackspace();
-                return;
-            case ACTION_KEYS.SELECT_ALL:
-                this._handleSelectAll();
-                return;
-            case ACTION_KEYS.COPY:
-                this._handleCopy();
-                return;
-            case ACTION_KEYS.PASTE:
-                this._handlePaste();
-                return;
         }
 
         if (data.length === 1 && data.charCodeAt(0) < ' '.charCodeAt(0) && data !== '\r' && data !== '\n') {
@@ -309,29 +242,100 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         }
 
         const lines = this._preprocessInputLines(data);
-
-        // Case 1: Normal typing
-        if (lines.length === 1) {
-            this._handleLine(lines[0]);
-
-        // Case 2: Normal typing followed by an enter.
-        } else if (lines.length === 2 && lines[1].length === 0) {
-            this._handleLine(lines[0]);
-            if (isOutput) {
-                this._handleOutputEnter();
-            } else {
-                this._handleEnter();
-            }
-        // Case 3: Multi-line input (ie, from pasting, etc)
-        } else {
+        if (isOutput) {
             for (let i = 0; i < lines.length; i++) {
-                this._handleLine(lines[i] + (i === lines.length - 1 ? '' : ACTION_KEYS.NEWLINE));
+                this._handleOutputLine(lines[i], i !== lines.length - 1);
             }
-            if (isOutput) {
-                this._handleOutputEnter();
+        } else {
+            // Case 1: Normal typing
+            if (lines.length === 1) {
+                this._handleLine(lines[0]);
+
+            // Case 2: Normal typing followed by an enter.
+            } else if (lines.length === 2 && lines[1].length === 0) {
+                this._handleLine(lines[0]);
+                this._handleEnter();
+            // Case 3: Multi-line input (ie, from pasting, etc)
             } else {
+                for (let i = 0; i < lines.length; i++) {
+                    this._handleLine(lines[i] + ((i === lines.length - 1) ? '' : ACTION_KEYS.NEWLINE));
+                }
                 this._handleEnter();
             }
+        }
+    }
+
+    private _handleOutputLine (line: string, implicitNewlineAtEnd: boolean): void {
+        const numberOfLinesBehind = Math.floor(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
+        if (numberOfLinesBehind !== 0) {
+            this._writeEmitter.fire(ACTION_KEYS.UP.repeat(numberOfLinesBehind));
+        }
+
+        if (this._lastOutputLine.length !== 0) {
+            this._writeEmitter.fire(ACTION_KEYS.UP);
+        }
+
+        this._writeEmitter.fire(ACTION_KEYS.CLEAR_AND_MOVE_TO_BEGINNING);
+
+        this._lastOutputLine += line;
+        this._writeEmitter.fire(this._lastOutputLine);
+        if (implicitNewlineAtEnd) {
+            this._handleOutputNewline();
+        }
+
+        if (this._lastOutputLine.length !== 0) {
+            this._writeEmitter.fire(ACTION_KEYS.NEWLINE)
+        }
+
+        this._writeCurrentPromptLine(false);
+    }
+
+    private _handleOutputNewline (): void {
+        this._writeEmitter.fire(ACTION_KEYS.NEWLINE);
+        this._lastOutputLine = '';
+    }
+
+    private _isSpecialKey (data: string): boolean {
+        return data.startsWith(ESC) || Object.values(ACTION_KEYS).includes(data)
+    }
+
+    private _handleActionKeys (keyCode: string): boolean {
+        switch (keyCode) {
+            case ACTION_KEYS.LEFT:
+                return this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.MOVE);
+            case ACTION_KEYS.RIGHT:
+                return this._handleLeftRight(CursorDirection.RIGHT, AnchorPolicy.MOVE);
+            case ACTION_KEYS.SHIFT_LEFT:
+                return this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.KEEP);
+            case ACTION_KEYS.SHIFT_RIGHT:
+                return this._handleLeftRight(CursorDirection.RIGHT, AnchorPolicy.KEEP);
+            case ACTION_KEYS.END:
+                return this._handleEnd(AnchorPolicy.MOVE);
+            case ACTION_KEYS.SHIFT_END:
+                return this._handleEnd(AnchorPolicy.KEEP);
+            case ACTION_KEYS.HOME:
+                return this._handleHome(AnchorPolicy.MOVE);
+            case ACTION_KEYS.SHIFT_HOME:
+                return this._handleHome(AnchorPolicy.KEEP);
+            case ACTION_KEYS.DELETE:
+                return this._handleDelete();
+            case ACTION_KEYS.UP:
+                return this._handleNavigateHistory(HistoryDirection.BACKWARDS);
+            case ACTION_KEYS.DOWN:
+                return this._handleNavigateHistory(HistoryDirection.FORWARDS);
+            case ACTION_KEYS.ESCAPE:
+                return this._handleEscape();
+            case ACTION_KEYS.BACKSPACE:
+            case ACTION_KEYS.BACKSPACE_ALTERNATIVE:
+                return this._handleBackspace();
+            case ACTION_KEYS.SELECT_ALL:
+                return this._handleSelectAll();
+            case ACTION_KEYS.COPY:
+                return this._handleCopy();
+            case ACTION_KEYS.PASTE:
+                return this._handlePaste();
+            default:
+                return false;
         }
     }
 
@@ -341,26 +345,24 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return lines;
     }
 
-    private _handleNavigateHistory (direction: HistoryDirection): void {
+    private _handleNavigateHistory (direction: HistoryDirection): boolean {
         const isCurrentlyAtEndOfHistory = this._historyIndex === this._commandHistory.length;
         const isCurrentlyAtBeginningOfHistory = this._historyIndex === 0;
 
         if (direction === HistoryDirection.BACKWARDS && isCurrentlyAtBeginningOfHistory) {
-            return;
+            return false;
         }
 
         if (direction === HistoryDirection.FORWARDS && isCurrentlyAtEndOfHistory) {
-            return;
+            return false;
         }
 
         if (isCurrentlyAtEndOfHistory) {
-            this._lastKnownCurrentLine = this._currentLine;
+            this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
         }
 
         this._historyIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
-        this._replaceCurrentLineWithNewLine(this._getHistoryItem(this._historyIndex))
-
-        this._justTypedLastInRow = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
+        return this._replaceCurrentLineWithNewLine(this._currentPrompt + this._getHistoryItem(this._historyIndex));
     }
 
     private _markCurrentLineChanged (): void {
@@ -368,38 +370,43 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._lastKnownCurrentLine = '';
     }
 
-    private _possiblyUpdateAnchor (policy: AnchorPolicy): void {
+    private _possiblyUpdateAnchorForCursorChange (policy: AnchorPolicy): boolean {
+        let isLineDirty = false;
         if (policy === AnchorPolicy.MOVE && this._anchorIndex !== undefined) {
             this._anchorIndex = undefined;
-            this._isLineDirty = true;
+            isLineDirty = true;
         } else if (policy === AnchorPolicy.KEEP) {
             if (this._anchorIndex === undefined) {
                 this._anchorIndex = this._cursorIndex;
             }
-            this._isLineDirty = true;
+            isLineDirty = true;
         }
         this._updateHasSelectionContext();
+        return isLineDirty;
     }
 
-    private _handleEnd (anchorPolicy: AnchorPolicy): void {
+    private _handleEnd (anchorPolicy: AnchorPolicy): boolean {
         const currentCursorLine = Math.ceil(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
-        this._possiblyUpdateAnchor(anchorPolicy);
+        const isLineDirty = this._possiblyUpdateAnchorForCursorChange(anchorPolicy);
         this._cursorIndex = this._getMaxIndexOnLine();
         this._moveCursorToCurrent(currentCursorLine);
+        return isLineDirty;
     }
 
-    private _handleHome (anchorPolicy: AnchorPolicy): void {
+    private _handleHome (anchorPolicy: AnchorPolicy): boolean {
         const currentCursorLine = Math.ceil(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
-        this._possiblyUpdateAnchor(anchorPolicy);
+        const isLineDirty = this._possiblyUpdateAnchorForCursorChange(anchorPolicy);
         this._cursorIndex = 0;
         this._moveCursorToCurrent(currentCursorLine);
+        return isLineDirty;
     }
 
-    private _handleLeftRight (direction: CursorDirection, anchorPolicy: AnchorPolicy): void {
+    private _handleLeftRight (direction: CursorDirection, anchorPolicy: AnchorPolicy): boolean {
+        let isLineDirty = false;
         if (direction === CursorDirection.LEFT && this._cursorIndex !== 0) {
-            if (this._justTypedLastInRow) {
+            if (this._justTypedLastInColumn) {
                 // Don't actually move the cursor, but do move the index we think the cursor is at.
-                this._justTypedLastInRow = false;
+                this._justTypedLastInColumn = false;
             } else {
                 if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0) {
                     this._writeEmitter.fire(ACTION_KEYS.UP + ACTION_KEYS.MOVE_TO_POSITION_IN_LINE(this._terminalDimensions.columns));
@@ -408,12 +415,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 }
             }
 
-            this._possiblyUpdateAnchor(anchorPolicy);
+            isLineDirty = this._possiblyUpdateAnchorForCursorChange(anchorPolicy);
             this._cursorIndex--;
         }
 
         if (direction === CursorDirection.RIGHT && this._cursorIndex !== this._getMaxIndexOnLine()) {
-            if (this._justTypedLastInRow) {
+            if (this._justTypedLastInColumn) {
                 // Not possible
             } else {
                 if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === (this._terminalDimensions.columns - 1)) {
@@ -423,165 +430,158 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 }
             }
 
-            this._possiblyUpdateAnchor(anchorPolicy);
+            isLineDirty = this._possiblyUpdateAnchorForCursorChange(anchorPolicy);
             this._cursorIndex++;
         }
+
+        return isLineDirty;
     }
 
     private _getMaxIndexOnLine (): number {
-        return this._currentLine.length - this._currentPrompt.length;
+        return this._currentPromptLine.length - this._currentPrompt.length;
     }
 
     private _getAbsoluteIndexOnLine (index: number): number {
         return index + this._currentPrompt.length;
     }
 
-    private _handleBackspace (): void {
+    private _handleBackspace (): boolean {
         if (this._anchorIndex !== undefined) {
-            this._removeSelection();
-            if (this._isLineDirty) {
-                this._markCurrentLineChanged();
-                this._writeCurrentLine();
-            }
-            return;
+            return this._removeSelection();
         }
 
         if (this._cursorIndex === 0) {
-            return;
+            return false;
         }
 
-        const before = this._currentLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex) - 1);
-        const after = this._currentLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex));
-        this._currentLine = before + after;
+        const before = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex) - 1);
+        const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex));
+        this._currentPromptLine = before + after;
         this._cursorIndex--;
         this._markCurrentLineChanged();
-        this._writeCurrentLine();
+        return true;
     }
 
-    private _handleSelectAll (): void {
+    private _handleSelectAll (): boolean {
         this._cursorIndex = this._getMaxIndexOnLine();
         this._anchorIndex = 0;
         this._updateHasSelectionContext();
-        this._writeCurrentLine();
+        return true;
     }
 
-    private _handleDelete (): void {
+    private _handleDelete (): boolean {
         if (this._anchorIndex !== undefined) {
-            this._removeSelection();
-            if (this._isLineDirty) {
-                this._markCurrentLineChanged();
-                this._writeCurrentLine();
-            }
-            return;
+            return this._removeSelection();
         }
 
         if (this._cursorIndex === this._getMaxIndexOnLine()) {
-            return;
+            return false;
         }
 
-        const before = this._currentLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
-        const after = this._currentLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex) + 1);
-        this._currentLine = before + after;
+        const before = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
+        const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex) + 1);
+        this._currentPromptLine = before + after;
         this._markCurrentLineChanged();
-        this._writeCurrentLine();
+        return true;
     }
 
-    private _writeCurrentLine (): void {
-        const numberOfLinesBehind = Math.floor(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
-        if (numberOfLinesBehind !== 0) {
-            this._writeEmitter.fire(ACTION_KEYS.UP.repeat(numberOfLinesBehind))
+    private _writeCurrentPromptLine (eraseExisting: boolean = true): void {
+        if (eraseExisting) {
+            this._eraseExistingPromptLine();
         }
-        this._writeEmitter.fire(ACTION_KEYS.CLEAR_AND_MOVE_TO_BEGINNING)
         if (this._anchorIndex === undefined) {
-            this._writeEmitter.fire(this._currentLine)
+            this._writeEmitter.fire(this._currentPromptLine)
         } else {
             const selectionStart = this._currentPrompt.length + Math.min(this._cursorIndex, this._anchorIndex);
             const selectionEnd = this._currentPrompt.length + Math.max(this._cursorIndex, this._anchorIndex);
-            const preSelection = this._currentLine.slice(0, selectionStart);
-            const selection = this._currentLine.slice(selectionStart, selectionEnd);
-            const postSelection = this._currentLine.slice(selectionEnd);
+            const preSelection = this._currentPromptLine.slice(0, selectionStart);
+            const selection = this._currentPromptLine.slice(selectionStart, selectionEnd);
+            const postSelection = this._currentPromptLine.slice(selectionEnd);
             this._writeEmitter.fire(preSelection);
             this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
             this._writeEmitter.fire(selection);
             this._writeEmitter.fire(ACTION_KEYS.RESTORE_COLORS);
             this._writeEmitter.fire(postSelection);
         }
-        const currentCursorLine = Math.ceil(this._currentLine.length / this._terminalDimensions.columns);
+        const currentCursorLine = Math.ceil(this._currentPromptLine.length / this._terminalDimensions.columns);
         this._moveCursorToCurrent(currentCursorLine);
-        this._isLineDirty = false;
     }
 
-    private _replaceCurrentLineWithNewLine (updatedLine: string): void {
-        this._currentLine = updatedLine;
+    private _eraseExistingPromptLine (): void {
+        const numberOfLinesBehind = Math.floor(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
+        if (numberOfLinesBehind !== 0) {
+            this._writeEmitter.fire(ACTION_KEYS.UP.repeat(numberOfLinesBehind))
+        }
+        this._writeEmitter.fire(ACTION_KEYS.CLEAR_AND_MOVE_TO_BEGINNING)
+    }
+
+    private _replaceCurrentLineWithNewLine (updatedLine: string): boolean {
+        this._eraseExistingPromptLine();
+        this._currentPromptLine = updatedLine;
         this._cursorIndex = this._getMaxIndexOnLine();
         this._anchorIndex = undefined;
-        this._writeCurrentLine();
+        this._updateWhetherJustTypedInLastColumn();
+        this._writeCurrentPromptLine(false);
+        return false;
     }
 
-    private _removeSelection (): void {
+    private _removeSelection (): boolean {
         if (this._anchorIndex === undefined || this._cursorIndex === this._anchorIndex) {
             this._anchorIndex = undefined;
             this._updateHasSelectionContext();
-            return;
+            return false;
         }
         const selectionStart = this._getAbsoluteIndexOnLine(Math.min(this._cursorIndex, this._anchorIndex));
         const selectionEnd = this._getAbsoluteIndexOnLine(Math.max(this._cursorIndex, this._anchorIndex));
-        const preSelection = this._currentLine.slice(0, selectionStart);
-        const postSelection = this._currentLine.slice(selectionEnd);
-        this._currentLine = preSelection + postSelection;
+        const preSelection = this._currentPromptLine.slice(0, selectionStart);
+        const postSelection = this._currentPromptLine.slice(selectionEnd);
+        this._currentPromptLine = preSelection + postSelection;
         this._cursorIndex = selectionStart - this._currentPrompt.length;
         this._anchorIndex = undefined;
-        this._isLineDirty = true;
         this._updateHasSelectionContext();
+        return true;
     }
 
     private _handleLine (line: string): void {
-        this._removeSelection();
-        if (this._isLineDirty) {
-            this._writeCurrentLine();
+        if (this._removeSelection()) {
+            this._writeCurrentPromptLine();
         }
 
         if (this._cursorIndex === this._getMaxIndexOnLine()) {
-            this._currentLine += line;
+            this._currentPromptLine += line;
             this._cursorIndex += line.length;
             this._writeEmitter.fire(line);
         } else {
-            const before = this._currentLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
-            const after = this._currentLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex));
-            this._currentLine = before + line + after;
+            const before = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
+            const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex));
+            this._currentPromptLine = before + line + after;
             this._cursorIndex += line.length;
-            this._isLineDirty = true;
-            this._writeCurrentLine();
+            this._writeCurrentPromptLine();
         }
         this._markCurrentLineChanged();
-        this._justTypedLastInRow = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
-    }
-
-    private _handleOutputEnter (): void {
-        this._handleEnd(AnchorPolicy.MOVE);
-        this._writeEmitter.fire(ACTION_KEYS.NEWLINE);
+        this._justTypedLastInColumn = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
     }
 
     private _handleEnter (): void {
-        const stringToEvaluate = this._currentLine.substring(this._getAbsoluteIndexOnLine(0), this._getAbsoluteIndexOnLine(this._getMaxIndexOnLine())).trim();
-        this._addToHistory(this._currentLine);
+        const stringToEvaluate = this._stripCurrentPrompt(this._currentPromptLine).trim();
+        this._addToHistory(stringToEvaluate);
         this._handleEnd(AnchorPolicy.MOVE);
         this._writeEmitter.fire(ACTION_KEYS.NEWLINE);
-        this._setToEmptyPrompt();
-        this._isBusy = true;
-        this._evaluateCommand(stringToEvaluate).then(() => {
-            this._setToEmptyPrompt();
-            this._writeCurrentLine();
-            this._justTypedLastInRow = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
-            this._isBusy = false;
-            this._processQueueUntilBusy();
-        }, () => {
-            // Ignored
-        })
+
+        this._lastOutputLine = '';
+        this._currentPromptLine = this._currentPrompt;
+        this._justTypedLastInColumn = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
+        this._cursorIndex = 0;
+        this._anchorIndex = undefined;
+        this._updateHasSelectionContext();
+        this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
+        this._writeCurrentPromptLine();
+
+        void this._evaluateCommand(stringToEvaluate);
     }
 
     private _addToHistory (command: string): void {
-        const isEmpty = command === this._currentPrompt;
+        const isEmpty = command === '';
         const isLastInHistory = this._commandHistory.length !== 0 && command === this._commandHistory[this._commandHistory.length - 1];
         if (!isEmpty && !isLastInHistory) {
             this._commandHistory.push(command);
@@ -598,10 +598,11 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _moveCursorToCurrent (lineOfInputCursorIsCurrentlyOn?: number): void {
-        const lineNumberCursorShouldBeOn = Math.ceil(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
+        const lineNumberCursorShouldBeOn = Math.max(1, Math.ceil(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns));
         if (lineOfInputCursorIsCurrentlyOn === undefined) {
             lineOfInputCursorIsCurrentlyOn = lineNumberCursorShouldBeOn;
         }
+        lineOfInputCursorIsCurrentlyOn = Math.max(1, lineOfInputCursorIsCurrentlyOn);
         if (lineNumberCursorShouldBeOn > lineOfInputCursorIsCurrentlyOn) {
             this._writeEmitter.fire(ACTION_KEYS.DOWN.repeat(lineNumberCursorShouldBeOn - lineOfInputCursorIsCurrentlyOn));
         } else if (lineNumberCursorShouldBeOn < lineOfInputCursorIsCurrentlyOn) {
@@ -648,34 +649,70 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     clear (): void {
         this._writeEmitter.fire(ACTION_KEYS.CLEAR_COMPLETELY)
         void vscode.commands.executeCommand('workbench.action.terminal.clear');
+        this._setToEmptyPrompt();
     }
 
     private _updateHasSelectionContext (): void {
         void vscode.commands.executeCommand('setContext', 'matlab.terminalHasSelection', this._anchorIndex !== undefined);
     }
 
-    private _handleCopy (): void {
+    private _handleCopy (): boolean {
         if (this._anchorIndex === undefined) {
-            return;
+            return false;
         }
 
         const selectionStart = this._currentPrompt.length + Math.min(this._cursorIndex, this._anchorIndex);
         const selectionEnd = this._currentPrompt.length + Math.max(this._cursorIndex, this._anchorIndex);
-        const selection = this._currentLine.slice(selectionStart, selectionEnd);
+        const selection = this._currentPromptLine.slice(selectionStart, selectionEnd);
         void vscode.env.clipboard.writeText(selection);
+        return false;
     }
 
-    private _handlePaste (): void {
+    private _handlePaste (): boolean {
         vscode.env.clipboard.readText().then((text: string) => {
             this.handleInput(text);
         }, () => {
             // Ignored
         });
+        return false;
     }
 
-    private _handleEscape (): void {
+    private _handleEscape (): boolean {
         this._setToEmptyPrompt();
-        this._isLineDirty = true;
+        return true;
+    }
+
+    private _handlePromptChange (state: PromptState, isIdle: boolean): void {
+        this._currentState = state;
+        if (state === PromptState.READY) {
+            this._changePrompt(PROMPTS.IDLE_PROMPT);
+        } else if (state === PromptState.DEBUG) {
+            this._changePrompt(PROMPTS.DEBUG_PROMPT);
+        } else if (state === PromptState.PAUSE) {
+            this._changePrompt(PROMPTS.BUSY_PROMPT);
+        } else if (state === PromptState.INPUT) {
+            this._changePrompt(PROMPTS.FAKE_INPUT_PROMPT);
+        } else {
+            this._changePrompt(PROMPTS.BUSY_PROMPT);
+        }
+    }
+
+    private _changePrompt (prompt: string): void {
+        if (this._currentPrompt !== PROMPTS.BUSY_PROMPT) {
+            this._currentPromptLine = this._stripCurrentPrompt(this._currentPromptLine);
+        }
+        this._currentPrompt = prompt;
+        this._currentPromptLine = this._currentPrompt + this._currentPromptLine;
+        this._updateWhetherJustTypedInLastColumn();
+        this._writeCurrentPromptLine();
+    }
+
+    private _stripCurrentPrompt (line: string): string {
+        return this._currentPromptLine.slice(this._currentPrompt.length);
+    }
+
+    private _updateWhetherJustTypedInLastColumn (): void {
+        this._justTypedLastInColumn = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
     }
 
     onDidWrite: vscode.Event<string>;

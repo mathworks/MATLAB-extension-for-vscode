@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2024-12-18
+
 ### Added
-- Open non-code MATLAB files (e.g. `.slx`, `.fig`) via the context menu
+- Debugging support
+- Support for inserting code snippets shipped with MATLAB (requires MATLAB R2025a or later)
+- Support for opening additional MATLAB file types (e.g. `.slx`, `.fig`) from the Visual Studio Code context menu (Community contribution from @Gusmano-2-OSU)
+
+### Fixed
+- Syntax highlighting improvements (Community contribution from @apozharski)
+- Patches CVE-2024-21538 and CVE-2024-52798
 
 ## [1.2.7] - 2024-11-07
 

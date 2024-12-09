@@ -37,7 +37,7 @@ If you have MATLAB R2021a or later installed on your system, you have access to 
 ## Run MATLAB Code
 You can run a MATLAB code file or a selection within a MATLAB code file in Visual Studio Code using the Run button at the top of the file or the `Run File` or `Run Current Selection` commands. When you run the file, output displays in the "Terminal" pane of Visual Studio Code. You also can enter MATLAB code directly in the MATLAB terminal. To stop execution of MATLAB code, press **Ctrl+C**.
 
-![MATLAB Execution Demo](public/CodeExecution.gif)
+![MATLAB Execution and Debugging Demo](public/RunDebugCode.gif)
 
 ### Limitations
 There are some limitations to running MATLAB code in Visual Studio Code:

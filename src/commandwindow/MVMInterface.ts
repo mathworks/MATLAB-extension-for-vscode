@@ -1,6 +1,14 @@
 // Copyright 2024 The MathWorks, Inc.
 
-import { ResolvablePromise } from './Utilities';
+export enum Capability {
+    InteractiveCommandLine = 'InteractiveCommandLine',
+    Swing = 'Swing',
+    ComplexSwing = 'ComplexSwing',
+    LocalClient = 'LocalClient',
+    WebWindow = 'WebWindow',
+    ModalDialogs = 'ModalDialogs',
+    Debugging = 'Debugging'
+}
 
 /**
  * Represents text coming from MATLAB
@@ -16,6 +24,8 @@ export interface TextEvent {
 export interface EvalRequest {
     requestId: string | number
     command: string
+    isUserEval: boolean
+    capabilitiesToRemove?: Capability[]
 }
 
 /**
@@ -33,10 +43,11 @@ export interface FEvalRequest {
     functionName: string
     nargout: number
     args: unknown[]
+    capabilitiesToRemove?: Capability[]
 }
 
 /**
- * Represents a feval response to MATLAB
+ * Represents a feval response from MATLAB
  */
 export interface FEvalResponse {
     requestId: string | number
@@ -44,19 +55,38 @@ export interface FEvalResponse {
 }
 
 /**
- * MATLAB Error result
+ * Represents a breakpoint request to MATLAB
  */
-export interface FEvalError {
-    error: unknown
+export interface BreakpointRequest {
+    requestId: string | number
+    fileName: string
+    lineNumber: number
+    condition?: string
+    anonymousIndex?: number
 }
 
 /**
- * The base functionality for any MVM instance to support
+* Represents a breakpoint response from MATLAB
+*/
+export interface BreakpointResponse {
+    requestId: string | number
+    error?: MVMError
+}
+
+/**
+ * MATLAB Error result
  */
-export default interface IMVM {
-    eval: (command: string) => ResolvablePromise<void>
-    feval: <T>(functionName: string, nargout: number, args: unknown[]) => ResolvablePromise<FEvalError | T>
-    interrupt: () => void
-    onOutput: (data: TextEvent) => void
-    onClc: () => void
+export interface MVMError {
+    error: unknown
+}
+
+export enum PromptState {
+    INITIALIZING = 'INITIALIZING',
+    READY = 'READY',
+    BUSY = 'BUSY',
+    DEBUG = 'DEBUG',
+    INPUT = 'INPUT',
+    PAUSE = 'PAUSE',
+    MORE = 'MORE',
+    COMPLETING_BLOCK = 'COMPLETING_BLOCK'
 }

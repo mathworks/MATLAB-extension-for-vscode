@@ -17,16 +17,27 @@ enum Notification {
     MatlabRequestInstance = 'matlab/request',
 
     MVMEvalRequest = 'evalRequest',
-    MVMEvalComplete = 'evalRequest',
+    MVMEvalComplete = 'evalResponse',
     MVMFevalRequest = 'fevalRequest',
-    MVMFevalComplete = 'fevalRequest',
+    MVMFevalComplete = 'fevalResponse',
+    MVMSetBreakpointRequest = 'setBreakpointRequest',
+    MVMSetBreakpointComplete = 'setBreakpointResponse',
+    MVMClearBreakpointRequest = 'clearBreakpointRequest',
+    MVMClearBreakpointComplete = 'clearBreakpointResponse',
 
     MVMText = 'text',
     MVMClc = 'clc',
+    MVMPromptChange = 'mvmPromptChange',
 
     MVMInterruptRequest = 'interruptRequest',
+    MVMUnpauseRequest = 'unpauseRequest',
 
     MVMStateChange = 'mvmStateChange',
+
+    DebuggingStateChange = 'DebuggingStateChange',
+    DebugAdaptorRequest = 'DebugAdaptorRequest',
+    DebugAdaptorResponse = 'DebugAdaptorResponse',
+    DebugAdaptorEvent = 'DebugAdaptorEvent',
 
     // Telemetry
     LogTelemetryData = 'telemetry/logdata',

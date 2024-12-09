@@ -1,8 +1,9 @@
 // Copyright 2024 The MathWorks, Inc.
 
-import IMVM, { TextEvent, FEvalResponse, EvalResponse, FEvalError } from './MVMInterface'
+import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, Capability } from './MVMInterface'
 import { createResolvablePromise, ResolvablePromise, Notifier } from './Utilities'
 import Notification from '../Notifications'
+import EventEmitter = require('events')
 
 /**
  * The current state of MATLAB
@@ -13,10 +14,28 @@ export enum MatlabState {
     BUSY = 'busy'
 }
 
+interface MatlabStateUpdate {
+    state: string
+    release: string | null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MatlabData = any;
+
+enum Events {
+    clc = 'clc',
+    output = 'output',
+    promptChange = 'promptChange',
+    stateChanged = 'stateChanged',
+    debuggingStateChanged = 'debuggingStateChanged'
+}
+
 /**
  * A clientside implementation of MATLAB
  */
-export default class MVMImpl implements IMVM {
+export class MVM extends EventEmitter {
+    static Events = Events;
+
     private _requestMap: {[requestId: string]: {promise: ResolvablePromise<unknown>, isUserEval: boolean}} = {}
     private _pendingUserEvals: number;
 
@@ -24,19 +43,35 @@ export default class MVMImpl implements IMVM {
 
     private readonly _stateObservers: Array<(oldState: MatlabState, newState: MatlabState) => void> = [];
     private _currentState: MatlabState = MatlabState.DISCONNECTED;
+    private _currentRelease: string | null = null;
 
     private _currentReadyPromise: ResolvablePromise<void>;
 
+    private _isCurrentlyDebugging = false;
+
     constructor (notifier: Notifier) {
+        super();
+
         this._notifier = notifier;
 
         this._notifier.onNotification(Notification.MVMEvalComplete, this._handleEvalResponse.bind(this));
         this._notifier.onNotification(Notification.MVMFevalComplete, this._handleFevalResponse.bind(this));
+        this._notifier.onNotification(Notification.MVMSetBreakpointComplete, this._handleBreakpointResponse.bind(this));
+        this._notifier.onNotification(Notification.MVMClearBreakpointComplete, this._handleBreakpointResponse.bind(this));
         this._notifier.onNotification(Notification.MVMStateChange, this._handleMatlabStateChange.bind(this));
         this._notifier.onNotification(Notification.MVMText, (data: TextEvent) => {
-            this.onOutput(data)
+            this.emit(Events.output, data);
         });
-        this._notifier.onNotification(Notification.MVMClc, () => { this.onClc() });
+        this._notifier.onNotification(Notification.MVMClc, () => {
+            this.emit(Events.clc);
+        });
+        this._notifier.onNotification(Notification.MVMPromptChange, (data) => {
+            this.emit(Events.promptChange, data.state, data.isIdle);
+        });
+        this._notifier.onNotification(Notification.DebuggingStateChange, (isDebugging) => {
+            this._isCurrentlyDebugging = isDebugging;
+            this.emit(Events.debuggingStateChanged, isDebugging);
+        });
 
         this._currentReadyPromise = createResolvablePromise();
 
@@ -62,17 +97,32 @@ export default class MVMImpl implements IMVM {
         return this._pendingUserEvals > 0 ? MatlabState.BUSY : MatlabState.READY;
     }
 
-    private _handleMatlabStateChange (newState: string): void {
+    /**
+     *
+     * @returns The current release of MATLAB
+     */
+    getMatlabRelease (): string | null {
+        return this._currentRelease;
+    }
+
+    /**
+     *
+     * @returns The current release of MATLAB
+     */
+    isDebugging (): boolean {
+        return this.getMatlabState() !== MatlabState.DISCONNECTED && this._isCurrentlyDebugging;
+    }
+
+    private _handleMatlabStateChange (newState: MatlabStateUpdate): void {
         const oldState = this._currentState;
-        this._currentState = MatlabState[newState.toUpperCase() as keyof typeof MatlabState];
+        this._currentState = MatlabState[newState.state.toUpperCase() as keyof typeof MatlabState];
+        this._currentRelease = newState.release;
 
         if (this._currentState === MatlabState.DISCONNECTED) {
             this._handleDisconnection();
         }
 
-        this._stateObservers.forEach((observer) => {
-            observer(oldState, this._currentState);
-        }, this);
+        this.emit(MVM.Events.stateChanged, oldState, this._currentState);
 
         if (this._currentState !== MatlabState.DISCONNECTED) {
             this._pendingUserEvals = 0;
@@ -96,21 +146,12 @@ export default class MVMImpl implements IMVM {
     }
 
     /**
-     * Allow listening to MATLAB state changes
-     * @param observer
-     */
-    addStateChangeListener (observer: (oldState: MatlabState, newState: MatlabState) => void): void {
-        this._stateObservers.push(observer);
-    }
-
-    /**
      * Evaluate the given command.
      * @param command the command to run
      * @param isUserEval Only user evals contribute to the current busy state
      * @returns a promise that is resolved when the eval completes
      */
-    eval (command: string): ResolvablePromise<void>;
-    eval (command: string, isUserEval: boolean = true): ResolvablePromise<void> {
+    eval (command: string, isUserEval: boolean = true, capabilitiesToRemove?: Capability[]): ResolvablePromise<void> {
         const requestId = this._getNewRequestId();
         const promise = createResolvablePromise();
         this._requestMap[requestId] = {
@@ -125,7 +166,9 @@ export default class MVMImpl implements IMVM {
         this._currentReadyPromise.then(() => {
             this._notifier.sendNotification(Notification.MVMEvalRequest, {
                 requestId,
-                command
+                command,
+                isUserEval,
+                capabilitiesToRemove
             });
         }, () => {
             // Ignored
@@ -141,9 +184,9 @@ export default class MVMImpl implements IMVM {
      * @param args The arguments of the function
      * @returns A promise resolved when the feval completes
      */
-    feval<T> (functionName: string, nargout: number, args: unknown[]): ResolvablePromise<FEvalError | T> {
+    feval<T> (functionName: string, nargout: number, args: unknown[], capabilitiesToRemove?: Capability[]): ResolvablePromise<MVMError | {result: T[]}> {
         const requestId = this._getNewRequestId();
-        const promise = createResolvablePromise<T>();
+        const promise = createResolvablePromise<MatlabData>();
         this._requestMap[requestId] = {
             promise,
             isUserEval: false
@@ -154,7 +197,8 @@ export default class MVMImpl implements IMVM {
                 requestId,
                 functionName,
                 nargout,
-                args
+                args,
+                capabilitiesToRemove
             });
         }, () => {
             // Ignored
@@ -168,21 +212,6 @@ export default class MVMImpl implements IMVM {
      */
     interrupt (): void {
         this._notifier.sendNotification(Notification.MVMInterruptRequest);
-    }
-
-    /**
-     * Called with output from any requests
-     * @param data
-     */
-    onOutput (data: TextEvent): void {
-        throw new Error('Method not overridden.');
-    }
-
-    /**
-     * Called when a clc is run
-     */
-    onClc (): void {
-        throw new Error('Method not overridden.');
     }
 
     private _handleEvalResponse (message: EvalResponse): void {
@@ -213,5 +242,68 @@ export default class MVMImpl implements IMVM {
 
     private _getNewRequestId (): string {
         return Math.random().toString(36).substr(2, 9);
+    }
+
+    setBreakpoint (fileName: string, lineNumber: number, condition?: string, anonymousIndex?: number): ResolvablePromise<void> {
+        const requestId = this._getNewRequestId();
+        const promise = createResolvablePromise();
+        this._requestMap[requestId] = {
+            promise,
+            isUserEval: false
+        };
+
+        this._currentReadyPromise.then(() => {
+            this._notifier.sendNotification(Notification.MVMSetBreakpointRequest, {
+                requestId,
+                fileName,
+                lineNumber,
+                condition,
+                anonymousIndex
+            });
+        }, () => {
+            // Ignored
+        });
+
+        return promise;
+    }
+
+    clearBreakpoint (fileName: string, lineNumber: number, condition?: string, anonymousIndex?: number): ResolvablePromise<void> {
+        const requestId = this._getNewRequestId();
+        const promise = createResolvablePromise();
+        this._requestMap[requestId] = {
+            promise,
+            isUserEval: false
+        };
+
+        this._currentReadyPromise.then(() => {
+            this._notifier.sendNotification(Notification.MVMClearBreakpointRequest, {
+                requestId,
+                fileName,
+                lineNumber,
+                condition,
+                anonymousIndex
+            });
+        }, () => {
+            // Ignored
+        });
+
+        return promise;
+    }
+
+    private _handleBreakpointResponse (message: BreakpointResponse): void {
+        const obj = this._requestMap[message.requestId];
+        if (obj === undefined) {
+            return;
+        }
+        const promise = obj.promise;
+        promise.resolve();
+    }
+
+    unpause (): void {
+        this._currentReadyPromise.then(() => {
+            this._notifier.sendNotification(Notification.MVMUnpauseRequest, {});
+        }, () => {
+            // Ignored
+        });
     }
 }

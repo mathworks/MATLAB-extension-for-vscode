@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.2.7",
+	"version": "1.3.0",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -17,9 +17,12 @@
 	},
 	"categories": [
 		"Programming Languages",
-		"Snippets"
+		"Snippets",
+		"Debuggers"
 	],
 	"activationEvents": [
+		"onDebugResolve:matlab",
+		"onDebugDynamicConfigurations:matlab",
 		"onLanguage:matlab",
 		"onTerminalProfile:matlab.terminal-profile"
 	],
@@ -33,12 +36,14 @@
 			{
 				"command": "matlab.runFile",
 				"title": "MATLAB: Run File",
-				"icon": "$(play)"
+				"icon": "$(play)",
+				"when": "!matlab.isDebugging"
 			},
 			{
 				"command": "matlab.runSelection",
 				"title": "MATLAB: Run Current Selection",
-				"icon": "$(play)"
+				"icon": "$(play)",
+				"when": "!matlab.isDebugging"
 			},
 			{
 				"command": "matlab.openCommandWindow",
@@ -78,18 +83,32 @@
 			{
 				"command": "matlab.runFile",
 				"key": "f5",
-				"when": "editorTextFocus && editorLangId == matlab && !findInputFocussed && !replaceInputFocussed && resourceScheme != 'untitled'"
+				"when": "editorTextFocus && editorLangId == matlab && !findInputFocussed && !replaceInputFocussed && resourceScheme != 'untitled' && !matlab.isDebugging"
 			},
 			{
 				"command": "matlab.runSelection",
 				"key": "shift+enter",
-				"when": "editorTextFocus && editorHasSelection && !editorHasMultipleSelections && editorLangId == matlab && !findInputFocussed && !replaceInputFocussed"
+				"when": "editorTextFocus && editorHasSelection && !editorHasMultipleSelections && editorLangId == matlab && !findInputFocussed && !replaceInputFocussed && !matlab.isDebugging"
 			},
 			{
 				"command": "matlab.interrupt",
 				"key": "Ctrl+C",
 				"mac": "Cmd+C",
-				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused)) "
+				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused))" 
+			}
+		],
+		"breakpoints": [
+			{
+			  "language": "matlab"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "matlab",
+				"languages": [
+					"matlab"
+				],
+				"label": "MATLAB Label"
 			}
 		],
 		"menus": {
@@ -110,24 +129,24 @@
 			"editor/title/run": [
 				{
 					"command": "matlab.runFile",
-					"when": "editorLangId == matlab && resourceScheme != 'untitled'",
+					"when": "editorLangId == matlab && resourceScheme != 'untitled' && !matlab.isDebugging",
 					"group": "1_run"
 				},
 				{
 					"command": "matlab.runSelection",
-					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections",
+					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections && !matlab.isDebugging",
 					"group": "2_run"
 				}
 			],
 			"editor/context": [
 				{
 					"command": "matlab.runFile",
-					"when": "editorLangId == matlab && resourceScheme != 'untitled'",
+					"when": "editorLangId == matlab && resourceScheme != 'untitled' && !matlab.isDebugging",
 					"group": "1_run"
 				},
 				{
 					"command": "matlab.runSelection",
-					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections",
+					"when": "editorLangId == matlab && editorHasSelection && !editorHasMultipleSelections && !matlab.isDebugging",
 					"group": "1_run"
 				}
 			],
@@ -191,6 +210,12 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Automatically index all MATLAB code files (.m) in the current workspace.",
+					"scope": "window"
+				},
+				"MATLAB.startDebuggerAutomatically": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Automatically start the Visual Studio Code debugger when MATLAB reaches a breakpoint.",
 					"scope": "window"
 				},
 				"MATLAB.telemetry": {
@@ -301,6 +326,7 @@
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",
-		"vscode-languageclient": "^8.0.2"
+		"vscode-languageclient": "^8.0.2",
+		"@vscode/debugadapter": "^1.56.0"
 	}
 }
