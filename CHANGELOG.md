@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2024-12-18
 
+### Notice
+- This extension no longer supports MATLAB R2021a. To make use of the advanced features of the extension or run and debug MATLAB code, you must have MATLAB R2021b or later installed.
+
 ### Added
 - Debugging support
 - Support for inserting code snippets shipped with MATLAB (requires MATLAB R2025a or later)
