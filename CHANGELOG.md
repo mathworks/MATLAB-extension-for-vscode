@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Syntax highlighting improvements (Community contribution from @apozharski)
-- Patches CVE-2024-21538 and CVE-2024-52798
+- Patches CVE-2024-21538, CVE-2024-52798, and CVE-2024-55565
 
 ## [1.2.7] - 2024-11-07
 
