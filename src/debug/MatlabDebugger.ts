@@ -113,7 +113,7 @@ export default class MatlabDebugger {
             session.name = 'MATLAB';
 
             const isInvalidToStartSession = (await vscode.workspace.getConfiguration('MATLAB').get('matlabConnectionTiming')) === 'never'
-            if (isInvalidToStartSession) {
+            if (isInvalidToStartSession && this._mvm.getMatlabState() === MatlabState.DISCONNECTED) {
                 void vscode.debug.stopDebugging(session);
                 return;
             }
