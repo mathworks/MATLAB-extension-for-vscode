@@ -1,7 +1,7 @@
 // Copyright 2024 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
-import MVM from './MVM'
+import { MVM } from './MVM'
 import { Notifier, ResolvablePromise, createResolvablePromise } from './Utilities'
 import CommandWindow from './CommandWindow'
 import Notification from '../Notifications'

@@ -29,8 +29,40 @@ export function createResolvablePromise<T = void> (): ResolvablePromise<T> {
  * Represents an object that can send and recieve data on specific channels.
  */
 export interface Notifier {
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sendNotification: (tag: string, data?: any) => void
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onNotification: (tag: string, callback: (data: any) => void) => void
+}
+
+export class MultiClientNotifier implements Notifier {
+    readonly _notifier: Notifier;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _callbacks: { [tag: string]: Array<(data: any) => void> } = {};
+
+    constructor (notifier: Notifier) {
+        this._notifier = notifier;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sendNotification (tag: string, data?: any): void {
+        this._notifier.sendNotification(tag, data);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onNotification (tag: string, callback: (data: any) => void): void {
+        if (!(tag in this._callbacks)) {
+            this._callbacks[tag] = [];
+            this._notifier.onNotification(tag, this._handler.bind(this, tag));
+        }
+        this._callbacks[tag].push(callback);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _handler (tag: string, data: any): void {
+        this._callbacks[tag].forEach((callback) => {
+            callback(data);
+        }, this);
+    }
 }

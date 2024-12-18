@@ -1,7 +1,7 @@
 // Copyright 2024 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
-import MVM from './MVM'
+import { MVM } from './MVM'
 import TerminalService from './TerminalService'
 import TelemetryLogger from '../telemetry/TelemetryLogger'
 import * as path from 'path'
@@ -120,7 +120,8 @@ export default class ExecutionCommandProvider {
         } catch (e) {
             return;
         }
-        if (mdbfileonpathResult.error !== undefined) {
+
+        if ('error' in mdbfileonpathResult) {
             return;
         }
 

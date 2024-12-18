@@ -7,14 +7,16 @@ import {
 } from 'vscode-languageclient/node'
 import NotificationConstants from './NotificationConstants'
 import TelemetryLogger, { TelemetryEvent } from './telemetry/TelemetryLogger'
-import MVM from './commandwindow/MVM'
-import { Notifier } from './commandwindow/Utilities'
+import { MVM } from './commandwindow/MVM'
+import { Notifier, MultiClientNotifier } from './commandwindow/Utilities'
 import TerminalService from './commandwindow/TerminalService'
 import Notification from './Notifications'
 import ExecutionCommandProvider from './commandwindow/ExecutionCommandProvider'
 import * as LicensingUtils from './utils/LicensingUtils'
 import DeprecationPopupService from './DeprecationPopupService'
 import SectionStylingService from './styling/SectionStylingService'
+import MatlabDebugger from './debug/MatlabDebugger'
+
 let client: LanguageClient
 const OPEN_SETTINGS_ACTION = 'workbench.action.openSettings'
 const MATLAB_INSTALL_PATH_SETTING = 'matlab.installPath'
@@ -37,6 +39,8 @@ let deprecationPopupService: DeprecationPopupService
 let sectionStylingService: SectionStylingService;
 
 let mvm: MVM;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let matlabDebugger: MatlabDebugger;
 let terminalService: TerminalService;
 let executionCommandProvider: ExecutionCommandProvider;
 
@@ -118,9 +122,12 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     client.onNotification(Notification.MatlabFeatureUnavailable, () => handleFeatureUnavailable())
     client.onNotification(Notification.MatlabFeatureUnavailableNoMatlab, () => handleFeatureUnavailableWithNoMatlab())
     client.onNotification(Notification.LogTelemetryData, (data: TelemetryEvent) => handleTelemetryReceived(data))
-    mvm = new MVM(client as Notifier);
-    terminalService = new TerminalService(client as Notifier, mvm);
+
+    const multiclientNotifier = new MultiClientNotifier(client as Notifier);
+    mvm = new MVM(multiclientNotifier);
+    terminalService = new TerminalService(multiclientNotifier, mvm);
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
+    matlabDebugger = new MatlabDebugger(mvm, multiclientNotifier, telemetryLogger);
 
     context.subscriptions.push(vscode.commands.registerCommand('matlab.runFile', async () => await executionCommandProvider.handleRunFile()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
@@ -388,7 +395,8 @@ function getServerArgs (context: vscode.ExtensionContext): string[] {
     const configuration = vscode.workspace.getConfiguration('MATLAB')
     const args = [
         `--matlabInstallPath=${configuration.get<string>('installPath') ?? ''}`,
-        `--matlabConnectionTiming=${configuration.get<string>('launchMatlab') ?? 'onStart'}`
+        `--matlabConnectionTiming=${configuration.get<string>('launchMatlab') ?? 'onStart'}`,
+        '--snippetIgnoreList=\'For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block\''
     ]
 
     if (configuration.get<boolean>('indexWorkspace') ?? false) {
