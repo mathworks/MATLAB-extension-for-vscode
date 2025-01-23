@@ -1,20 +1,24 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2025 The MathWorks, Inc.
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
-import { before, afterEach } from 'mocha';
+import { before, afterEach, after } from 'mocha';
 
 suite('Terminal Smoke Tests', () => {
     let vs: VSCodeTester
 
     before(async () => {
         vs = new VSCodeTester();
-        await vs.openDocument('hScript1.m')
+        await vs.openEditor('hScript1.m')
         await vs.assertMATLABConnected()
-        await vs.closeActiveDocument()
+        await vs.closeActiveEditor()
         await vs.openMATLABTerminal()
     });
 
     afterEach(async () => {
         await vs.terminal.executeCommand('clc');
+    });
+
+    after(async () => {
+        await vs.disconnectFromMATLAB()
     });
 
     test('Test prompt', async () => {

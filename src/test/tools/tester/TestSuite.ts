@@ -1,7 +1,8 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 import { GlobSync } from 'glob'
 import * as path from 'path'
 import { ExTester, ReleaseQuality } from 'vscode-extension-tester'
+import * as PollingUtils from '../utils/PollingUtils'
 import * as fs from 'fs';
 import * as os from 'os';
 
@@ -30,8 +31,12 @@ export class TestSuite {
         const settingsjson = path.join(__dirname, '..', 'config', 'settings.json')
         const settings = JSON.stringify({
             'MATLAB.installPath': MATLAB_PATH,
+            'MATLAB.telemetry': false,
+            'MATLAB.startDebuggerAutomatically': true,
             'window.dialogStyle': 'custom',
-            'terminal.integrated.copyOnSelection': true
+            'terminal.integrated.copyOnSelection': true,
+            'debug.toolBarLocation': 'docked',
+            'workbench.startupEditor': 'none'
         })
         fs.writeFileSync(settingsjson, settings)
         this.vscodeSettings = settingsjson
@@ -53,7 +58,7 @@ export class TestSuite {
     }
 
     /**
-     * Queues the array of tests provided to each run in a seperate VSCode instance
+     * Queues the array of tests provided to each run in a separate VSCode instance
      */
     public async enqueueTests (tests: string[]): Promise<void> {
         const exTester = new ExTester(this.storageFolder, this.releaseQuality, undefined)
@@ -74,6 +79,7 @@ export class TestSuite {
                 console.log(err)
                 process.exit(1)
             }
+            await PollingUtils.pause(10000); // wait for state to be reset before running next test
         }
     }
 }
