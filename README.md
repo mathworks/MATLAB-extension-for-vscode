@@ -21,7 +21,7 @@ The extension provides several basic features, regardless of whether you have MA
 ![MATLAB Extension Demo](public/BasicFeatures.gif)
 
 ### Advanced Features (requires MATLAB installed on your system)
-If you have MATLAB R2021a or later installed on your system, you have access to an additional set of advanced features. These features include:
+If you have MATLAB R2021b or later installed on your system, you have access to an additional set of advanced features. These features include:
 * Code execution and debugging
 * Automatic code completion
 * Source code formatting (document formatting)
@@ -46,7 +46,6 @@ There are some limitations to running and debugging MATLAB code in Visual Studio
 * Creating a custom run configuration for a file is not supported.
 * When using the **dbstop** and **dbclear** functions to set and clear breakpoints, the breakpoints are added to file but are not shown in Visual Studio Code.
 * Variable values changed in the MATLAB terminal when Visual Studio Code is paused do not update in the **Run and Debug** view until the next time Visual Studio Code pauses.
-* Changing which stack frame is selected in Visual Studio Code will not automatically change the workspace used by the MATLAB terminal when debugging
 
 ## Configuration
 To configure the extension, go to the extension settings and select from the available options.
