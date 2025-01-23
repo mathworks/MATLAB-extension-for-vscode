@@ -19,7 +19,10 @@ export class TerminalTester {
      * Execute a command in the MATLAB terminal
      */
     public async executeCommand (command: string): Promise<void> {
-        return await this.terminal.executeCommand(command);
+        if (command.endsWith('clc')) {
+            return await this.terminal.executeCommand(`${command}, disp(' ')`); // workaround since clc is broken in 22b
+        }
+        return await this.terminal.executeCommand(command)
     }
 
     /**
