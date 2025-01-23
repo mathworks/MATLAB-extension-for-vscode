@@ -1,11 +1,11 @@
-// Copyright 2023-2024 The MathWorks, Inc.
+// Copyright 2023-2025 The MathWorks, Inc.
 
 import * as assert from 'assert'
 
 const DEFAULT_TIMEOUT = 30000;
 
 /**
- * Pause the test for the speecified time
+ * Pause the test for the specified time
  */
 export const pause = async (ms: number): Promise<void> => await new Promise((resolve) => setTimeout(resolve, ms))
 
