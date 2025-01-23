@@ -51,7 +51,7 @@ There are some limitations to running and debugging MATLAB code in Visual Studio
 To configure the extension, go to the extension settings and select from the available options.
 
 ### MATLAB Install Path Setting
-If you have MATLAB installed on your system, the extension automatically checks the system path for the location of the MATLAB executable. If the MATLAB executable is not on the system path, you may need to manually set the `matlab.installPath` setting to the full path of your MATLAB installation. For example, `C:\Program Files\MATLAB\R2022b` (Windows&reg;), `/Applications/MATLAB_R2022b.app` (macOS), or `/usr/local/MATLAB/R2022b` (Linux&reg;).
+If you have MATLAB installed on your system, the extension automatically checks the system path for the location of the MATLAB executable. If the MATLAB executable is not on the system path, you may need to manually set the `MATLAB.installPath` setting to the full path of your MATLAB installation. For example, `C:\Program Files\MATLAB\R2022b` (Windows&reg;), `/Applications/MATLAB_R2022b.app` (macOS), or `/usr/local/MATLAB/R2022b` (Linux&reg;).
 
 You can determine the full path of your MATLAB installation by using the `matlabroot` command in MATLAB. 
 
@@ -61,37 +61,37 @@ matlabroot
 ans =
     'C:\Program Files\MATLAB\R2022b'
 ```
-In the extension settings, set the `matlab.installPath` setting to the value returned by the `matlabroot` command.
+In the extension settings, set the `MATLAB.installPath` setting to the value returned by the `matlabroot` command.
 
 ![MATLAB Install Path Setting](public/InstallPathSetting.png)
 
 ### MATLAB Automatically Start Debugger Setting
-By default, the extension automatically starts the Visual Studio Code debugger when MATLAB reaches a breakpoint. To disable automatically starting the Visual Studio Code debugger, set the `matlab.automaticallyStartDebugger` setting to `false`. When starting the Visual Studio Debugger is disabled, MATLAB still stops at breakpoints, and you can debug your code in the MATLAB terminal using the MATLAB debugging functions.
+By default, the extension does not automatically start the Visual Studio Code debugger when MATLAB reaches a breakpoint. To enable automatically starting the Visual Studio Code debugger, set the `MATLAB.startDebuggerAutomatically` setting to `true`. When starting the Visual Studio Debugger is disabled, MATLAB still stops at breakpoints, and you can debug your code in the MATLAB terminal using the MATLAB debugging functions.
 
 ### MATLAB Index Workspace Setting
 By default, the extension indexes all the MATLAB code files (`.m`) in your current workspace. Indexing allows the extension to find and navigate between your MATLAB code files. 
-You can disable indexing to improve the performance of the extension. To disable indexing, set the `matlab.indexWorkspace` setting to `false`. Disabling indexing can cause features such as code navigation not to function as expected.
+You can disable indexing to improve the performance of the extension. To disable indexing, set the `MATLAB.indexWorkspace` setting to `false`. Disabling indexing can cause features such as code navigation not to function as expected.
 
 ### MATLAB Connection Timing Setting
-By default, the extension starts MATLAB in the background when you open a MATLAB code file in Visual Studio Code. To control when the extension starts MATLAB, set the `matlab.matlabConnectionTiming` setting to one of these values: 
+By default, the extension starts MATLAB in the background when you open a MATLAB code file in Visual Studio Code. To control when the extension starts MATLAB, set the `MATLAB.matlabConnectionTiming` setting to one of these values: 
 * `onStart` (default) — Start MATLAB as soon as a MATLAB code file is opened.
 * `onDemand` — Start MATLAB only when needed for a given action.
 * `never` — Never start MATLAB.
 Note: Some functionality is available only with MATLAB running in the background.
 
 ### MATLAB Max File Size for Analysis Setting
-By default, the extension analyzes all files, regardless of their size, for features such as linting, code navigation, and symbol renaming. To limit the maximum number of characters a file can contain, set the `matlab.maxFileSizeForAnalysis` setting. For example, to limit the number of characters to 50,000, set the `matlab.maxFileSizeForAnalysis` setting to `50000`. If a file contains more than the maximum number of characters, features such as linting, code navigation, and symbol renaming are disabled for that file. To remove the limit and analyze all files regardless of their size, set the `matlab.maxFileSizeForAnalysis` setting to `0`.
+By default, the extension analyzes all files, regardless of their size, for features such as linting, code navigation, and symbol renaming. To limit the maximum number of characters a file can contain, set the `MATLAB.maxFileSizeForAnalysis` setting. For example, to limit the number of characters to 50,000, set the `MATLAB.maxFileSizeForAnalysis` setting to `50000`. If a file contains more than the maximum number of characters, features such as linting, code navigation, and symbol renaming are disabled for that file. To remove the limit and analyze all files regardless of their size, set the `MATLAB.maxFileSizeForAnalysis` setting to `0`.
 
 ### MATLAB Show Feature Not Available Error Setting
-By default, the extension displays an error when a feature requires MATLAB and MATLAB is unable to start. To not display an error, set the `matlab.showFeatureNotAvailableError` setting to `false`.
+By default, the extension displays an error when a feature requires MATLAB and MATLAB is unable to start. To not display an error, set the `MATLAB.showFeatureNotAvailableError` setting to `false`.
 
 ### MATLAB Sign In Setting
 By default, the extension assumes that the MATLAB installation specified in the Install Path setting is activated.
 
-To enable browser-based sign in to your MathWorks account using the Online License Manager or a Network License Manager, set the `matlab.signIn` setting to true. When this setting is enabled, the extension prompts you to sign in when it starts MATLAB.
+To enable browser-based sign in to your MathWorks account using the Online License Manager or a Network License Manager, set the `MATLAB.signIn` setting to true. When this setting is enabled, the extension prompts you to sign in when it starts MATLAB.
 
 ### MATLAB Telemetry Setting
-You can help improve the extension by sending user experience information to MathWorks&reg;. By default, the extension sends user experience information to MathWorks. To disable sending information, set the `matlab.telemetry` setting to `false`.
+You can help improve the extension by sending user experience information to MathWorks&reg;. By default, the extension sends user experience information to MathWorks. To disable sending information, set the `MATLAB.telemetry` setting to `false`.
 
 For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).
 

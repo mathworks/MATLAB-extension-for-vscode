@@ -214,7 +214,7 @@
 				},
 				"MATLAB.startDebuggerAutomatically": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"markdownDescription": "Automatically start the Visual Studio Code debugger when MATLAB reaches a breakpoint.",
 					"scope": "window"
 				},
