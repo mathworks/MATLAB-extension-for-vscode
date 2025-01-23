@@ -1,4 +1,4 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { Notifier } from '../commandwindow/Utilities';
@@ -142,6 +142,23 @@ export default class MatlabDebugger {
                 }
             }
         });
+
+        // API not present prior to VS Code version 1.92
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((vscode.debug as any).onDidChangeActiveStackItem !== undefined) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (vscode.debug as any).onDidChangeActiveStackItem((frame: any) => {
+                if (this._baseDebugSession !== null) {
+                    return;
+                }
+
+                if (!this._activeSessions.has(frame.session) || frame.session === this._baseDebugSession) {
+                    return;
+                }
+
+                frame.session.customRequest('StackChange', { frame: frame.frameId as number });
+            });
+        }
 
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         this._mvm.on(MVM.Events.stateChanged, this._handleMvmStateChange.bind(this));

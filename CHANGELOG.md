@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2025-01-23
+
+### Added
+- The extension keeps the MATLAB path in sync with the VS Code workspace, improving code navigation, completions, and execution
+- The extension keeps the MATLAB debug workspace in sync with the selected callstack in VS Code
+
+### Fixed
+- Changing the default value of `MATLAB.startDebuggerAutomatically` to `false`
+- Resolves errors with document formatting when using with MATLAB R2025a
+- Resolves errors with execution and debugging when using with MATLAB R2022a
+
 ## [1.3.0] - 2024-12-18
 
 ### Notice
