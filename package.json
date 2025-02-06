@@ -306,7 +306,7 @@
 	"devDependencies": {
 		"@types/glob": "^8.0.0",
 		"@types/mocha": "^9.1.1",
-		"@types/node": "^18.7.18",
+		"@types/node": "^18.19.50",
 		"@types/node-fetch": "^2.6.2",
 		"@types/vscode": "^1.67.0",
 		"@typescript-eslint/eslint-plugin": "^5.36.1",
@@ -321,8 +321,8 @@
 		"eslint-plugin-promise": "^6.0.1",
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
-		"typescript": "^4.8.3",
-		"vscode-extension-tester": "8.3.1"
+		"typescript": "^5.0.4",
+		"vscode-extension-tester": "8.11.0"
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",
