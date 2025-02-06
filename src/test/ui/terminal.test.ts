@@ -7,9 +7,7 @@ suite('Terminal Smoke Tests', () => {
 
     before(async () => {
         vs = new VSCodeTester();
-        await vs.openEditor('hScript1.m')
-        await vs.assertMATLABConnected()
-        await vs.closeActiveEditor()
+        await vs.connectToMATLAB()
         await vs.openMATLABTerminal()
     });
 

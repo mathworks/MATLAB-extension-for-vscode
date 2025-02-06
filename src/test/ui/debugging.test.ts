@@ -7,9 +7,7 @@ suite('Debugging Smoke Tests', () => {
 
     before(async () => {
         vs = new VSCodeTester();
-        await vs.openEditor('hScript1.m')
-        await vs.assertMATLABConnected()
-        await vs.closeActiveEditor()
+        await vs.connectToMATLAB()
         await vs.openMATLABTerminal()
         await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}')`)
         await vs.terminal.executeCommand('clc')
