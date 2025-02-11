@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Resolves error with adding workspace folders to the MATLAB path on Unix systems
+
 ## [1.3.1] - 2025-01-23
 
 ### Added
