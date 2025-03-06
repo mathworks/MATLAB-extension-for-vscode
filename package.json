@@ -93,7 +93,6 @@
 			{
 				"command": "matlab.interrupt",
 				"key": "Ctrl+C",
-				"mac": "Cmd+C",
 				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused))" 
 			}
 		],
