@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Resolves errors with adding workspace folders to the MATLAB path on macOS and Linux systems
+- Update keyboard shortcut to stop MATLAB execution from `Cmd+C` to `Ctrl+C` on macOS systems
 
 ## [1.3.1] - 2025-01-23
 
