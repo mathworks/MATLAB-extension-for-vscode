@@ -94,6 +94,9 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private readonly _commandHistory: string[] = [];
     private _historyIndex: number = 0;
     private _lastKnownCurrentLine: string = '';
+    private _filteredCommandHistory: string[] = [];
+    private _filteredHistoryIndex: number = 0;
+    private _commandHistoryFilter: string = '';
 
     private _terminalDimensions: vscode.TerminalDimensions;
     private _lastSentTerminalDimensions: vscode.TerminalDimensions | null = null;
@@ -347,26 +350,63 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _handleNavigateHistory (direction: HistoryDirection): boolean {
         const isCurrentlyAtEndOfHistory = this._historyIndex === this._commandHistory.length;
-        const isCurrentlyAtBeginningOfHistory = this._historyIndex === 0;
 
-        if (direction === HistoryDirection.BACKWARDS && isCurrentlyAtBeginningOfHistory) {
+        if (isCurrentlyAtEndOfHistory && this._stripCurrentPrompt(this._currentPromptLine) !== '') {
+            // Only update the filtered history if the current line changes
+            if (this._filteredCommandHistory.length === 0) {
+                this._commandHistoryFilter = this._stripCurrentPrompt(this._currentPromptLine);
+
+                this._filteredCommandHistory = this._commandHistory.filter(cmd =>
+                    cmd.toLowerCase().startsWith(this._commandHistoryFilter.toLowerCase()));
+                this._filteredHistoryIndex = this._filteredCommandHistory.length;
+            }
+
+            // Filter history based on the current prompt text
+            return this._navigateHistory(
+                direction,
+                this._filteredHistoryIndex,
+                this._filteredCommandHistory,
+                (newIndex) => { this._filteredHistoryIndex = newIndex }
+            );
+        }
+
+        return this._navigateHistory(
+            direction,
+            this._historyIndex,
+            this._commandHistory,
+            (newIndex) => { this._historyIndex = newIndex }
+        );
+    }
+
+    private _navigateHistory (
+        direction: HistoryDirection,
+        currentIndex: number,
+        history: string[],
+        updateIndex: (newIndex: number) => void
+    ): boolean {
+        const isAtEnd = currentIndex === history.length;
+        const isAtBeginning = currentIndex === 0;
+
+        if ((direction === HistoryDirection.BACKWARDS && isAtBeginning) ||
+            (direction === HistoryDirection.FORWARDS && isAtEnd)) {
             return false;
         }
 
-        if (direction === HistoryDirection.FORWARDS && isCurrentlyAtEndOfHistory) {
-            return false;
-        }
-
-        if (isCurrentlyAtEndOfHistory) {
+        if (isAtEnd) {
             this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
         }
 
-        this._historyIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
-        return this._replaceCurrentLineWithNewLine(this._currentPrompt + this._getHistoryItem(this._historyIndex));
+        currentIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
+        updateIndex(currentIndex);
+        const line = (currentIndex < history.length)
+            ? history[currentIndex]
+            : this._lastKnownCurrentLine;
+        return this._replaceCurrentLineWithNewLine(this._currentPrompt + line);
     }
 
     private _markCurrentLineChanged (): void {
         this._historyIndex = this._commandHistory.length;
+        this._filteredCommandHistory = [];
         this._lastKnownCurrentLine = '';
     }
 
@@ -587,14 +627,6 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._commandHistory.push(command);
         }
         this._historyIndex = this._commandHistory.length;
-    }
-
-    private _getHistoryItem (n: number): string {
-        if (this._historyIndex < this._commandHistory.length) {
-            return this._commandHistory[n];
-        } else {
-            return this._lastKnownCurrentLine;
-        }
     }
 
     private _moveCursorToCurrent (lineOfInputCursorIsCurrentlyOn?: number): void {
