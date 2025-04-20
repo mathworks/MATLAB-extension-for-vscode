@@ -91,7 +91,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _lastOutputLine: string = '';
 
-    private readonly _commandHistory: string[] = [];
+    private readonly _rawCommandHistory: string[] = [];
     private _historyIndex: number = 0;
     private _lastKnownCurrentLine: string = '';
     private _filteredCommandHistory: string[] = [];
@@ -349,14 +349,14 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _handleNavigateHistory (direction: HistoryDirection): boolean {
-        const isCurrentlyAtEndOfHistory = this._historyIndex === this._commandHistory.length;
+        const isCurrentlyAtEndOfHistory = this._historyIndex === this._rawCommandHistory.length;
 
         if (isCurrentlyAtEndOfHistory && this._stripCurrentPrompt(this._currentPromptLine) !== '') {
             // Only update the filtered history if the current line changes
             if (this._filteredCommandHistory.length === 0) {
                 this._commandHistoryFilter = this._stripCurrentPrompt(this._currentPromptLine);
 
-                this._filteredCommandHistory = this._commandHistory.filter(cmd =>
+                this._filteredCommandHistory = this._rawCommandHistory.filter(cmd =>
                     cmd.toLowerCase().startsWith(this._commandHistoryFilter.toLowerCase()));
                 this._filteredHistoryIndex = this._filteredCommandHistory.length;
             }
@@ -373,7 +373,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return this._navigateHistory(
             direction,
             this._historyIndex,
-            this._commandHistory,
+            this._rawCommandHistory,
             (newIndex) => { this._historyIndex = newIndex }
         );
     }
@@ -405,7 +405,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _markCurrentLineChanged (): void {
-        this._historyIndex = this._commandHistory.length;
+        this._historyIndex = this._rawCommandHistory.length;
         this._filteredCommandHistory = [];
         this._lastKnownCurrentLine = '';
     }
@@ -622,11 +622,11 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _addToHistory (command: string): void {
         const isEmpty = command === '';
-        const isLastInHistory = this._commandHistory.length !== 0 && command === this._commandHistory[this._commandHistory.length - 1];
+        const isLastInHistory = this._rawCommandHistory.length !== 0 && command === this._rawCommandHistory[this._rawCommandHistory.length - 1];
         if (!isEmpty && !isLastInHistory) {
-            this._commandHistory.push(command);
+            this._rawCommandHistory.push(command);
         }
-        this._historyIndex = this._commandHistory.length;
+        this._historyIndex = this._rawCommandHistory.length;
     }
 
     private _moveCursorToCurrent (lineOfInputCursorIsCurrentlyOn?: number): void {
