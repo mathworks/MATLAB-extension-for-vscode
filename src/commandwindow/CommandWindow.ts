@@ -95,8 +95,6 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private _historyIndex: number = 0;
     private _lastKnownCurrentLine: string = '';
     private _filteredCommandHistory: string[] = [];
-    private _filteredHistoryIndex: number = 0;
-    private _commandHistoryFilter: string = '';
 
     private _terminalDimensions: vscode.TerminalDimensions;
     private _lastSentTerminalDimensions: vscode.TerminalDimensions | null = null;
@@ -349,43 +347,8 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _handleNavigateHistory (direction: HistoryDirection): boolean {
-        const isCurrentlyAtEndOfHistory = this._historyIndex === this._rawCommandHistory.length;
-
-        if (isCurrentlyAtEndOfHistory && this._stripCurrentPrompt(this._currentPromptLine) !== '') {
-            // Only update the filtered history if the current line changes
-            if (this._filteredCommandHistory.length === 0) {
-                this._commandHistoryFilter = this._stripCurrentPrompt(this._currentPromptLine);
-
-                this._filteredCommandHistory = this._rawCommandHistory.filter(cmd =>
-                    cmd.toLowerCase().startsWith(this._commandHistoryFilter.toLowerCase()));
-                this._filteredHistoryIndex = this._filteredCommandHistory.length;
-            }
-
-            // Filter history based on the current prompt text
-            return this._navigateHistory(
-                direction,
-                this._filteredHistoryIndex,
-                this._filteredCommandHistory,
-                (newIndex) => { this._filteredHistoryIndex = newIndex }
-            );
-        }
-
-        return this._navigateHistory(
-            direction,
-            this._historyIndex,
-            this._rawCommandHistory,
-            (newIndex) => { this._historyIndex = newIndex }
-        );
-    }
-
-    private _navigateHistory (
-        direction: HistoryDirection,
-        currentIndex: number,
-        history: string[],
-        updateIndex: (newIndex: number) => void
-    ): boolean {
-        const isAtEnd = currentIndex === history.length;
-        const isAtBeginning = currentIndex === 0;
+        const isAtEnd = this._historyIndex === this._filteredCommandHistory.length;
+        const isAtBeginning = this._historyIndex === 0;
 
         if ((direction === HistoryDirection.BACKWARDS && isAtBeginning) ||
             (direction === HistoryDirection.FORWARDS && isAtEnd)) {
@@ -396,17 +359,21 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
         }
 
-        currentIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
-        updateIndex(currentIndex);
-        const line = (currentIndex < history.length)
-            ? history[currentIndex]
-            : this._lastKnownCurrentLine;
+        this._historyIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
+        const line = this._getHistoryItem(this._historyIndex);
         return this._replaceCurrentLineWithNewLine(this._currentPrompt + line);
     }
 
     private _markCurrentLineChanged (): void {
-        this._historyIndex = this._rawCommandHistory.length;
-        this._filteredCommandHistory = [];
+        const commandHistoryFilter = this._stripCurrentPrompt(this._currentPromptLine);
+        if (commandHistoryFilter !== '') {
+            this._filteredCommandHistory = this._rawCommandHistory.filter(cmd =>
+                cmd.toLowerCase().startsWith(commandHistoryFilter.toLowerCase()));
+        } else {
+            this._filteredCommandHistory = this._rawCommandHistory
+        }
+
+        this._historyIndex = this._filteredCommandHistory.length;
         this._lastKnownCurrentLine = '';
     }
 
@@ -622,11 +589,20 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _addToHistory (command: string): void {
         const isEmpty = command === '';
-        const isLastInHistory = this._rawCommandHistory.length !== 0 && command === this._rawCommandHistory[this._rawCommandHistory.length - 1];
+        const isLastInHistory =
+            this._rawCommandHistory.length !== 0 &&
+            command === this._rawCommandHistory[this._rawCommandHistory.length - 1];
         if (!isEmpty && !isLastInHistory) {
             this._rawCommandHistory.push(command);
         }
         this._historyIndex = this._rawCommandHistory.length;
+        this._filteredCommandHistory = this._rawCommandHistory
+    }
+
+    private _getHistoryItem (n: number): string {
+        return (this._historyIndex < this._filteredCommandHistory.length)
+            ? this._filteredCommandHistory[n]
+            : this._lastKnownCurrentLine;
     }
 
     private _moveCursorToCurrent (lineOfInputCursorIsCurrentlyOn?: number): void {
