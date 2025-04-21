@@ -4,6 +4,7 @@ import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, C
 import { createResolvablePromise, ResolvablePromise, Notifier } from './Utilities'
 import Notification from '../Notifications'
 import EventEmitter = require('events')
+import { CompletionItem, CompletionList, CompletionParams, DidOpenTextDocumentParams } from 'vscode-languageclient/node'
 
 /**
  * The current state of MATLAB
@@ -76,6 +77,14 @@ export class MVM extends EventEmitter {
         this._currentReadyPromise = createResolvablePromise();
 
         this._pendingUserEvals = 0;
+    }
+
+    sendNotificationDidOpen (params: DidOpenTextDocumentParams): void {
+        this._notifier.sendNotificationDidOpen(params);
+    }
+
+    sendRequestCompletion (params: CompletionParams): Thenable<CompletionItem[] | CompletionList> {
+        return this._notifier.sendRequestCompletion(params);
     }
 
     /**

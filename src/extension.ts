@@ -123,7 +123,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     client.onNotification(Notification.MatlabFeatureUnavailableNoMatlab, () => handleFeatureUnavailableWithNoMatlab())
     client.onNotification(Notification.LogTelemetryData, (data: TelemetryEvent) => handleTelemetryReceived(data))
 
-    const multiclientNotifier = new MultiClientNotifier(client as Notifier);
+    const multiclientNotifier = new MultiClientNotifier(client);
     mvm = new MVM(multiclientNotifier);
     terminalService = new TerminalService(multiclientNotifier, mvm);
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);

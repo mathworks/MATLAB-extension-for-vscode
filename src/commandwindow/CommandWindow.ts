@@ -3,6 +3,7 @@
 import * as vscode from 'vscode'
 import { MVM, MatlabState } from './MVM'
 import { TextEvent, PromptState } from './MVMInterface'
+import { CompletionItem, CompletionTriggerKind, Position, TextDocumentItem } from 'vscode-languageclient';
 
 /**
  * Direction of cursor movement
@@ -50,6 +51,7 @@ const ACTION_KEYS = {
     SELECT_ALL: '\x01',
     DELETE: ESC + '[3~',
     ESCAPE: ESC,
+    TAB: '\t',
 
     INVERT_COLORS: ESC + '[7m',
     RESTORE_COLORS: ESC + '[27m',
@@ -334,6 +336,8 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 return this._handleCopy();
             case ACTION_KEYS.PASTE:
                 return this._handlePaste();
+            case ACTION_KEYS.TAB:
+                return this._handleTab();
             default:
                 return false;
         }
@@ -578,6 +582,94 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._writeCurrentPromptLine();
 
         void this._evaluateCommand(stringToEvaluate);
+    }
+
+    private _handleTab (): boolean {
+        const currentLine = this._stripCurrentPrompt(this._currentPromptLine);
+        const documentUri = vscode.Uri.parse('temporaryPromptLineDoc.m');
+        const textDocument: TextDocumentItem = {
+            uri: documentUri.toString(),
+            languageId: 'matlab',
+            version: 1,
+            text: currentLine
+        }
+        this._mvm.sendNotificationDidOpen({ textDocument });
+
+        const cursorPos: Position = { line: 0, character: currentLine.length };
+        const completionParams = {
+            textDocument: { uri: textDocument.uri },
+            position: cursorPos,
+            content: { triggerKind: CompletionTriggerKind.Invoked }
+        }
+
+        const completionResultPromise = Promise.resolve(this._mvm.sendRequestCompletion(completionParams));
+
+        completionResultPromise.then((result) => {
+            const items: CompletionItem[] = Array.isArray(result) ? result : result.items ?? [];
+
+            if (items.length === 0) {
+                return;
+            }
+
+            if (items.length === 1) {
+                const item = items[0];
+                const insertText = (item.textEdit != null) ? item.textEdit.newText : (item.insertText ?? item.label);
+                const prefixMatch = /[A-za-z0-9_]*$/.exec(currentLine.slice(0, this._cursorIndex));
+                const prefixLength = (prefixMatch != null && prefixMatch.length > 0) ? prefixMatch[0].length : 0;
+                const prefixStart = this._cursorIndex - prefixLength;
+                const before = currentLine.slice(0, prefixStart);
+                const after = currentLine.slice(this._cursorIndex);
+                const newInput = before + insertText + after;
+                this._currentPromptLine = this._currentPrompt + newInput;
+                this._cursorIndex = prefixStart + insertText.length;
+                this._anchorIndex = undefined;
+                this._writeCurrentPromptLine();
+            } else {
+                // Multiple completions: find common prefix and list all options
+                this.addOutput({ text: this._currentPromptLine + '\n', stream: 0 });
+                const suggestions = items.map(item => item.label);
+                this.addOutput({ text: suggestions.join('\n') + '\n', stream: 0 });
+                const commonPrefix = this._getLongestCommonPrefix(suggestions);
+                const currentWord = currentLine.substring(this._getWordStart(currentLine));
+                const toAdd = commonPrefix.substring(currentWord.length);
+                if (toAdd.length > 0) {
+                    this._currentPromptLine = this._currentPromptLine + toAdd;
+                    this._cursorIndex += toAdd.length;
+                    this._writeCurrentPromptLine();
+                }
+            }
+        }).catch(error => {
+            console.log('Tab completion request failed');
+            console.log(error);
+        })
+
+        return true;
+    }
+
+    private _getWordStart (word: string): number {
+        const separators = /[\s()[\]{},.;]/;
+        for (let i = word.length - 1; i >= 0; i--) {
+            if (separators.test(word[i])) {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+
+    private _getLongestCommonPrefix (strings: string[]): string {
+        if (strings.length === 0) {
+            return '';
+        }
+        let prefix = strings[0];
+        for (const str of strings) {
+            while (!str.startsWith(prefix)) {
+                prefix = prefix.slice(0, -1);
+                if (prefix === '') {
+                    return '';
+                }
+            }
+        }
+        return prefix;
     }
 
     private _addToHistory (command: string): void {
