@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The MathWorks, Inc.
+// Copyright 2023-2025 The MathWorks, Inc.
 
 enum Notification {
     // Connection Status Updates
@@ -15,6 +15,8 @@ enum Notification {
 
     // Execution
     MatlabRequestInstance = 'matlab/request',
+    TerminalCompletionRequest = 'TerminalCompletionRequest',
+    TerminalCompletionResponse = 'TerminalCompletionResponse',
 
     MVMEvalRequest = 'evalRequest',
     MVMEvalComplete = 'evalResponse',

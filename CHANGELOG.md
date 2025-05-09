@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2025-05-15
+
+### Added
+- Use automatic code completion to complete commands in the MATLAB terminal
+- Move the cursor in the MATLAB terminal using `Alt+Click`
+- Support for debugging P-coded files when the corresponding source file is available
+- Filter the commands in the MATLAB terminal history by entering text in the terminal (Thanks @robertoffmoura!)
+
+### Fixed
+- Resolves issues with the MATLAB workspace not updating correctly when switching contexts in the call stack
+- Resolves potential crashes when using code completion in files without a .m file extension
+- Patches CVE-2024-12905
+
 ## [1.3.2] - 2025-03-06
 
 ### Fixed

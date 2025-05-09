@@ -36,7 +36,9 @@ export class TestSuite {
             'window.dialogStyle': 'custom',
             'terminal.integrated.copyOnSelection': true,
             'debug.toolBarLocation': 'docked',
-            'workbench.startupEditor': 'none'
+            'workbench.startupEditor': 'none',
+            'terminal.integrated.sendKeybindingsToShell': true,
+            'editor.action.toggleTabFocusMode': false
         })
         fs.writeFileSync(settingsjson, settings)
         this.vscodeSettings = settingsjson
