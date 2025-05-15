@@ -321,7 +321,7 @@
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
 		"typescript": "^5.0.4",
-		"vscode-extension-tester": "8.11.0"
+		"vscode-extension-tester": "8.14.1"
 	},
 	"dependencies": {
 		"node-fetch": "^2.6.6",
