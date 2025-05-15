@@ -1,8 +1,11 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { MVM, MatlabState } from './MVM'
 import { TextEvent, PromptState } from './MVMInterface'
+import { createResolvablePromise, Notifier, ResolvablePromise } from './Utilities';
+import Notification from '../Notifications';
+import { CompletionList } from 'vscode-languageclient';
 
 /**
  * Direction of cursor movement
@@ -15,7 +18,7 @@ enum CursorDirection {
 /**
  * Direction of history movement
  */
-enum HistoryDirection {
+enum Direction {
     BACKWARDS,
     FORWARDS
 }
@@ -50,6 +53,8 @@ const ACTION_KEYS = {
     SELECT_ALL: '\x01',
     DELETE: ESC + '[3~',
     ESCAPE: ESC,
+    TAB: '\t',
+    SHIFT_TAB: ESC + '[Z',
 
     INVERT_COLORS: ESC + '[7m',
     RESTORE_COLORS: ESC + '[27m',
@@ -66,6 +71,10 @@ const ACTION_KEYS = {
     QUERY_CURSOR: ESC + '[6n',
     SET_CURSOR_STYLE_TO_BAR: ESC + '[5 q'
 };
+// eslint-disable-next-line no-control-regex
+const LEFT_REGEX = /^(\x1b\[D)+$/;
+// eslint-disable-next-line no-control-regex
+const RIGHT_REGEX = /^(\x1b\[C)+$/;
 
 const PROMPTS = {
     IDLE_PROMPT: '>> ',
@@ -73,6 +82,13 @@ const PROMPTS = {
     FAKE_INPUT_PROMPT: '? ',
     BUSY_PROMPT: ''
 };
+
+// A modification of the word boundary regex being used by VS Code when replacing completions.
+// The first part splits on numbers. The second/third parts split on quoted strings, ie. plot("Color"|
+// the fourth part splits on unquoted words (same as VS Code's original regex),
+// And the fifth part splits on unfinished quotes. ie. plot("C|
+// eslint-disable-next-line no-useless-escape
+const WORD_REGEX = /(-?\d*\.\d\w*)|(\"[^\"]*\"?)|(\'[^\']*\'?)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)|(\"|\')/
 
 /**
  * Represents command window. Is a pseudoterminal to be used as the input/output processor in a VS Code terminal.
@@ -82,7 +98,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private readonly _writeEmitter: vscode.EventEmitter<string>;
 
     private _initialized: boolean = false;
-    private _currentPrompt = PROMPTS.IDLE_PROMPT;
+    private _currentPrompt: string = PROMPTS.IDLE_PROMPT;
     private _currentState: PromptState = PromptState.INITIALIZING;
 
     private _currentPromptLine: string = this._currentPrompt;
@@ -101,11 +117,21 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _justTypedLastInColumn: boolean = false;
 
-    constructor (mvm: MVM) {
+    private readonly _notifier: Notifier;
+
+    private _latestTabCompletionData?: CompletionList;
+    private _currentCompletionIndex: number = -1;
+    private _pendingTabCompletionRequestNumber: number = -1;
+    private _pendingTabCompletionPromise?: ResolvablePromise<CompletionList>;
+
+    constructor (mvm: MVM, notifier: Notifier) {
         this._mvm = mvm;
         this._mvm.on(MVM.Events.output, this.addOutput.bind(this));
         this._mvm.on(MVM.Events.clc, this.clear.bind(this));
         this._mvm.on(MVM.Events.promptChange, this._handlePromptChange.bind(this));
+
+        this._notifier = notifier;
+        this._notifier.onNotification(Notification.TerminalCompletionResponse, this._handleCompletionDataResponse.bind(this));
 
         this._initialized = false;
 
@@ -248,6 +274,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 this._handleOutputLine(lines[i], i !== lines.length - 1);
             }
         } else {
+            this._invalidateCompletionData();
             // Case 1: Normal typing
             if (lines.length === 1) {
                 this._handleLine(lines[0]);
@@ -300,8 +327,8 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return data.startsWith(ESC) || Object.values(ACTION_KEYS).includes(data)
     }
 
-    private _handleActionKeys (keyCode: string): boolean {
-        switch (keyCode) {
+    private _handleActionKeys (input: string): boolean {
+        switch (input) {
             case ACTION_KEYS.LEFT:
                 return this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.MOVE);
             case ACTION_KEYS.RIGHT:
@@ -321,9 +348,9 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             case ACTION_KEYS.DELETE:
                 return this._handleDelete();
             case ACTION_KEYS.UP:
-                return this._handleNavigateHistory(HistoryDirection.BACKWARDS);
+                return this._handleNavigateHistory(Direction.BACKWARDS);
             case ACTION_KEYS.DOWN:
-                return this._handleNavigateHistory(HistoryDirection.FORWARDS);
+                return this._handleNavigateHistory(Direction.FORWARDS);
             case ACTION_KEYS.ESCAPE:
                 return this._handleEscape();
             case ACTION_KEYS.BACKSPACE:
@@ -335,8 +362,26 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 return this._handleCopy();
             case ACTION_KEYS.PASTE:
                 return this._handlePaste();
-            default:
-                return false;
+            case ACTION_KEYS.TAB:
+                return this._handleTab(Direction.FORWARDS);
+            case ACTION_KEYS.SHIFT_TAB:
+                return this._handleTab(Direction.BACKWARDS);
+            default: {
+                let result = false;
+                // Handle repeated left/right arrow keys. This is what is received when using Alt+Mouse to move the cursor.
+                if (input.match(RIGHT_REGEX) != null) {
+                    const count = input.length / 3;
+                    for (let i = 0; i < count; i++) {
+                        result ||= this._handleLeftRight(CursorDirection.RIGHT, AnchorPolicy.MOVE);
+                    }
+                } else if (input.match(LEFT_REGEX) != null) {
+                    const count = input.length / 3;
+                    for (let i = 0; i < count; i++) {
+                        result ||= this._handleLeftRight(CursorDirection.LEFT, AnchorPolicy.MOVE);
+                    }
+                }
+                return result;
+            }
         }
     }
 
@@ -346,12 +391,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return lines;
     }
 
-    private _handleNavigateHistory (direction: HistoryDirection): boolean {
+    private _handleNavigateHistory (direction: Direction): boolean {
         const isAtEnd = this._historyIndex === this._filteredCommandHistory.length;
         const isAtBeginning = this._historyIndex === 0;
 
-        if ((direction === HistoryDirection.BACKWARDS && isAtBeginning) ||
-            (direction === HistoryDirection.FORWARDS && isAtEnd)) {
+        if ((direction === Direction.BACKWARDS && isAtBeginning) ||
+            (direction === Direction.FORWARDS && isAtEnd)) {
             return false;
         }
 
@@ -359,7 +404,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
         }
 
-        this._historyIndex += direction === HistoryDirection.BACKWARDS ? -1 : 1;
+        this._historyIndex += direction === Direction.BACKWARDS ? -1 : 1;
         const line = this._getHistoryItem(this._historyIndex);
         return this._replaceCurrentLineWithNewLine(this._currentPrompt + line);
     }
@@ -441,6 +486,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._cursorIndex++;
         }
 
+        this._invalidateCompletionData();
         return isLineDirty;
     }
 
@@ -466,6 +512,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._currentPromptLine = before + after;
         this._cursorIndex--;
         this._markCurrentLineChanged();
+        this._invalidateCompletionData();
         return true;
     }
 
@@ -473,6 +520,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._cursorIndex = this._getMaxIndexOnLine();
         this._anchorIndex = 0;
         this._updateHasSelectionContext();
+        this._invalidateCompletionData();
         return true;
     }
 
@@ -489,6 +537,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(this._cursorIndex) + 1);
         this._currentPromptLine = before + after;
         this._markCurrentLineChanged();
+        this._invalidateCompletionData();
         return true;
     }
 
@@ -522,10 +571,10 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._writeEmitter.fire(ACTION_KEYS.CLEAR_AND_MOVE_TO_BEGINNING)
     }
 
-    private _replaceCurrentLineWithNewLine (updatedLine: string): boolean {
+    private _replaceCurrentLineWithNewLine (updatedLine: string, cursorIndex?: number): boolean {
         this._eraseExistingPromptLine();
         this._currentPromptLine = updatedLine;
-        this._cursorIndex = this._getMaxIndexOnLine();
+        this._cursorIndex = cursorIndex ?? this._getMaxIndexOnLine();
         this._anchorIndex = undefined;
         this._updateWhetherJustTypedInLastColumn();
         this._writeCurrentPromptLine(false);
@@ -583,7 +632,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._updateHasSelectionContext();
         this._lastKnownCurrentLine = this._stripCurrentPrompt(this._currentPromptLine);
         this._writeCurrentPromptLine();
-
+        this._invalidateCompletionData();
         void this._evaluateCommand(stringToEvaluate);
     }
 
@@ -677,6 +726,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _handlePaste (): boolean {
+        this._invalidateCompletionData();
         vscode.env.clipboard.readText().then((text: string) => {
             this.handleInput(text);
         }, () => {
@@ -687,6 +737,109 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _handleEscape (): boolean {
         this._setToEmptyPrompt();
+        this._invalidateCompletionData();
+        return true;
+    }
+
+    private _requestCompletionData (code: string, offset: number): Promise<CompletionList> {
+        this._invalidateCompletionData();
+        this._pendingTabCompletionRequestNumber = this._pendingTabCompletionRequestNumber + 1;
+        this._notifier.sendNotification(Notification.TerminalCompletionRequest, {
+            requestId: this._pendingTabCompletionRequestNumber,
+            code: code,
+            offset: offset
+        });
+
+        this._pendingTabCompletionPromise = createResolvablePromise<CompletionList>();
+        return this._pendingTabCompletionPromise;
+    }
+
+    private _handleCompletionDataResponse (data: any): void {
+        if (data.requestId === this._pendingTabCompletionRequestNumber && (this._pendingTabCompletionPromise != null)) {
+            this._pendingTabCompletionPromise.resolve(data.result);
+        }
+    }
+
+    private _invalidateCompletionData (): void {
+        this._latestTabCompletionData = undefined;
+        this._pendingTabCompletionPromise?.reject();
+        this._pendingTabCompletionPromise = undefined;
+    }
+
+    private _doCompletion (): boolean {
+        if (this._latestTabCompletionData === undefined || this._latestTabCompletionData?.items.length === 0) {
+            return false;
+        }
+
+        const currentCompletion = this._latestTabCompletionData.items[this._currentCompletionIndex].label;
+        const currentLine = this._stripCurrentPrompt(this._currentPromptLine);
+
+        // Split the current line into words and non-words
+        const words = currentLine.split(WORD_REGEX).filter(match => match !== undefined && match !== '');
+        const wordLengths = words.map(match => match.length);
+        const validWords = words.map(match => WORD_REGEX.test(match));
+        validWords.unshift(false);
+
+        // Find the first word/non-word the cursor is within
+        const cumulativeLengths = [];
+        let cumulativeLength = 0;
+        cumulativeLengths.push(0);
+        wordLengths.forEach((value) => {
+            cumulativeLength += value;
+            cumulativeLengths.push(cumulativeLength);
+        });
+
+        let i;
+        for (i = 0; i < cumulativeLengths.length; i++) {
+            if (this._cursorIndex <= cumulativeLengths[i]) {
+                break;
+            }
+        }
+
+        if (i === cumulativeLengths.length) {
+            return false;
+        }
+
+        // If the cursor is within or at the end of a valid word, then we want to replace that word.
+        if (validWords[i]) {
+            // Then get the code before the replacement and after the replacement
+            const codeBefore = currentLine.substring(0, cumulativeLengths[i - 1]);
+            const codeAfter = currentLine.substring(cumulativeLengths[i]);
+            // And construct the new line with the replacement made
+            const newLine = codeBefore + currentCompletion + codeAfter;
+
+            this._replaceCurrentLineWithNewLine(this._currentPrompt + newLine, codeBefore.length + currentCompletion.length);
+        } else {
+            // Otherwise we want to just insert the new completion directly at the cursor.
+            const codeBefore = currentLine.substring(0, this._cursorIndex);
+            const codeAfter = currentLine.substring(this._cursorIndex);
+            // And construct the new line with the replacement made
+            const newLine = codeBefore + currentCompletion + codeAfter;
+
+            this._replaceCurrentLineWithNewLine(this._currentPrompt + newLine, codeBefore.length + currentCompletion.length);
+        }
+        return true;
+    }
+
+    private _handleTab (direction: Direction): boolean {
+        // If we have data and that not been invalidated, just increment the match index and do the replacement
+        if (this._latestTabCompletionData !== undefined) {
+            this._currentCompletionIndex = (this._currentCompletionIndex + this._latestTabCompletionData.items.length + (direction === Direction.FORWARDS ? 1 : -1)) % this._latestTabCompletionData.items.length;
+            return this._doCompletion();
+        } else {
+            // Otherwise, request new completion data and do a completion when the data has come in.
+            const code = this._stripCurrentPrompt(this._currentPromptLine);
+            const offset = this._cursorIndex;
+            if (code.trim() === '') {
+                return false;
+            }
+            // If the request isn't invalidated before the data has arrived, then do the completion. Otherwise it will be rejected and ignored.
+            this._requestCompletionData(code, offset).then((completions: CompletionList) => {
+                this._latestTabCompletionData = completions;
+                this._currentCompletionIndex = 0;
+                this._doCompletion();
+            }, () => { /* intentionally empty */ });
+        }
         return true;
     }
 

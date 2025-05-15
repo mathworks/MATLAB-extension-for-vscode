@@ -148,7 +148,7 @@ export default class MatlabDebugger {
         if ((vscode.debug as any).onDidChangeActiveStackItem !== undefined) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (vscode.debug as any).onDidChangeActiveStackItem((frame: any) => {
-                if (this._baseDebugSession !== null) {
+                if (this._baseDebugSession === null) {
                     return;
                 }
 

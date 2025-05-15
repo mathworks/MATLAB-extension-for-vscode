@@ -1,4 +1,4 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { MVM } from './MVM'
@@ -23,7 +23,7 @@ export default class TerminalService {
         this._mvm = mvm;
         this._client = client;
 
-        this._commandWindow = new CommandWindow(mvm);
+        this._commandWindow = new CommandWindow(mvm, client);
 
         this._terminalOptions = {
             name: 'MATLAB',

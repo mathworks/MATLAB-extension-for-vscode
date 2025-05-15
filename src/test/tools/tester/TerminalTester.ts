@@ -1,4 +1,4 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 import * as vet from 'vscode-extension-tester'
 import * as PollingUtils from '../utils/PollingUtils'
 
@@ -54,5 +54,10 @@ export class TerminalTester {
     private async doesTerminalContain (expected: string): Promise<boolean> {
         const content = await this.getTerminalContent()
         return content.includes(expected)
+    }
+
+    public async type (text: string): Promise<void> {
+        const container = await this.terminal.findElement(vet.By.className('xterm-helper-textarea'));
+        return await container.sendKeys(text)
     }
 }
