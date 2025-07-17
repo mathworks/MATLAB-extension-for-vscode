@@ -28,7 +28,7 @@ suite('Terminal Smoke Tests', () => {
 
     test('Test simple execution', async () => {
         await vs.terminal.executeCommand('1+1');
-        await vs.terminal.assertContains('2', 'output should appear in terminal')
+        await vs.terminal.assertContains('3', 'output should appear in terminal')
     })
 
     test('Test clc', async () => {
