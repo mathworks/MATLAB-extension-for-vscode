@@ -58,6 +58,8 @@ jobs:
           MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
           MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
           DISPLAY: ":17.0"
+      - name: Check for screenshots
+        run: '[ -d ./vscode-test/test-resources/screenshots ] && ls -l ./vscode-test/test-resources/screenshots || echo "No screenshots directory found"'
       - name: Upload Screenshots 
         uses: actions/upload-artifact@v4
         if: always()
