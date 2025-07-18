@@ -1,10 +1,12 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { MVM } from './MVM'
 import TerminalService from './TerminalService'
 import TelemetryLogger from '../telemetry/TelemetryLogger'
 import * as path from 'path'
+import { SectionModel } from '../model/SectionModel'
+import { Capability } from './MVMInterface'
 
 // These values must match the results returned by mdbfileonpath.m in FilePathState.m
 enum FILE_PATH_STATE {
@@ -179,6 +181,79 @@ export default class ExecutionCommandProvider {
         await this._mvm.feval('cd', 0, [filePathWithoutFilename]);
         await this._terminalService.openTerminalOrBringToFront();
         this._terminalService.getCommandWindow().insertCommandForEval(commandToRun);
+    }
+
+    async handleRunSection (sectionModel: SectionModel): Promise<void> {
+        this._telemetryLogger.logEvent({
+            eventKey: 'ML_VS_CODE_ACTIONS',
+            data: {
+                action_type: 'runSection',
+                result: ''
+            }
+        });
+
+        const editor = vscode.window.activeTextEditor
+        if (editor === undefined || editor.document.languageId !== 'matlab') {
+            return;
+        }
+
+        const sectionData = sectionModel.getSectionsForFile(editor.document.uri);
+
+        if (sectionData === undefined) {
+            return;
+        }
+
+        sectionData.isDirty = sectionData.isDirty ?? true;
+
+        if (sectionData.isDirty || sectionData.sectionsTree === undefined) {
+            return;
+        }
+
+        const fileName = path.basename(editor.document.fileName);
+        const filePath = editor.document.isUntitled ? fileName : path.basename(editor.document.fileName);
+        const text = editor.document.getText();
+        const lineRange = sectionData.sectionsTree.find(editor.selection.active.line);
+        const sectionLineRanges = sectionData.sectionRanges.map((range) => [range.start.line + 1, range.end.line + 1]);
+
+        if (lineRange === undefined) {
+            return;
+        }
+
+        await this._terminalService.openTerminalOrBringToFront();
+        try {
+            await this._mvm.getReadyPromise();
+        } catch (e) {
+            return;
+        }
+
+        const args: any[] = [
+            fileName,
+            filePath,
+            text,
+            lineRange.start.line + 1,
+            lineRange.end.line + 1,
+            -1,
+            'vscode',
+            '',
+            false,
+            false
+        ];
+
+        switch (this._mvm.getMatlabRelease()) {
+            case undefined:
+            case 'R2021b':
+            case 'R2022a':
+            case 'R2022b':
+            case 'R2023a':
+                break;
+            default:
+                args.push(sectionLineRanges);
+                break;
+        }
+
+        void this._mvm.feval('matlab.internal.editor.evaluateCode', 0, args, true, [
+            Capability.Debugging
+        ]);
     }
 
     /**

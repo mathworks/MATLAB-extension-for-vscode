@@ -134,6 +134,12 @@ export class VSCodeTester {
         return await prompt.confirm()
     }
 
+    public async runCurrentSection (): Promise<void> {
+        const prompt = await this.workbench.openCommandPrompt()
+        await prompt.setText('>matlab.runSection')
+        return await prompt.confirm()
+    }
+
     public async setSetting (id: string, value: string): Promise<void> {
         const editor = await this.workbench.openSettings();
         const setting = await editor.findSettingByID(id) as vet.ComboSetting | vet.TextSetting;

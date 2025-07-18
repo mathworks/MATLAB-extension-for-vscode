@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2025-07-24
+
+### Added
+- Support for running sections in MATLAB code
+- Support for formatting a selection
+- Display the language server output panel using the `matlab.showLanguageServerOutput` command
+- Breadcrumbs and Outline view now include methods, properties, and enumerations for improved navigation
+
+### Fixed
+- Applied patches for CVE-2023-44270, CVE-2024-11831, CVE-2025-27789, CVE-2025-30359, CVE-2025-30360, CVE-2025-32996, CVE-2025-48387, and CVE-2025-5889
+- Resolves issue where extension stops working after calling `restoredefaultpath`
+
 ## [1.3.3] - 2025-05-15
 
 ### Added

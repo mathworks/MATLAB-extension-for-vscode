@@ -47,6 +47,9 @@ There are some limitations to running and debugging MATLAB code in Visual Studio
 * When using the **dbstop** and **dbclear** functions to set and clear breakpoints, the breakpoints are added to file but are not shown in Visual Studio Code.
 * Variable values changed in the MATLAB terminal when Visual Studio Code is paused do not update in the **Run and Debug** view until the next time Visual Studio Code pauses.
 
+## Run MATLAB in Jupyter Notebooks
+You also can use this extension along with the Jupyter Extension for Visual Studio Code to run MATLAB in Jupyter notebooks using Visual Studio Code. For instructions, see [Run MATLAB in Jupyter Notebooks Using VS Code](https://github.com/mathworks/jupyter-matlab-proxy/blob/main/install_guides/vscode/README.md).
+
 ## Configuration
 To configure the extension, go to the extension settings and select from the available options.
 

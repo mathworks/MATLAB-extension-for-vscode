@@ -1,4 +1,4 @@
-// Copyright 2022 - 2024 The MathWorks, Inc.
+// Copyright 2022 - 2025 The MathWorks, Inc.
 
 import * as path from 'path'
 import * as vscode from 'vscode'
@@ -14,6 +14,7 @@ import Notification from './Notifications'
 import ExecutionCommandProvider from './commandwindow/ExecutionCommandProvider'
 import * as LicensingUtils from './utils/LicensingUtils'
 import DeprecationPopupService from './DeprecationPopupService'
+import { SectionModel } from './model/SectionModel'
 import SectionStylingService from './styling/SectionStylingService'
 import MatlabDebugger from './debug/MatlabDebugger'
 
@@ -36,6 +37,7 @@ let telemetryLogger: TelemetryLogger
 
 let deprecationPopupService: DeprecationPopupService
 
+let sectionModel: SectionModel;
 let sectionStylingService: SectionStylingService;
 
 let mvm: MVM;
@@ -96,7 +98,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
             options: {
                 // --inspect=6009: runs the server in Node's Inspector mode so
                 // Visual Studio® Code can attach to the server for debugging
-                execArgv: ['--nolazy', '--inspect=6009']
+                execArgv: ['--nolazy', '--inspect=6009', '--trace-warnings']
             },
             args
         }
@@ -129,15 +131,6 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
     matlabDebugger = new MatlabDebugger(mvm, multiclientNotifier, telemetryLogger);
 
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.runFile', async () => await executionCommandProvider.handleRunFile()))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.interrupt', () => executionCommandProvider.handleInterrupt()))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderToPath(uri)))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
-    context.subscriptions.push(vscode.commands.registerCommand('matlab.openFile', async (uri: vscode.Uri) => await executionCommandProvider.handleOpenFile(uri)))
-
     // Register a custom command which allows the user enable / disable Sign In options.
     // Using this custom command would be an alternative approach to going to enabling the setting.
     context.subscriptions.push(vscode.commands.registerCommand(MATLAB_ENABLE_SIGN_IN_COMMAND, async () => await handleEnableSignIn()))
@@ -151,8 +144,24 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     deprecationPopupService = new DeprecationPopupService(context)
     deprecationPopupService.initialize(client)
 
-    sectionStylingService = new SectionStylingService(context)
-    sectionStylingService.initialize(client);
+    sectionModel = new SectionModel()
+    sectionModel.initialize(client as Notifier);
+    context.subscriptions.push(sectionModel)
+
+    sectionStylingService = new SectionStylingService(sectionModel)
+    sectionStylingService.initialize();
+    context.subscriptions.push(sectionStylingService)
+
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.runFile', async () => await executionCommandProvider.handleRunFile()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.runSection', async () => await executionCommandProvider.handleRunSection(sectionModel)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.interrupt', () => executionCommandProvider.handleInterrupt()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderToPath(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.openFile', async (uri: vscode.Uri) => await executionCommandProvider.handleOpenFile(uri)))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.showLanguageServerOutput', () => client.outputChannel.show()))
 
     await client.start()
 }

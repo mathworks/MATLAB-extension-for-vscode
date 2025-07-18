@@ -1,4 +1,4 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 export enum Capability {
     InteractiveCommandLine = 'InteractiveCommandLine',
@@ -43,6 +43,7 @@ export interface FEvalRequest {
     functionName: string
     nargout: number
     args: unknown[]
+    isUserEval: boolean
     capabilitiesToRemove?: Capability[]
 }
 

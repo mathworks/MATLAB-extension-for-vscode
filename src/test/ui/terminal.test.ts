@@ -64,4 +64,30 @@ suite('Terminal Smoke Tests', () => {
         await vs.terminal.assertContains('xVar + 3', 'terminal should contain xVar + 3')
         await vs.terminal.type(Key.ESCAPE)
     })
+
+    test('Test command history up/down', async () => {
+        await vs.terminal.executeCommand('a = 123;')
+        await vs.terminal.executeCommand('b = 456;')
+        await vs.terminal.executeCommand('clc')
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.assertContains('b = 456;', 'Up arrow should recall previous command')
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.assertContains('a = 123;', 'Second up arrow should recall earlier command')
+        await vs.terminal.type(Key.ARROW_DOWN)
+        await vs.terminal.assertContains('b = 456;', 'Down arrow should go forward in history')
+        await vs.terminal.type(Key.ESCAPE)
+    })
+
+    test('Test command history prefix filtering', async () => {
+        // Enter command that will be in history
+        await vs.terminal.executeCommand('a = 123;')
+        await vs.terminal.executeCommand('clc')
+
+        // Type 'a' and then up arrow should recall 'a = 123;'
+        await vs.terminal.type('a')
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.assertContains('a = 123;', 'Up arrow after typing "a" should recall matching command')
+        await vs.terminal.type(Key.ESCAPE)
+    });
 });

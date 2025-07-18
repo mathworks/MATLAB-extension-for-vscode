@@ -1,4 +1,6 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
+
+import * as vscode from 'vscode'
 
 /**
  * A promise with resolve and reject methods. Allows easier storing of the promise to be resolved elsewhere.
@@ -32,7 +34,7 @@ export interface Notifier {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sendNotification: (tag: string, data?: any) => void
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onNotification: (tag: string, callback: (data: any) => void) => void
+    onNotification: (tag: string, callback: (data: any) => void) => vscode.Disposable
 }
 
 export class MultiClientNotifier implements Notifier {
@@ -51,12 +53,19 @@ export class MultiClientNotifier implements Notifier {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onNotification (tag: string, callback: (data: any) => void): void {
+    onNotification (tag: string, callback: (data: any) => void): vscode.Disposable {
         if (!(tag in this._callbacks)) {
             this._callbacks[tag] = [];
             this._notifier.onNotification(tag, this._handler.bind(this, tag));
         }
-        this._callbacks[tag].push(callback);
+        const callbacks = this._callbacks[tag];
+        callbacks.push(callback);
+        return new vscode.Disposable(() => {
+            const index = callbacks.indexOf(callback);
+            if (index > -1) {
+                callbacks.splice(index, 1); // Removes 1 element at the index
+            }
+        });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,5 +73,20 @@ export class MultiClientNotifier implements Notifier {
         this._callbacks[tag].forEach((callback) => {
             callback(data);
         }, this);
+    }
+}
+
+export class Disposer extends vscode.Disposable {
+    private _owned: vscode.Disposable[] = [];
+
+    constructor () {
+        super(() => {
+            this._owned.forEach((obj) => obj.dispose());
+            this._owned = [];
+        });
+    }
+
+    own (disposable: vscode.Disposable): void {
+        this._owned.push(disposable);
     }
 }
