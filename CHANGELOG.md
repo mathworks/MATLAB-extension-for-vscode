@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.4] - 2025-07-24
+## [1.3.4] - 2025-07-31
 
 ### Added
 - Support for running sections in MATLAB code
