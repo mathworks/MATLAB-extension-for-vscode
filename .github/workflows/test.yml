@@ -58,10 +58,19 @@ jobs:
           MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
           MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
           DISPLAY: ":17.0"
+      - name: Show current working directory and contents
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Top-level directory contents:"
+          ls -la
+          echo "Contents of .vscode-test/test-resources/screenshots (if exists):"
+          ls -la .vscode-test/test-resources/screenshots || echo "No screenshots directory found"
+
       - name: Upload Screenshots 
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots-${{ matrix.os }}-${{ matrix.version }}
-          path: ./vscode-test/test-resources/screenshots
+          path: .vscode-test/test-resources/screenshots
           if-no-files-found: ignore
