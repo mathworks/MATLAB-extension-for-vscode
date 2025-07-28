@@ -65,3 +65,10 @@ jobs:
           MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
           DISPLAY: ":17.0"
         if: ${{ success() && matrix.os != 'ubuntu-latest' }}
+      - name: Upload Screenshots 
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-${{ matrix.os }}-${{ matrix.version }}
+          path: ./vscode-test/test-resources/screenshots
+          if-no-files-found: ignore
