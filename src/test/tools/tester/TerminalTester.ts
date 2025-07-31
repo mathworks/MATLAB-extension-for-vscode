@@ -1,17 +1,17 @@
 // Copyright 2024-2025 The MathWorks, Inc.
 import * as vet from 'vscode-extension-tester'
-import * as PollingUtils from '../utils/PollingUtils'
+import { VSCodeTester } from './VSCodeTester'
 
 /**
  * TerminalTester
  * Used to test the MATLAB terminal in VSCode. This is initialized by VSCodeTester#openMATLABTerminal
 */
 export class TerminalTester {
-    private readonly workbench: vet.Workbench
+    private readonly vs: VSCodeTester
     private readonly terminal: vet.TerminalView
 
-    public constructor (workbench: vet.Workbench, terminal: vet.TerminalView) {
-        this.workbench = workbench
+    public constructor (vs: VSCodeTester, terminal: vet.TerminalView) {
+        this.vs = vs
         this.terminal = terminal
     }
 
@@ -29,7 +29,7 @@ export class TerminalTester {
      * Assert content of the MATLAB terminal
      */
     public async assertContent (expected: string, message: string): Promise<void> {
-        return await PollingUtils.poll(this.getTerminalContent.bind(this), expected, `Assertion on terminal content: ${message}`)
+        return await this.vs.poll(this.getTerminalContent.bind(this), expected, `Assertion on terminal content: ${message}`)
     }
 
     /**
@@ -45,7 +45,7 @@ export class TerminalTester {
     * Assert the MATLAB terminal contains some content
     */
     public async assertContains (expected: string, message: string): Promise<void> {
-        return await PollingUtils.poll(this.doesTerminalContain.bind(this, expected), true, `Assertion on terminal content: ${message}`)
+        return await this.vs.poll(this.doesTerminalContain.bind(this, expected), true, `Assertion on terminal content: ${message}`)
     }
 
     /**

@@ -90,6 +90,8 @@ const PROMPTS = {
 // eslint-disable-next-line no-useless-escape
 const WORD_REGEX = /(-?\d*\.\d\w*)|(\"[^\"]*\"?)|(\'[^\']*\'?)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)|(\"|\')/
 
+type MatlabData = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 /**
  * Represents command window. Is a pseudoterminal to be used as the input/output processor in a VS Code terminal.
  */
@@ -746,15 +748,15 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._pendingTabCompletionRequestNumber = this._pendingTabCompletionRequestNumber + 1;
         this._notifier.sendNotification(Notification.TerminalCompletionRequest, {
             requestId: this._pendingTabCompletionRequestNumber,
-            code: code,
-            offset: offset
+            code,
+            offset
         });
 
         this._pendingTabCompletionPromise = createResolvablePromise<CompletionList>();
         return this._pendingTabCompletionPromise;
     }
 
-    private _handleCompletionDataResponse (data: any): void {
+    private _handleCompletionDataResponse (data: MatlabData): void {
         if (data.requestId === this._pendingTabCompletionRequestNumber && (this._pendingTabCompletionPromise != null)) {
             this._pendingTabCompletionPromise.resolve(data.result);
         }

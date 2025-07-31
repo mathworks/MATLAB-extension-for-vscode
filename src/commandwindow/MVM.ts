@@ -1,4 +1,4 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2025 The MathWorks, Inc.
 
 import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, Capability } from './MVMInterface'
 import { createResolvablePromise, ResolvablePromise, Notifier } from './Utilities'
@@ -184,7 +184,7 @@ export class MVM extends EventEmitter {
      * @param args The arguments of the function
      * @returns A promise resolved when the feval completes
      */
-    feval<T> (functionName: string, nargout: number, args: unknown[], capabilitiesToRemove?: Capability[]): ResolvablePromise<MVMError | {result: T[]}> {
+    feval<T> (functionName: string, nargout: number, args: unknown[], isUserEval: boolean = false, capabilitiesToRemove?: Capability[]): ResolvablePromise<MVMError | {result: T[]}> {
         const requestId = this._getNewRequestId();
         const promise = createResolvablePromise<MatlabData>();
         this._requestMap[requestId] = {
@@ -198,6 +198,7 @@ export class MVM extends EventEmitter {
                 functionName,
                 nargout,
                 args,
+                isUserEval,
                 capabilitiesToRemove
             });
         }, () => {
