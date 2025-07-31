@@ -2,13 +2,15 @@
 
 import * as vscode from 'vscode';
 import Notification from '../Notifications'
-import LineRangeTree from './LineRangeTree';
+import LineRangeTree, { SectionData } from './LineRangeTree';
 import { Notifier, Disposer } from '../commandwindow/Utilities';
 import { EventEmitter } from 'events';
 
+export { SectionData };
+
 export interface SectionsData {
     uri: string
-    sectionRanges: vscode.Range[]
+    sectionRanges: SectionData[]
     sectionsTree?: LineRangeTree
     isDirty?: boolean
 }
@@ -50,7 +52,7 @@ export class SectionModel extends Disposer {
             return
         }
 
-        sectionsData.sectionRanges.sort((a: vscode.Range, b: vscode.Range) => a.start.line - b.start.line);
+        sectionsData.sectionRanges.sort((a: SectionData, b: SectionData) => a.range.start.line - b.range.start.line);
         sectionsData.sectionsTree = new LineRangeTree(sectionsData.sectionRanges);
         sectionsData.isDirty = false;
 

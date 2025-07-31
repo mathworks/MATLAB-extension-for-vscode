@@ -63,6 +63,7 @@ export class TestSuite {
      * Queues the array of tests provided to each run in a separate VSCode instance
      */
     public async enqueueTests (tests: string[]): Promise<void> {
+        let failed = false;
         const exTester = new ExTester(this.storageFolder, this.releaseQuality, undefined)
         await exTester.downloadCode(this.vscodeVersion)
         await exTester.downloadChromeDriver(this.vscodeVersion)
@@ -72,16 +73,26 @@ export class TestSuite {
             const testPath = path.join(this.testsRoot, test)
             console.log(`Running test: ${test}`)
             try {
-                await exTester.runTests(testPath, {
+                const exitCode = await exTester.runTests(testPath, {
                     resources: [this.storageFolder],
                     config: this.mochaConfig,
                     settings: this.vscodeSettings
                 })
+                if (exitCode !== 0) {
+                    failed = true;
+                    console.error('\x1b[31m%s\x1b[0m', `Test failed: ${test} (exit code: ${exitCode})`);
+                } else {
+                    console.log('\x1b[34m%s\x1b[0m', `Test passed: ${test}`);
+                }
             } catch (err) {
-                console.log(err)
-                process.exit(1)
+                failed = true;
+                console.error('\x1b[31m%s\x1b[0m', err)
             }
             await PollingUtils.pause(10000); // wait for state to be reset before running next test
+        }
+        if (failed) {
+            console.error('\x1b[31m%s\x1b[0m', 'One or more tests failed.');
+            process.exit(1);
         }
     }
 }

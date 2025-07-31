@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 
 import { blueBorderTopDecoration, blueBorderBottomDecoration, greyBorderTopDecoration, greyBorderBottomDecoration, fontWeightBoldDecoration } from './Decorations';
-import { SectionModel, SectionsData } from '../model/SectionModel'
+import { SectionModel, SectionsData, SectionData } from '../model/SectionModel'
 import { Disposer } from '../commandwindow/Utilities';
 import { StartAndEndLines, TopAndBottomRanges, StylingRanges } from './StylingInterfaces';
 let previousFocusedEditor: vscode.TextEditor | undefined;
@@ -105,7 +105,8 @@ export class SectionStylingService extends Disposer {
      */
     private _highlightSections (editor: vscode.TextEditor, sections: SectionsData, activeCursorPosition: vscode.Position | null): void {
         const startAndEndLines = this._sectionsToStartAndEndLines(sections.sectionRanges);
-        const allStartLinesRange = this._generateRanges(startAndEndLines.startLines);
+        const explicitStartAndEndLines = this._sectionsToStartAndEndLines(sections.sectionRanges.filter((section) => section.isExplicit));
+        const explicitSectionRanges = this._generateRanges(explicitStartAndEndLines.startLines);
         const lastLineinSection = startAndEndLines.endLines.sort((a, b) => a - b)[startAndEndLines.endLines.length - 1];
 
         let stylingRanges: StylingRanges;
@@ -114,9 +115,9 @@ export class SectionStylingService extends Disposer {
             if (cursorPositionLine > lastLineinSection) {
                 cursorPositionLine = lastLineinSection
             }
-            const focusedSectionRange: vscode.Range | undefined = this._findFocusedSectionRange(sections, cursorPositionLine);
-            if (focusedSectionRange !== undefined) {
-                stylingRanges = this._getBlueAndGreyRanges(startAndEndLines, focusedSectionRange);
+            const focusedSection = this._findFocusedSection(sections, cursorPositionLine);
+            if (focusedSection !== undefined) {
+                stylingRanges = this._getBlueAndGreyRanges(startAndEndLines, focusedSection);
             } else {
                 stylingRanges = { blue: { top: [], bottom: [] }, grey: this._getGreyRanges(startAndEndLines) };
             }
@@ -125,12 +126,12 @@ export class SectionStylingService extends Disposer {
         }
         this._filterFirstAndLastSection(stylingRanges, lastLineinSection, editor.document);
 
-        this._setDecorations(editor, stylingRanges, allStartLinesRange);
+        this._setDecorations(editor, stylingRanges, explicitSectionRanges);
     }
 
-    private _getBlueAndGreyRanges (startAndEndLines: StartAndEndLines, focusedSectionRange: vscode.Range): StylingRanges {
-        const focusedStartLine = focusedSectionRange.start.line;
-        const focusedEndLine = focusedSectionRange.end.line;
+    private _getBlueAndGreyRanges (startAndEndLines: StartAndEndLines, focusedSectionRange: SectionData): StylingRanges {
+        const focusedStartLine = focusedSectionRange.range.start.line;
+        const focusedEndLine = focusedSectionRange.range.end.line;
         const { startLines, endLines } = startAndEndLines;
 
         const startLinesWithoutFocusLine = startLines.filter((startLine) => {
@@ -181,32 +182,32 @@ export class SectionStylingService extends Disposer {
         return { top: this._generateRanges(startLines), bottom: this._generateRanges(endLinesFiltered) };
     }
 
-    private _setDecorations (editor: vscode.TextEditor, stylingRange: StylingRanges, allStartLinesRange: vscode.Range[]): void {
+    private _setDecorations (editor: vscode.TextEditor, stylingRange: StylingRanges, explicitSectionRanges: vscode.Range[]): void {
         editor.setDecorations(blueBorderTopDecoration, stylingRange.blue.top);
         editor.setDecorations(blueBorderBottomDecoration, stylingRange.blue.bottom);
         editor.setDecorations(greyBorderTopDecoration, stylingRange.grey.top);
         editor.setDecorations(greyBorderBottomDecoration, stylingRange.grey.bottom);
-        editor.setDecorations(fontWeightBoldDecoration, allStartLinesRange);
+        editor.setDecorations(fontWeightBoldDecoration, explicitSectionRanges);
     }
 
     private _generateRanges (lines: number[]): vscode.Range[] {
         return lines.map((line: number) => new vscode.Range(line, 0, line, Infinity));
     }
 
-    private _findFocusedSectionRange (sections: SectionsData, lineNumber: number): vscode.Range | undefined {
-        let activeSection: vscode.Range | undefined;
+    private _findFocusedSection (sections: SectionsData, lineNumber: number): SectionData | undefined {
+        let activeSection: SectionData | undefined;
         if (lineNumber !== undefined && sections.sectionsTree !== undefined) {
             activeSection = sections.sectionsTree.find(lineNumber);
         }
         return activeSection;
     }
 
-    private _sectionsToStartAndEndLines (sectionRanges: vscode.Range[]): StartAndEndLines {
+    private _sectionsToStartAndEndLines (sectionRanges: SectionData[]): StartAndEndLines {
         const startLines = new Set<number>();
         const endLines = new Set<number>();
-        sectionRanges.forEach((sectionRange: vscode.Range) => {
-            const startingIndex = sectionRange.start.line;
-            const endingIndex = sectionRange.end.line;
+        sectionRanges.forEach((sectionRange: SectionData) => {
+            const startingIndex = sectionRange.range.start.line;
+            const endingIndex = sectionRange.range.end.line;
             startLines.add(startingIndex);
             endLines.add(endingIndex);
         });

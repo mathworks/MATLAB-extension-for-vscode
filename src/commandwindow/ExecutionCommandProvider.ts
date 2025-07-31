@@ -212,8 +212,8 @@ export default class ExecutionCommandProvider {
         const fileName = path.basename(editor.document.fileName);
         const filePath = editor.document.isUntitled ? fileName : path.basename(editor.document.fileName);
         const text = editor.document.getText();
-        const lineRange = sectionData.sectionsTree.find(editor.selection.active.line);
-        const sectionLineRanges = sectionData.sectionRanges.map((range) => [range.start.line + 1, range.end.line + 1]);
+        const lineRange = sectionData.sectionsTree.find(editor.selection.active.line)?.range;
+        const sectionLineRanges = sectionData.sectionRanges.map((section) => [section.range.start.line + 1, section.range.end.line + 1]);
 
         if (lineRange === undefined) {
             return;
@@ -226,28 +226,47 @@ export default class ExecutionCommandProvider {
             return;
         }
 
-        const args: any[] = [
-            fileName,
-            filePath,
-            text,
-            lineRange.start.line + 1,
-            lineRange.end.line + 1,
-            -1,
-            'vscode',
-            '',
-            false,
-            false
-        ];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let args: any[];
 
         switch (this._mvm.getMatlabRelease()) {
             case undefined:
             case 'R2021b':
             case 'R2022a':
             case 'R2022b':
-            case 'R2023a':
+            case 'R2023a': {
+                const splitLines = text.split(/\r\n|\r|\n/);
+                const startPosition = splitLines.slice(0, lineRange.start.line).join('\n').length + 1;
+                const executionLength = splitLines.slice(lineRange.start.line, lineRange.end.line + 1).join('\n').length + 1;
+
+                args = [
+                    fileName,
+                    filePath,
+                    text,
+                    startPosition,
+                    executionLength,
+                    -1,
+                    'vscode',
+                    '',
+                    false,
+                    false
+                ];
                 break;
+            }
             default:
-                args.push(sectionLineRanges);
+                args = [
+                    fileName,
+                    filePath,
+                    text,
+                    lineRange.start.line + 1,
+                    lineRange.end.line + 1,
+                    -1,
+                    'vscode',
+                    '',
+                    false,
+                    false,
+                    sectionLineRanges
+                ];
                 break;
         }
 

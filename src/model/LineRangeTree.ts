@@ -1,18 +1,25 @@
 // Copyright 2024-2025 The MathWorks, Inc.
 import * as vscode from 'vscode';
 
+export interface SectionData {
+    range: vscode.Range
+    isExplicit: boolean
+}
+
 /**
  * A node used in the LineRangeTree.
  * @class TreeNode
  */
 class TreeNode {
-    range: vscode.Range | undefined;
+    range?: vscode.Range;
+    section?: SectionData;
     children: TreeNode[];
     parent: TreeNode | undefined;
-    constructor (range: vscode.Range | undefined) {
-        this.range = range;
+    constructor (section?: SectionData) {
+        this.range = section?.range;
         this.children = [];
         this.parent = undefined;
+        this.section = section;
     }
 
     add (treeNode: TreeNode): void {
@@ -39,14 +46,14 @@ class TreeNode {
 export default class LineRangeTree {
     private _root: TreeNode | undefined;
 
-    constructor (sectonRanges: vscode.Range[]) {
-        this._set(sectonRanges);
+    constructor (sectons: SectionData[]) {
+        this._set(sectons);
     }
 
     /**
      * Creates a tree from the given section ranges array based on the start and end lines.
      */
-    _set (sectonRanges: vscode.Range[]): void {
+    _set (sectonRanges: SectionData[]): void {
         this._root = new TreeNode(undefined);
         const objectLength = sectonRanges.length;
         let currentNode: TreeNode | undefined;
@@ -73,7 +80,7 @@ export default class LineRangeTree {
      * @param line number
      * @returns Section Range
      */
-    find (line: number): vscode.Range | undefined {
+    find (line: number): SectionData | undefined {
         let currentNode: TreeNode | undefined;
 
         currentNode = this._root;
@@ -83,7 +90,7 @@ export default class LineRangeTree {
             currentNode = this._searchByLine(line, currentNode);
             lastNode = currentNode ?? lastNode;
         }
-        return (lastNode != null) ? lastNode.range : undefined;
+        return (lastNode != null) ? lastNode.section : undefined;
     }
 
     private _searchByLine (line: number, parentNode: TreeNode): TreeNode | undefined {

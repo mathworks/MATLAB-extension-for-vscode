@@ -1,7 +1,6 @@
 // Copyright 2025 The MathWorks, Inc.
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { before, after } from 'mocha';
-import { Key } from 'selenium-webdriver';
 
 suite('Execution Smoke Tests', () => {
     let vs: VSCodeTester
