@@ -348,7 +348,7 @@
 		"glob": "^8.0.3",
 		"mocha": "^10.0.0",
 		"typescript": "^5.0.4",
-		"vscode-extension-tester": "8.14.1"
+		"vscode-extension-tester": "8.17.0"
 	},
 	"dependencies": {
 		"@vscode/debugadapter": "^1.56.0",
