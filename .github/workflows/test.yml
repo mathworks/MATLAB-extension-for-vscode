@@ -1,68 +1,230 @@
-# Run Extension tests
-
 name: test
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push events for the "main" branch
   push:
     branches: [ main ]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-
+  
 jobs:
-  test-smoke:
-    name: ${{ matrix.version }}-${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build-linux:
+    name: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - &checkout
+        name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - &setup-node
+        name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+      - &install-dependencies
+        name: Install dependencies
+        run: npm ci
+      - &package
+        name: Package vsix
+        run: npm run package
+      - *install-dependencies
+      - &setup-test
+        name: Setup tests
+        run: npm run test-setup
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-linux
+          path: |
+            *.vsix
+            out
+
+  build-windows:
+    name: build-windows
+    runs-on: windows-latest
+    steps:
+      - *checkout
+      - *setup-node
+      - *install-dependencies
+      - *package
+      - *install-dependencies
+      - *setup-test
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-windows
+          path: |
+            *.vsix
+            out
+
+  build-macos:
+    name: build-macos
+    runs-on: macos-13
+    steps:
+      - *checkout
+      - *setup-node
+      - *install-dependencies
+      - *package
+      - *install-dependencies
+      - *setup-test
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-macos
+          path: |
+            *.vsix
+            out
+
+  # SMOKE TESTS
+  test-smoke-linux:
+    name: Smoke Test ${{ matrix.version }}-linux
+    needs: build-linux
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         version: [R2021b, R2022a, R2022b, latest]
-        os: [windows-latest, ubuntu-latest, macos-13]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - *checkout
+      - &download-linux-build-artifacts
+        name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          submodules: recursive
-      - name: Set up MATLAB
+          name: build-linux
+      - &setup-MATLAB
+        name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
           release: ${{ matrix.version }}
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          "node-version": 18.x
-      - name: npm clean install
-        run: npm ci
+      - *setup-node
+      - *install-dependencies
       - name: Start Xvfb 
         run: /usr/bin/Xvfb :17 -screen 0 1024x768x24 > /dev/null 2>&1 & echo "Started xvfb"
         shell: bash
-        if: ${{ success() && matrix.os == 'ubuntu-latest' }}
-      - name: Package vsix
-        run: npm run package
-      - name: npm install
-        run: npm install
-      - name: Run UI tests
-        run: npm run test-ui
-        env:
-          MLM_WEB_LICENSE: true
-          MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
-          MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
-          DISPLAY: ":17.0"
-        if: ${{ success() && matrix.os != 'ubuntu-latest' }}
-      - name: Run Smoke tests
+      - &run-smoke-tests
+        name: Run Smoke tests
         run: npm run test-smoke
         env:
           MLM_WEB_LICENSE: true
-          MLM_WEB_ID: ${{secrets.MLM_WEB_ID}}
-          MLM_WEB_USER_CRED: ${{secrets.MLM_WEB_USER_CRED}}
+          MLM_WEB_ID: ${{ secrets.MLM_WEB_ID }}
+          MLM_WEB_USER_CRED: ${{ secrets.MLM_WEB_USER_CRED }}
           DISPLAY: ":17.0"
-    
-      - name: Upload Screenshots 
+
+  test-smoke-windows:
+    name: Smoke Test ${{ matrix.version }}-windows
+    needs: build-windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2022a, R2022b, latest]
+    steps:
+      - *checkout
+      - &download-windows-build-artifacts
+        name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-windows
+      - *setup-MATLAB
+      - *setup-node
+      - *install-dependencies
+      - *run-smoke-tests
+
+  test-smoke-macos:
+    name: Smoke Test ${{ matrix.version }}-macos
+    needs: build-macos
+    runs-on: macos-13
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2022a, R2022b, latest]
+    steps:
+      - *checkout
+      - &download-macos-build-artifacts
+        name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-macos
+      - *setup-MATLAB
+      - *setup-node
+      - *install-dependencies
+      - *run-smoke-tests
+
+  # UI TESTS
+  test-ui-linux:
+    if: False
+    name: UI Test ${{ matrix.version }}-linux
+    needs: build-linux
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2022a, R2022b, latest]
+    steps:
+      - *checkout
+      - *download-linux-build-artifacts
+      - *setup-MATLAB
+      - *setup-node
+      - *install-dependencies
+      - &run-ui-tests
+        name: Run UI tests
+        run: npm run test-ui
+        env:
+          MLM_WEB_LICENSE: true
+          MLM_WEB_ID: ${{ secrets.MLM_WEB_ID }}
+          MLM_WEB_USER_CRED: ${{ secrets.MLM_WEB_USER_CRED }}
+      - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: screenshots-${{ matrix.os }}-${{ matrix.version }}
+          name: screenshots-linux-${{ matrix.version }}
+          path: .vscode-test/test-resources/screenshots
+          if-no-files-found: ignore
+
+  test-ui-windows:
+    name: UI Test ${{ matrix.version }}-windows
+    needs: build-windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2022a, R2022b, latest]
+    steps:
+      - *checkout
+      - *download-windows-build-artifacts
+      - *setup-MATLAB
+      - *setup-node
+      - *install-dependencies
+      - *run-ui-tests
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-windows-${{ matrix.version }}
+          path: .vscode-test/test-resources/screenshots
+          if-no-files-found: ignore
+
+  test-ui-macos:
+    name: UI Test ${{ matrix.version }}-macos
+    needs: build-macos
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [R2021b, R2022a, R2022b, latest]
+    steps:
+      - *checkout
+      - *download-macos-build-artifacts
+      - *setup-MATLAB
+      - *setup-node
+      - *install-dependencies
+      - *run-ui-tests
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-macos-${{ matrix.version }}
           path: .vscode-test/test-resources/screenshots
           if-no-files-found: ignore
