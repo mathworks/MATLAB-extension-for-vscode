@@ -154,7 +154,6 @@ jobs:
 
   # UI TESTS
   test-ui-linux:
-    if: False
     name: UI Test ${{ matrix.version }}-linux
     needs: build-linux
     runs-on: ubuntu-latest
