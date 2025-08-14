@@ -161,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [latest]
     steps:
       - *checkout
       - *download-linux-build-artifacts
