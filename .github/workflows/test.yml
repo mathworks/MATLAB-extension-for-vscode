@@ -221,6 +221,12 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
+      - name: Upload UI test failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-failure-screenshots
+          path: /var/folders/x7/ch5v91h56_zbvbd1y2f600dm0000gn/T/screenshots
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
