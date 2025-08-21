@@ -220,6 +220,8 @@ jobs:
       - *setup-MATLAB
       - *setup-node
       - *install-dependencies
+      - name: Ensure settings.json directory exists
+        run: mkdir -p out/test/tools/config
       - *run-ui-tests
       - name: Upload UI test failure screenshots
         if: failure()
