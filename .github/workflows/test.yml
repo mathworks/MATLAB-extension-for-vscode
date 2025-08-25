@@ -228,11 +228,11 @@ jobs:
           echo "Listing all screenshots folders:"
           find ${{ github.workspace }} -type d -name screenshots || true
         shell: bash
+      
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: screenshots-macos-${{ matrix.version }}
-          path: .vscode-test/test-resources/screenshots
-          if-no-files-found: ignore
-        
+          name: screenshots-${{ runner.os }}-${{ matrix.version }}
+          path: ${{ github.workspace }}/**/screenshots/
+          if-no-files-found: ignore 
