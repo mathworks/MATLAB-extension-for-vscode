@@ -170,7 +170,7 @@ jobs:
       - *install-dependencies
       - &run-ui-tests
         name: Run UI tests
-        run: npm run test-ui:fast
+        run: npm run test-ui
         env:
           MLM_WEB_LICENSE: true
           MLM_WEB_ID: ${{ secrets.MLM_WEB_ID }}
