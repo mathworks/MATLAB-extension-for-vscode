@@ -222,6 +222,7 @@ jobs:
       - *install-dependencies
       - *run-ui-tests
       - name: Print github.workspace and list screenshot folders
+        if: always()
         run: |
           echo "github.workspace: ${{ github.workspace }}"
           echo "Listing all screenshots folders:"
