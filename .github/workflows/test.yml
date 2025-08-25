@@ -228,12 +228,6 @@ jobs:
           if [ -d "$TMPDIR/screenshots" ]; then
             cp -R "$TMPDIR/screenshots/." .vscode-test/test-resources/screenshots/
           fi
-      - name: Upload failure screenshots
-        uses: actions/upload-artifact@v4
-        if: always() # ensures this runs even if tests fail
-        with:
-          name: failure-screenshots
-          path: /var/folders/y6/nj790rtn62lfktb1sh__79hc0000gn/T/screenshots
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
