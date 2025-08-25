@@ -220,15 +220,14 @@ jobs:
       - *setup-MATLAB
       - *setup-node
       - *install-dependencies
-      - name: Ensure settings.json directory exists
-        run: mkdir -p out/test/tools/config
       - *run-ui-tests
-      - name: Upload UI test failure screenshots
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-test-failure-screenshots
-          path: /var/folders/x7/ch5v91h56_zbvbd1y2f600dm0000gn/T/screenshots
+      - name: Move screenshots to artifact folder
+        if: always()
+        run: |
+          mkdir -p .vscode-test/test-resources/screenshots
+          if [ -d "$TMPDIR/screenshots" ]; then
+            cp -R "$TMPDIR/screenshots/." .vscode-test/test-resources/screenshots/
+          fi
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
