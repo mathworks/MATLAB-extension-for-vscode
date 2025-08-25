@@ -221,13 +221,12 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
-      - name: Move screenshots to artifact folder
-        if: always()
+      - name: Print github.workspace and list screenshot folders
         run: |
-          mkdir -p .vscode-test/test-resources/screenshots
-          if [ -d "$TMPDIR/screenshots" ]; then
-            cp -R "$TMPDIR/screenshots/." .vscode-test/test-resources/screenshots/
-          fi
+          echo "github.workspace: ${{ github.workspace }}"
+          echo "Listing all screenshots folders:"
+          find ${{ github.workspace }} -type d -name screenshots || true
+        shell: bash
       - name: Upload Screenshots
         uses: actions/upload-artifact@v4
         if: always()
