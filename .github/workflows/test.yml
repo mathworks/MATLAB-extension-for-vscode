@@ -221,15 +221,9 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
-      - name: Copy screenshots from temp to workspace
-        if: always()
-        run: |
-          mkdir -p ${{ github.workspace }}/test-artifacts/screenshots
-          cp -r /var/folders/x7/ch5v91h56_zbvbd1y2f600dm0000gn/T/screenshots/* ${{ github.workspace }}/test-artifacts/screenshots/ || true
-        shell: bash
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: ${{ github.workspace }}/test-artifacts/screenshots
+          path: ${{ github.workspace }}/**/screenshots
