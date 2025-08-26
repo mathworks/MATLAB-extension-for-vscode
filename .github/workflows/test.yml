@@ -222,11 +222,13 @@ jobs:
       - *install-dependencies
       - *run-ui-tests
       - name: List all files and folders for debugging
+        if: always()
         run: |
           echo "Listing everything under workspace:"
           find ${{ github.workspace }} -print
         shell: bash
       - name: List possible screenshots in /tmp
+        if: always()
         run: |
           find /tmp -type d -name screenshots || true
           find /tmp -type f -name '*.png' || true
