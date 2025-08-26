@@ -222,6 +222,7 @@ jobs:
       - *install-dependencies
       - *run-ui-tests
       - name: Copy screenshots into workspace
+        if: always()
         run: |
           mkdir -p screenshots
           cp -r /Users/runner/work/test-resources/screenshots/* screenshots/ || true
