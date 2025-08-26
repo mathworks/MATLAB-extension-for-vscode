@@ -221,17 +221,15 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
-      - name: Print github.workspace and list screenshot folders
+      - name: Copy screenshots from temp to workspace
         if: always()
         run: |
-          echo "github.workspace: ${{ github.workspace }}"
-          echo "Listing all screenshots folders:"
-          find ${{ github.workspace }} -type d -name screenshots || true
+          mkdir -p ${{ github.workspace }}/test-artifacts/screenshots
+          cp -r /var/folders/x7/ch5v91h56_zbvbd1y2f600dm0000gn/T/screenshots/* ${{ github.workspace }}/test-artifacts/screenshots/ || true
         shell: bash
-      - name: Upload Screenshots
-        uses: actions/upload-artifact@v4
+      - name: Upload screenshots
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: screenshots-${{ runner.os }}-${{ matrix.version }}
-          path: ${{ github.workspace }}/**/screenshots/
-          if-no-files-found: ignore 
+          name: screenshots
+          path: ${{ github.workspace }}/test-artifacts/screenshots
