@@ -17,9 +17,6 @@ export class TestSuite {
 
     public constructor () {
         this.storageFolder = path.join(__dirname, '..', '..', '..', '..', '.vscode-test', 'test-resources')
-        if (os.platform() === 'darwin') {
-            this.storageFolder = os.tmpdir()
-        }
         this.mochaConfig = path.join(__dirname, '..', 'config', '.mocharc.js')
         const pjson = require(path.resolve('package.json')) // eslint-disable-line
         this.vsixPath = path.resolve(`${pjson.name}-${pjson.version}.vsix`) // eslint-disable-line
