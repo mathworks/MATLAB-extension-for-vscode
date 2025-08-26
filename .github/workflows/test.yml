@@ -226,5 +226,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: /Users/runner/work/.vscode-test/screenshots
+          path: /Users/runner/work/test-resources/screenshots
           if-no-files-found: ignore
