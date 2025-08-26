@@ -221,10 +221,15 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
+      - name: Copy screenshots into workspace
+        run: |
+          mkdir -p screenshots
+          cp -r /Users/runner/work/test-resources/screenshots/* screenshots/ || true
+        working-directory: ${{ github.workspace }}
+        shell: bash
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: /Users/runner/work/test-resources/screenshots
-          if-no-files-found: ignore
+          path: screenshots
