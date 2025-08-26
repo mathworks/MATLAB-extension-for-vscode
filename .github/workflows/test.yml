@@ -221,6 +221,16 @@ jobs:
       - *setup-node
       - *install-dependencies
       - *run-ui-tests
+      - name: List all files and folders for debugging
+        run: |
+          echo "Listing everything under workspace:"
+          find ${{ github.workspace }} -print
+        shell: bash
+      - name: List possible screenshots in /tmp
+        run: |
+          find /tmp -type d -name screenshots || true
+          find /tmp -type f -name '*.png' || true
+        shell: bash
       - name: Print github.workspace and list screenshot folders
         if: always()
         run: |
