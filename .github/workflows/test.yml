@@ -220,7 +220,11 @@ jobs:
       - *setup-MATLAB
       - *setup-node
       - *install-dependencies
+      - name: Print working directory
+        run: pwd
       - *run-ui-tests
+      - name: Print working directory
+        run: pwd
       - name: List screenshots for debugging
         if: always()
         run: ls -l s/screenshots || echo "No screenshots found"
@@ -229,5 +233,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos-${{ matrix.version }}
-          path: s/screenshots
+          path: ${{ github.workspace }}/s/screenshots
           if-no-files-found: ignore
