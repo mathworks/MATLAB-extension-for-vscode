@@ -223,11 +223,11 @@ jobs:
       - *run-ui-tests
       - name: List screenshots for debugging
         if: always()
-        run: ls -l x/.vscode-test/screenshots || echo "No screenshots found"
+        run: ls -l s/screenshots || echo "No screenshots found"
       - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos-${{ matrix.version }}
-          path: x/.vscode-test/s
+          path: s/screenshots
           if-no-files-found: ignore
