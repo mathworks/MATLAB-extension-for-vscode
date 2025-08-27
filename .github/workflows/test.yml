@@ -225,7 +225,7 @@ jobs:
         if: always()
         run: |
           mkdir -p screenshots
-          cp -r /Users/runner/work/test-resources/screenshots/* screenshots/ || true
+          cp -r /Users/runner/work/test-resources/screenshots screenshots/ || true
         working-directory: ${{ github.workspace }}
         shell: bash
       - name: Upload screenshots
