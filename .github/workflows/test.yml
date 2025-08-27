@@ -215,22 +215,27 @@ jobs:
       matrix:
         version: [R2021b, R2022a, R2022b, latest]
     steps:
-      - *checkout
+      - uses: actions/checkout@v4
+        with:
+          path: x
       - *download-macos-build-artifacts
       - *setup-MATLAB
       - *setup-node
       - *install-dependencies
-      - *run-ui-tests
-      - name: Copy screenshots into workspace
+      - name: Run UI tests
+        run: npm run test-ui
+        working-directory: x
+        env:
+          MLM_WEB_LICENSE: true
+          MLM_WEB_ID: ${{ secrets.MLM_WEB_ID }}
+          MLM_WEB_USER_CRED: ${{ secrets.MLM_WEB_USER_CRED }}
+      - name: List screenshots for debugging
         if: always()
-        run: |
-          mkdir -p screenshots
-          cp -r /Users/runner/work/test-resources/screenshots screenshots/ || true
-        working-directory: ${{ github.workspace }}
-        shell: bash
-      - name: Upload screenshots
+        run: ls -l x/.vscode-test/screenshots || echo "No screenshots found"
+      - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots
-          path: screenshots
+          name: screenshots-macos-${{ matrix.version }}
+          path: x/.vscode-test/screenshots
+          if-no-files-found: ignore
