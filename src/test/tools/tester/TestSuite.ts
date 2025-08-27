@@ -16,7 +16,7 @@ export class TestSuite {
     private readonly releaseQuality: ReleaseQuality
 
     public constructor () {
-        this.storageFolder = path.join(__dirname, '..', '..', '..', '..', '..', '..', 'test-resources')
+        this.storageFolder = path.join(__dirname, '..', '..', '..', '..', 's')
         this.mochaConfig = path.join(__dirname, '..', 'config', '.mocharc.js')
         const pjson = require(path.resolve('package.json')) // eslint-disable-line
         this.vsixPath = path.resolve(`${pjson.name}-${pjson.version}.vsix`) // eslint-disable-line
