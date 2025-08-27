@@ -221,7 +221,9 @@ jobs:
       - *download-macos-build-artifacts
       - *setup-MATLAB
       - *setup-node
-      - *install-dependencies
+      - name: Install dependencies
+        run: npm ci
+        working-directory: x
       - name: Run UI tests
         run: npm run test-ui
         working-directory: x
