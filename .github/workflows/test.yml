@@ -223,6 +223,7 @@ jobs:
       - *setup-node
       - name: Install dependencies
         run: npm ci
+        working-directory: x --ignore-scripts 
       - name: Run UI tests
         run: npm run test-ui
         working-directory: x
