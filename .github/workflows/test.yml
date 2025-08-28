@@ -221,9 +221,11 @@ jobs:
       - *setup-node
       - *install-dependencies
       - name: Print working directory
+        if: always()
         run: pwd
       - *run-ui-tests
       - name: Print working directory
+        if: always()
         run: pwd
       - name: List screenshots for debugging
         if: always()
