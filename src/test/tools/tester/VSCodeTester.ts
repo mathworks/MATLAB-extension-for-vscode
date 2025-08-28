@@ -175,7 +175,9 @@ export class VSCodeTester {
         }
 
         if (result !== value) {
-            await this.browser.takeScreenshot(result)
+            const filename = `test_failure_${new Date().toISOString().replace(/[:.]/g, '-')}`
+            await this.browser.takeScreenshot(filename)
+            console.log(`Screenshot saved as ${filename}.png`)
         } else {
             if (message !== '') {
                 console.log(`Assertion passed: ${message}`)

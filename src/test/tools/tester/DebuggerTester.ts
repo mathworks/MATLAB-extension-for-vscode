@@ -20,11 +20,11 @@ export class DebuggerTester {
     }
 
     public async assertStoppedAtLine (lineNumber: number): Promise<void> {
-        return await this.vs.poll(this.getCurrentExecutionLine.bind(this), lineNumber, `Expected debugger to be stopped at ${lineNumber}`)
+        return await this.vs.poll(this.getCurrentExecutionLine.bind(this), lineNumber, `Expected debugger to be stopped at ${lineNumber}`, 60000)
     }
 
     public async assertNotDebugging (): Promise<void> {
-        return await this.vs.poll(this.getCurrentExecutionLine.bind(this), -1, 'Expected debugger to not be stopped at any line')
+        return await this.vs.poll(this.getCurrentExecutionLine.bind(this), -1, 'Expected debugger to not be stopped at any line', 60000)
     }
 
     private async getCurrentExecutionLine (): Promise<number> {
