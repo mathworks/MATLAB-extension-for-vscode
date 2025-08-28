@@ -31,7 +31,7 @@ suite('Debugging Smoke Tests', () => {
         await editor.toggleBreakpoint(3)
         await vs.runCurrentFile()
         await vs.debugger.waitForToolbar()
-        await vs.debugger.assertStoppedAtLine(2) //intentional test failure
+        await vs.debugger.assertStoppedAtLine(2) // intentional test failure
         await vs.debugger.toolbar.continue()
         await vs.debugger.assertStoppedAtLine(3)
         await vs.debugger.toolbar.stepOver()

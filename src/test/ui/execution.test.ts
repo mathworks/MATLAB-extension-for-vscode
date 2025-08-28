@@ -23,6 +23,6 @@ suite('Execution Smoke Tests', () => {
         await vs.terminal.executeCommand('a = 0; clc')
         await editor.setCursor(5, 1) // Setting cursor on second section
         await vs.runCurrentSection()
-        await vs.terminal.assertContains('7', 'Value of a should not be updated') //intentional test failure
+        await vs.terminal.assertContains('7', 'Value of a should not be updated') // intentional test failure
     })
 });
