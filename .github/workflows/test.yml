@@ -235,3 +235,10 @@ jobs:
           name: screenshots-macos-${{ matrix.version }}
           path: ${{ github.workspace }}/s/screenshots
           if-no-files-found: ignore
+      - name: Upload entire workspace for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-workspace-${{ matrix.version }}
+          path: ${{ github.workspace }}
+          if-no-files-found: warn
