@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2025-09-04
+
+### Added
+- Support for prewarming graphics to improve the performance of first-time graphics rendering 
+- Support for using Visual Studio Code as the default editor when using the MATLAB `edit` and `open` commands
+- Support for highlighting all references to a selected function, variable, class, or class property
+
+### Fixed
+- Resolves an issue where newly saved document contents are ignored during execution
+- Resolves an issue where section breaks are not displayed and the `Run Section` command does not work until a file is modified for the first time
+- Applied patch for CVE-2025-54798
+
 ## [1.3.4] - 2025-07-31
 
 ### Added

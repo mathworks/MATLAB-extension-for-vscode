@@ -2,7 +2,7 @@
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { before, afterEach, after } from 'mocha';
 
-suite('Debugging Smoke Tests', () => {
+suite('Debugging UI Tests', () => {
     let vs: VSCodeTester
 
     before(async () => {

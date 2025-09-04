@@ -158,6 +158,25 @@ export class VSCodeTester {
         return await new vet.EditorView().closeEditor('Settings')
     }
 
+    public async assertDecorationOnLine (n: number, message = ''): Promise<void> {
+        return await this.poll(this.lineHasDecoration.bind(this, n), true, `Expected line ${n} to have decoration. ${message}`)
+    }
+
+    private async lineHasDecoration (n: number): Promise<boolean> {
+        const editor = new vet.TextEditor()
+        const lines = await editor.findElements(vet.By.css('div.view-lines > div'));
+        if (n < 1 || n > lines.length) return false;
+
+        const spans = await lines[n - 1].findElements(vet.By.css('span'));
+        for (const span of spans) {
+            const classAttr = await span.getAttribute('class');
+            if (classAttr?.includes('TextEditorDecoration')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
     * Poll for a function return the expected value. Default timeout is 30s
     */
@@ -175,7 +194,9 @@ export class VSCodeTester {
         }
 
         if (result !== value) {
-            await this.browser.takeScreenshot(result)
+            const filename = `test_failure_${new Date().toISOString().replace(/[:.]/g, '-')}`
+            await this.browser.takeScreenshot(filename)
+            console.log(`Screenshot saved as ${filename}.png`)
         } else {
             if (message !== '') {
                 console.log(`Assertion passed: ${message}`)
