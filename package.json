@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.3.4",
+	"version": "1.3.5",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -268,6 +268,18 @@
 					"type": "number",
 					"default": 0,
 					"markdownDescription": "The maximum number of characters a file can contain for features such as linting, code navigation, and symbol renaming to be enabled. Use `0` for no limit.",
+					"scope": "window"
+				},
+				"MATLAB.prewarmGraphics": {
+					"type": "boolean",
+					"default": true,
+					"description": "Prewarm graphics at MATLAB startup to improve performance of first-time graphics rendering.",
+					"scope": "window"
+				},
+				"MATLAB.defaultEditor": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Use Visual Studio Code instead of the MATLAB Editor to open and edit files using the `open` and `edit` commands. Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).",
 					"scope": "window"
 				}
 			}

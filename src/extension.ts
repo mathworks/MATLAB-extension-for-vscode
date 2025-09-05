@@ -17,6 +17,7 @@ import DeprecationPopupService from './DeprecationPopupService'
 import { SectionModel } from './model/SectionModel'
 import SectionStylingService from './styling/SectionStylingService'
 import MatlabDebugger from './debug/MatlabDebugger'
+import DefaultEditorService from './DefaultEditorService'
 
 let client: LanguageClient
 const OPEN_SETTINGS_ACTION = 'workbench.action.openSettings'
@@ -36,6 +37,8 @@ const MATLAB_ENABLE_SIGN_IN_COMMAND = 'matlab.enableSignIn'
 let telemetryLogger: TelemetryLogger
 
 let deprecationPopupService: DeprecationPopupService
+
+let defaultEditorService: DefaultEditorService
 
 let sectionModel: SectionModel;
 let sectionStylingService: SectionStylingService;
@@ -143,6 +146,8 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
 
     deprecationPopupService = new DeprecationPopupService(context)
     deprecationPopupService.initialize(client)
+
+    defaultEditorService = new DefaultEditorService(context, client, mvm)
 
     sectionModel = new SectionModel()
     sectionModel.initialize(client as Notifier);

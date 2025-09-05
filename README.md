@@ -53,6 +53,10 @@ You also can use this extension along with the Jupyter Extension for Visual Stud
 ## Configuration
 To configure the extension, go to the extension settings and select from the available options.
 
+### MATLAB Default Editor Setting
+By default, the extension uses the editor specified in the MATLAB Editor/Debugger settings to open files with the MATLAB `edit` and `open` commands. To make Visual Studio Code the default editor for these commands, set the `MATLAB.defaultEditor` setting to `true`. To revert to using the editor specified in the MATLAB Editor/Debugger settings, set `MATLAB.defaultEditor` to `false`.
+**Note:** Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).
+
 ### MATLAB Install Path Setting
 If you have MATLAB installed on your system, the extension automatically checks the system path for the location of the MATLAB executable. If the MATLAB executable is not on the system path, you may need to manually set the `MATLAB.installPath` setting to the full path of your MATLAB installation. For example, `C:\Program Files\MATLAB\R2022b` (Windows&reg;), `/Applications/MATLAB_R2022b.app` (macOS), or `/usr/local/MATLAB/R2022b` (Linux&reg;).
 
@@ -98,6 +102,9 @@ You can help improve the extension by sending user experience information to Mat
 
 For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).
 
+### MATLAB Prewarm Graphics Setting
+By default, MATLAB services are started early to improve the first-time performance of MATLAB figure rendering. To disable this behavior, set the `MATLAB.prewarmGraphics` setting to `false`.
+This setting is supported with MATLAB R2025a and later. For earlier releases, this setting is ignored.
 
 
 ## Troubleshooting
