@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for highlighting all references to a selected function, variable, class, or class property
 
 ### Fixed
-- Resolves an issue where newly saved document contents are ignored during execution
-- Resolves an issue where section breaks are not displayed and the `Run Section` command does not work until a file is modified for the first time
+- Resolves issue where newly saved document contents are ignored during execution
+- Resolves issue where section breaks are not displayed and the `Run Section` command does not work until a file is modified for the first time.
 - Applied patch for CVE-2025-54798
 
 ## [1.3.4] - 2025-07-31
