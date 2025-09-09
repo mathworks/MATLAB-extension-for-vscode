@@ -70,5 +70,5 @@ jobs:
         if: always()
         with:
           name: screenshots-${{ matrix.os }}-${{ matrix.version }}
-          path: ./vscode-test/test-resources/screenshots
+          path: ${{ github.workspace }}/s/screenshots
           if-no-files-found: ignore
