@@ -3,7 +3,7 @@ import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { before, afterEach, after } from 'mocha';
 import { Key } from 'selenium-webdriver';
 
-suite('Terminal Smoke Tests', () => {
+suite('Terminal UI Tests', () => {
     let vs: VSCodeTester
 
     before(async () => {

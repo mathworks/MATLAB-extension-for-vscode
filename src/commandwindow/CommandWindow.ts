@@ -66,7 +66,7 @@ const ACTION_KEYS = {
 
     MOVE_TO_POSITION_IN_LINE: (n: number) => ESC + '[' + n.toString() + 'G',
     CLEAR_AND_MOVE_TO_BEGINNING: ESC + '[0G' + ESC + '[0J',
-    CLEAR_COMPLETELY: ESC + '[2J' + ESC + '[1;1H',
+    CLEAR_COMPLETELY: ESC + '[2J' + ESC + '[3J' + ESC + '[1;1H',
 
     QUERY_CURSOR: ESC + '[6n',
     SET_CURSOR_STYLE_TO_BAR: ESC + '[5 q'
@@ -707,7 +707,6 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      */
     clear (): void {
         this._writeEmitter.fire(ACTION_KEYS.CLEAR_COMPLETELY)
-        void vscode.commands.executeCommand('workbench.action.terminal.clear');
         this._setToEmptyPrompt();
     }
 

@@ -51,7 +51,10 @@ enum Notification {
     LicensingServerUrl = 'licensing/server/url',
     LicensingData = 'licensing/data',
     LicensingDelete = 'licensing/delete',
-    LicensingError = 'licensing/error'
+    LicensingError = 'licensing/error',
+
+    // Default Editor
+    EditorExecutablePath = 'matlab/otherEditor'
 }
 
 export default Notification
