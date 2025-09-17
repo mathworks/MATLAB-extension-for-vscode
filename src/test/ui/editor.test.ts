@@ -7,6 +7,7 @@ suite('Editor UI Tests', () => {
 
     before(async () => {
         vs = new VSCodeTester();
+        await vs.clearAllNotifications()
     });
 
     after(async () => {

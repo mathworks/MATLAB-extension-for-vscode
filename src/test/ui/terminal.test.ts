@@ -11,6 +11,7 @@ suite('Terminal UI Tests', () => {
         await vs.openEditor('hScript1.m')
         await vs.assertMATLABConnected()
         await vs.closeActiveEditor()
+        await vs.clearAllNotifications()
         await vs.openMATLABTerminal()
     });
 

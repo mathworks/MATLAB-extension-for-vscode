@@ -26,6 +26,13 @@ export class VSCodeTester {
         this.debugger = new DebuggerTester(this)
     }
 
+    public async clearAllNotifications (): Promise<void> {
+        const notifications = await this.workbench.getNotifications();
+        for (const notification of notifications) {
+            await notification.dismiss();
+        }
+    }
+
     /**
     * Connects to MATLAB
     */
