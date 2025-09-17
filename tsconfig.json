@@ -19,7 +19,7 @@
         "out",
         "server",
 		"node_modules",
-		".vscode-test"
+		".s"
 	],
     "references": [
         { "path": "./server/tsconfig.json" }
