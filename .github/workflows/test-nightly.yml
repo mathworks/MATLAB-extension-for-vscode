@@ -31,7 +31,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
       - name: npm clean install
-        run: npm ci
+        run: npm run project-install-clean
       - name: Start Xvfb 
         run: /usr/bin/Xvfb :17 -screen 0 1024x768x24 > /dev/null 2>&1 & echo "Started xvfb"
         shell: bash

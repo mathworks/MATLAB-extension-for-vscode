@@ -85,7 +85,7 @@ export class TestSuite {
                 failed = true;
                 console.error('\x1b[31m%s\x1b[0m', err)
             }
-            await PollingUtils.pause(10000); // wait for state to be reset before running next test
+            await PollingUtils.pause(30000); // wait for state to be reset before running next test
         }
         if (failed) {
             console.error('\x1b[31m%s\x1b[0m', 'One or more tests failed.');

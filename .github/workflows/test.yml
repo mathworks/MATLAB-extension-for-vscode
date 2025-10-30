@@ -22,7 +22,7 @@ jobs:
           node-version: 18.x
       - &install-dependencies
         name: Install dependencies
-        run: npm ci
+        run: npm run project-install-clean
       - &package
         name: Package vsix
         run: npm run package
