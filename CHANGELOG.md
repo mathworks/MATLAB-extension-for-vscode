@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6] - 2025-10-30
+
+### Fixed
+- MATLAB automatically closes after 5 minutes if the connection fails during startup, preventing leaked instances (Addresses [mathworks/MATLAB-extension-for-vscode#241](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/241))
+- MATLAB now starts from the primary workspace folder, so that the `pwd` command returns the correct path during startup (Addresses [mathworks/MATLAB-extension-for-vscode#233](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/233))
+- Resolves a crash that occurs when suppressing a linting diagnostic on a line with an existing comment (Addresses [mathworks/MATLAB-extension-for-vscode#280](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/280))
+- Applied patches for CVE-2025-58751 and CVE-2025-58752
+
 ## [1.3.5] - 2025-09-04
 
 ### Added

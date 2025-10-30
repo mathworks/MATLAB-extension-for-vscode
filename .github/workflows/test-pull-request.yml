@@ -41,7 +41,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
       - name: npm clean install
-        run: npm ci
+        run: npm run project-install-clean
       - name: Start Xvfb 
         run: /usr/bin/Xvfb :17 -screen 0 1024x768x24 > /dev/null 2>&1 & echo "Started xvfb"
         shell: bash
@@ -49,7 +49,7 @@ jobs:
       - name: Package vsix
         run: npm run package
       - name: npm install
-        run: npm install
+        run: npm run package-install
       - name: Run Smoke tests
         run: npm run test-smoke
         env:

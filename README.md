@@ -119,11 +119,12 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 
 ### 1.3.0
 Release date: 2024-12-18
+
 Added:
 * Debugging support
 * Support for inserting code snippets shipped with MATLAB (requires MATLAB R2025a or later)
 * Support for opening additional MATLAB file types (e.g. `.slx`, `.fig`) from the Visual Studio Code context menu (Community contribution from @Gusmano-2-OSU)
- 
+
 Fixed:
 * Syntax highlighting improvements (Community contribution from @apozharski)
 
