@@ -85,7 +85,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - &download-linux-build-artifacts
@@ -119,7 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - &download-windows-build-artifacts
@@ -139,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - &download-macos-build-artifacts
@@ -161,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - *download-linux-build-artifacts
@@ -190,7 +190,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - *download-windows-build-artifacts
@@ -213,7 +213,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [R2021b, R2022a, R2022b, latest]
+        version: [R2021b, R2022a, R2022b, R2024b, latest]
     steps:
       - *checkout
       - *download-macos-build-artifacts
