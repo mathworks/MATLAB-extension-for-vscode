@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.7] - 2025-11-12
+
+### Fixed
+- Resolves an issue with the previous version build. Does not include any changes to the extension's code or features.
+
 ## [1.3.6] - 2025-10-30
 
 ### Fixed
