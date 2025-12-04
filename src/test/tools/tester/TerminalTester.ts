@@ -49,11 +49,26 @@ export class TerminalTester {
     }
 
     /**
+     * Assert the MATLAB terminal does not contain some content
+     */
+    public async assertNotContains (expected: string, message: string): Promise<void> {
+        return await this.vs.poll(this.doesTerminalNotContain.bind(this, expected), true, `Assertion on terminal content: ${message}`)
+    }
+
+    /**
      * Checks if the MATLAB terminal contains some content (no polling)
      */
     private async doesTerminalContain (expected: string): Promise<boolean> {
         const content = await this.getTerminalContent()
         return content.includes(expected)
+    }
+
+    /**
+     * Checks if the MATLAB terminal does not contain some content (no polling)
+     */
+    private async doesTerminalNotContain (expected: string): Promise<boolean> {
+        const content = await this.getTerminalContent()
+        return !content.includes(expected)
     }
 
     public async type (text: string): Promise<void> {

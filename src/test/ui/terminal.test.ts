@@ -90,4 +90,26 @@ suite('Terminal UI Tests', () => {
         await vs.terminal.assertContains('a = 123;', 'Up arrow after typing "a" should recall matching command')
         await vs.terminal.type(Key.ESCAPE)
     });
+
+    test('Test multi-line command history cycling', async () => {
+        // Execute a multi-line command by pasting (simulates copy-paste of multi-line text)
+        await vs.terminal.type('x = [1 2\n     3 4]')
+        await vs.terminal.type(Key.RETURN)
+
+        // Execute another command to move forward in history
+        await vs.terminal.executeCommand('y = 5;')
+        await vs.terminal.executeCommand('clc')
+
+        // Recall the multi-line command with up arrow
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.type(Key.ARROW_UP)
+        await vs.terminal.assertContains('x = [1 2', 'Up arrow should recall first line of multi-line command')
+        await vs.terminal.assertContains('3 4]', 'Up arrow should recall second line of multi-line command')
+
+        // Cycle away from the multi-line command
+        await vs.terminal.type(Key.ARROW_DOWN)
+        await vs.terminal.assertNotContains('x = [1 2', 'First line should not stick after cycling away with down arrow')
+        await vs.terminal.assertNotContains('3 4]', 'Second line should not stick after cycling away with down arrow')
+        await vs.terminal.type(Key.ESCAPE)
+    });
 });

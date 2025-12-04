@@ -566,7 +566,9 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _eraseExistingPromptLine (): void {
-        const numberOfLinesBehind = Math.floor(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns);
+        const textUpToCursor = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
+        const numberOfExplicitNewlines = (textUpToCursor.match(/\r?\n/g) ?? []).length;
+        const numberOfLinesBehind = Math.floor(this._getAbsoluteIndexOnLine(this._cursorIndex) / this._terminalDimensions.columns) + numberOfExplicitNewlines;
         if (numberOfLinesBehind !== 0) {
             this._writeEmitter.fire(ACTION_KEYS.UP.repeat(numberOfLinesBehind))
         }
