@@ -900,6 +900,26 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._justTypedLastInColumn = this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0;
     }
 
+    /**
+     * Get cursor position information for testing purposes.
+     * Returns the logical line number (0-based) and column position (0-based) within that line.
+     * For multi-line commands with explicit newlines, the line is determined by counting newlines.
+     */
+    getCursorPosition (): { line: number, column: number } {
+        const textUpToCursor = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
+        const lastNewlineIndex = textUpToCursor.lastIndexOf('\n');
+
+        // Count newlines to determine line number
+        const line = (textUpToCursor.match(/\n/g) ?? []).length;
+
+        // Calculate column position within the current line
+        const column = lastNewlineIndex === -1
+            ? this._cursorIndex  // No newlines, so cursor is on first line
+            : textUpToCursor.length - lastNewlineIndex - 1 - this._currentPrompt.length;
+
+        return { line, column };
+    }
+
     onDidWrite: vscode.Event<string>;
     onDidOverrideDimensions?: vscode.Event<vscode.TerminalDimensions | undefined> | undefined;
     onDidClose?: vscode.Event<number> | undefined;

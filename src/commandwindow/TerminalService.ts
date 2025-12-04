@@ -99,6 +99,14 @@ export default class TerminalService {
     getCommandWindow (): CommandWindow {
         return this._commandWindow;
     }
+
+    /**
+     * Get cursor position information for testing purposes.
+     * Returns the logical line number (0-based) and column position (0-based) within that line.
+     */
+    getCursorPosition (): { line: number, column: number } {
+        return this._commandWindow.getCursorPosition();
+    }
 }
 
 /**
