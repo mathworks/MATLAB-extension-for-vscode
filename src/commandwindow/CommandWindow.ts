@@ -462,7 +462,17 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 // Don't actually move the cursor, but do move the index we think the cursor is at.
                 this._justTypedLastInColumn = false;
             } else {
-                if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0) {
+                // Check if the character before cursor is a newline (explicit line break)
+                const charBeforeCursor = this._currentPromptLine.charAt(this._getAbsoluteIndexOnLine(this._cursorIndex) - 1);
+                if (charBeforeCursor === '\n') {
+                    // Moving left across an explicit newline - need to go up and find position on previous line
+                    const textBeforeNewline = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex) - 1);
+                    const previousNewlineIndex = textBeforeNewline.lastIndexOf('\n');
+                    const positionOnPreviousLine = previousNewlineIndex === -1
+                        ? textBeforeNewline.length
+                        : textBeforeNewline.length - previousNewlineIndex - 1;
+                    this._writeEmitter.fire(ACTION_KEYS.UP + ACTION_KEYS.MOVE_TO_POSITION_IN_LINE((positionOnPreviousLine % this._terminalDimensions.columns) + 1));
+                } else if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === 0) {
                     this._writeEmitter.fire(ACTION_KEYS.UP + ACTION_KEYS.MOVE_TO_POSITION_IN_LINE(this._terminalDimensions.columns));
                 } else {
                     this._writeEmitter.fire(ACTION_KEYS.LEFT);
@@ -477,7 +487,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             if (this._justTypedLastInColumn) {
                 // Not possible
             } else {
-                if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === (this._terminalDimensions.columns - 1)) {
+                // Check if the character at cursor is a newline (explicit line break)
+                const charAtCursor = this._currentPromptLine.charAt(this._getAbsoluteIndexOnLine(this._cursorIndex));
+                if (charAtCursor === '\n') {
+                    // Moving right across an explicit newline - go down to start of next line
+                    this._writeEmitter.fire(ACTION_KEYS.DOWN + ACTION_KEYS.MOVE_TO_POSITION_IN_LINE(1));
+                } else if (this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns === (this._terminalDimensions.columns - 1)) {
                     this._writeEmitter.fire(ACTION_KEYS.DOWN + ACTION_KEYS.MOVE_TO_POSITION_IN_LINE(0));
                 } else {
                     this._writeEmitter.fire(ACTION_KEYS.RIGHT);
@@ -669,7 +684,13 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         } else if (lineNumberCursorShouldBeOn < lineOfInputCursorIsCurrentlyOn) {
             this._writeEmitter.fire(ACTION_KEYS.UP.repeat(lineOfInputCursorIsCurrentlyOn - lineNumberCursorShouldBeOn));
         }
-        this._writeEmitter.fire(ACTION_KEYS.MOVE_TO_POSITION_IN_LINE((this._getAbsoluteIndexOnLine(this._cursorIndex) % this._terminalDimensions.columns) + 1));
+        // Calculate column position accounting for explicit newlines
+        const textUpToCursor = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._cursorIndex));
+        const lastNewlineIndex = textUpToCursor.lastIndexOf('\n');
+        const positionOnCurrentLine = lastNewlineIndex === -1
+            ? this._getAbsoluteIndexOnLine(this._cursorIndex)
+            : textUpToCursor.length - lastNewlineIndex - 1;
+        this._writeEmitter.fire(ACTION_KEYS.MOVE_TO_POSITION_IN_LINE((positionOnCurrentLine % this._terminalDimensions.columns) + 1));
     }
 
     setDimensions (dimensions: vscode.TerminalDimensions): void {
