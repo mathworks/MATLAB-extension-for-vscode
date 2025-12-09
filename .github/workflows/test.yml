@@ -60,7 +60,7 @@ jobs:
 
   build-macos:
     name: build-macos
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     steps:
       - *checkout
       - *setup-node
@@ -135,7 +135,7 @@ jobs:
   test-smoke-macos:
     name: Smoke Test ${{ matrix.version }}-macos
     needs: build-macos
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     strategy:
       fail-fast: false
       matrix:
@@ -209,7 +209,7 @@ jobs:
   test-ui-macos:
     name: UI Test ${{ matrix.version }}-macos
     needs: build-macos
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     strategy:
       fail-fast: false
       matrix:
