@@ -60,7 +60,7 @@ jobs:
 
   build-macos:
     name: build-macos
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - *checkout
       - *setup-node
@@ -135,7 +135,7 @@ jobs:
   test-smoke-macos:
     name: Smoke Test ${{ matrix.version }}-macos
     needs: build-macos
-    runs-on: macos-13
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
@@ -180,7 +180,7 @@ jobs:
         if: always()
         with:
           name: screenshots-linux-${{ matrix.version }}
-          path: ${{ github.workspace }}/s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots
           if-no-files-found: ignore
 
   test-ui-windows:
@@ -203,7 +203,7 @@ jobs:
         if: always()
         with:
           name: screenshots-windows-${{ matrix.version }}
-          path: ${{ github.workspace }}/s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots
           if-no-files-found: ignore
 
   test-ui-macos:
@@ -226,5 +226,5 @@ jobs:
         if: always()
         with:
           name: screenshots-macos-${{ matrix.version }}
-          path: ${{ github.workspace }}/s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots
           if-no-files-found: ignore
