@@ -17,7 +17,19 @@ enum FILE_PATH_STATE {
     FILE_SHADOWED_BY_PFILE = 4,
     FILE_SHADOWED_BY_MEXFILE = 5,
     FILE_SHADOWED_BY_MLXFILE = 6,
-    FILE_SHADOWED_BY_MLAPPFILE = 7
+    FILE_SHADOWED_BY_MLAPPFILE = 7,
+    INVALID_FILENAME_FOR_EXECUTION = 8,
+    IN_FOLDER_NAMED_PRIVATE = 9,
+    INVALID_PKG_DEF = 10,
+    IN_PKG_REPOSITORY = 11,
+    OUT_OF_DATE_PKG = 12,
+    PKG_PRIVATE_FILE = 13,
+    INCOMPATIBLE_PKG = 14,
+    NOT_EXECUTABLE_PKG = 15,
+    MODULAR_PKGS_NOT_SUPPORTED = 16,
+    SHADOWED_BY_VAR = 17,
+    NOT_INSTALLED_PKG = 18,
+    NOT_INSTALLED_PKG_SHADOWED_BY_PWD = 19
 }
 
 export default class ExecutionCommandProvider {
@@ -131,6 +143,7 @@ export default class ExecutionCommandProvider {
 
         // Handle the results of the path check
         try {
+            let cause = '';
             switch (status) {
                 case FILE_PATH_STATE.FILE_WILL_RUN:
                     this._terminalService.getCommandWindow().insertCommandForEval(commandToRun);
@@ -143,7 +156,49 @@ export default class ExecutionCommandProvider {
                     await this._handleShadowedByPwd(filePath, commandToRun);
                     break;
                 default:
-                    void vscode.window.showErrorMessage('Unable to run file as it is shadowed by another file in the same folder.');
+                    switch (status) {
+                        case FILE_PATH_STATE.FILE_SHADOWED_BY_PFILE:
+                        case FILE_PATH_STATE.FILE_SHADOWED_BY_MEXFILE:
+                        case FILE_PATH_STATE.FILE_SHADOWED_BY_MLXFILE:
+                        case FILE_PATH_STATE.FILE_SHADOWED_BY_MLAPPFILE:
+                            cause = 'as it is shadowed by another file in the same folder.'
+                            break;
+                        case FILE_PATH_STATE.INVALID_FILENAME_FOR_EXECUTION:
+                            cause = 'as it is not named as a valid MATLAB identifier.'
+                            break;
+                        case FILE_PATH_STATE.IN_FOLDER_NAMED_PRIVATE:
+                            cause = 'as it is in a private folder.'
+                            break;
+                        case FILE_PATH_STATE.INVALID_PKG_DEF:
+                            cause = 'as it part of a MATLAB Package with an invalid definition file.'
+                            break;
+                        case FILE_PATH_STATE.IN_PKG_REPOSITORY:
+                            cause = 'as it is a part of a package repository.'
+                            break;
+                        case FILE_PATH_STATE.OUT_OF_DATE_PKG:
+                            cause = 'as it is part of a package that is currently out of date and needs to be reloaded.'
+                            break;
+                        case FILE_PATH_STATE.PKG_PRIVATE_FILE:
+                            cause = 'as it is marked as private within its containing package.'
+                            break;
+                        case FILE_PATH_STATE.INCOMPATIBLE_PKG:
+                            cause = 'as it is part of a package that is not compatible with the current MATLAB release.'
+                            break;
+                        case FILE_PATH_STATE.NOT_EXECUTABLE_PKG:
+                            cause = 'as it is part of a package that is not executable.'
+                            break;
+                        case FILE_PATH_STATE.MODULAR_PKGS_NOT_SUPPORTED:
+                            cause = 'as it is not in a supported package type.'
+                            break;
+                        case FILE_PATH_STATE.SHADOWED_BY_VAR:
+                            cause = 'as it is shadowed by a variable in the current workspace.'
+                            break;
+                        case FILE_PATH_STATE.NOT_INSTALLED_PKG:
+                        case FILE_PATH_STATE.NOT_INSTALLED_PKG_SHADOWED_BY_PWD:
+                            cause = 'as it is part of a pacakge that has not been installed.'
+                            break;
+                    }
+                    void vscode.window.showErrorMessage('Unable to run file ' + cause);
             }
         } catch (e) {
 

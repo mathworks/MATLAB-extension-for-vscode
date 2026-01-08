@@ -1,4 +1,5 @@
 // Copyright 2025 The MathWorks, Inc.
+import { Key } from 'vscode-extension-tester';
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { before, afterEach, after } from 'mocha';
 
@@ -25,50 +26,45 @@ suite('Debugging UI Tests', () => {
     });
 
     test('Basic debugging operations', async () => {
-        await vs.openEditor('hScript2.m')
-        return; // Temporarily disable this test due to flakiness on CI
-        await vs.setSetting('debug.toolBarLocation', 'floating');
         const editor = await vs.openEditor('hScript2.m')
-        await editor.toggleBreakpoint(1)
-        await editor.toggleBreakpoint(3)
+        await editor.debugger.setBreakpointOnLine(1)
+        await editor.debugger.setBreakpointOnLine(3)
         await vs.runCurrentFile()
-        await vs.debugger.waitForToolbar()
-        await vs.debugger.assertStoppedAtLine(1)
-        await vs.debugger.toolbar.continue()
-        await vs.debugger.assertStoppedAtLine(3)
-        await vs.debugger.toolbar.stepOver()
-        await vs.debugger.assertStoppedAtLine(4)
-        await vs.debugger.toolbar.stop()
-        await vs.debugger.assertNotDebugging()
-        await editor.toggleBreakpoint(1)
-        await editor.toggleBreakpoint(3)
-        await vs.setSetting('debug.toolBarLocation', 'docked');
+        await editor.debugger.assertStoppedAtLine(1)
+        await editor.type(Key.F5, 'F5 to continue');
+        await editor.debugger.assertStoppedAtLine(3)
+        await editor.type(Key.F10, 'F10 to step over');
+        await editor.debugger.assertStoppedAtLine(4)
+        await editor.type(Key.chord(Key.SHIFT, Key.F5), 'Shift+F5 to stop');
+        await editor.debugger.assertNotDebugging()
+        await editor.debugger.clearBreakpointOnLine(1)
+        await editor.debugger.clearBreakpointOnLine(3)
     })
 
     test('Basic debugging operations via terminal', async () => {
-        await vs.openEditor('hScript2.m')
+        const editor = await vs.openEditor('hScript2.m')
         await vs.terminal.executeCommand('dbstop in hScript2 at 1')
         await vs.terminal.executeCommand('dbstop in hScript2 at 3')
         await vs.runCurrentFile()
-        await vs.debugger.assertStoppedAtLine(1)
+        await editor.debugger.assertStoppedAtLine(1)
         await vs.terminal.assertContains('K>>', 'terminal should have K prompt')
         await vs.terminal.executeCommand('dbcont')
-        await vs.debugger.assertStoppedAtLine(3)
+        await editor.debugger.assertStoppedAtLine(3)
         await vs.terminal.executeCommand('dbstep')
-        await vs.debugger.assertStoppedAtLine(4)
+        await editor.debugger.assertStoppedAtLine(4)
         await vs.terminal.executeCommand('dbquit')
-        await vs.debugger.assertNotDebugging()
+        await editor.debugger.assertNotDebugging()
     })
 
     test('Executing commands while debugging', async () => {
         const editor = await vs.openEditor('hScript2.m')
-        await editor.toggleBreakpoint(1)
+        await editor.debugger.setBreakpointOnLine(1)
         await vs.runCurrentFile()
-        await vs.debugger.assertStoppedAtLine(1)
+        await editor.debugger.assertStoppedAtLine(1)
         await vs.terminal.executeCommand('12+17')
         await vs.terminal.assertContains('29', 'output should appear in terminal')
         await vs.terminal.executeCommand('dbquit')
-        await vs.debugger.assertNotDebugging()
-        await editor.toggleBreakpoint(1)
+        await editor.debugger.assertNotDebugging()
+        await editor.debugger.clearBreakpointOnLine(1)
     })
 });

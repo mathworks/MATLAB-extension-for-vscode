@@ -37,7 +37,7 @@ export function _getConnectionStatus (): string {
  * Poll for MATLAB to connect to VSCode
  */
 export async function assertMATLABConnected (): Promise<void> {
-    return await PollingUtils.poll(_getConnectionStatus, extension.CONNECTION_STATUS_LABELS.CONNECTED, 'Expected MATLAB to be connected', 120000)
+    return await PollingUtils.poll(_getConnectionStatus, extension.CONNECTION_STATUS_LABELS.CONNECTED, 'Expected MATLAB to be connected', 180000)
 }
 
 /**

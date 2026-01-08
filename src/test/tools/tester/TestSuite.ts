@@ -4,7 +4,6 @@ import * as path from 'path'
 import { ExTester, ReleaseQuality } from 'vscode-extension-tester'
 import * as PollingUtils from '../utils/PollingUtils'
 import * as fs from 'fs';
-import * as os from 'os';
 
 export class TestSuite {
     private readonly storageFolder: string
@@ -16,7 +15,7 @@ export class TestSuite {
     private readonly releaseQuality: ReleaseQuality
 
     public constructor () {
-        this.storageFolder = path.join(__dirname, '..', '..', '..', '..', 's')
+        this.storageFolder = path.join(__dirname, '..', '..', '..', '..', '.s')
         this.mochaConfig = path.join(__dirname, '..', 'config', '.mocharc.js')
         const pjson = require(path.resolve('package.json')) // eslint-disable-line
         this.vsixPath = path.resolve(`${pjson.name}-${pjson.version}.vsix`) // eslint-disable-line
