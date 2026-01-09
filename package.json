@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.3.7",
+	"version": "1.3.8",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -122,7 +122,13 @@
 				"languages": [
 					"matlab"
 				],
-				"label": "MATLAB Label"
+				"label": "MATLAB",
+				"initialConfigurations": [
+					{
+						"type": "matlab",
+						"name": "Debug MATLAB"
+					}
+				]
 			}
 		],
 		"menus": {
@@ -278,7 +284,7 @@
 				},
 				"MATLAB.defaultEditor": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "Use Visual Studio Code instead of the MATLAB Editor to open and edit files using the `open` and `edit` commands. Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).",
 					"scope": "window"
 				}
@@ -350,7 +356,7 @@
 		"@types/vscode": "^1.67.0",
 		"@typescript-eslint/eslint-plugin": "^5.36.1",
 		"@typescript-eslint/parser": "^5.36.1",
-		"@vscode/test-electron": "^2.1.5",
+		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^2.19.0",
 		"copyfiles": "^2.4.1",
 		"eslint": "^8.23.0",

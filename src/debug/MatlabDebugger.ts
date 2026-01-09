@@ -156,7 +156,10 @@ export default class MatlabDebugger {
                     return;
                 }
 
-                frame.session.customRequest('StackChange', { frame: frame.frameId as number });
+                // This can be undefined when continuing in the debugger.
+                if (frame.frameId !== undefined) {
+                    frame.session.customRequest('StackChange', { frame: frame.frameId as number });
+                }
             });
         }
 

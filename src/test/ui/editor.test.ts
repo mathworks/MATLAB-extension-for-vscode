@@ -14,9 +14,9 @@ suite('Editor UI Tests', () => {
     });
 
     test('Test editor section', async () => {
-        await vs.openEditor('hSectionsScript.m')
+        const editor = await vs.openEditor('hSectionsScript.m')
         await vs.assertMATLABConnected()
-        await vs.assertDecorationOnLine(5, 'Line 5 should have section decoration')
+        await editor.assertDecorationOnLine(5, 'Line 5 should have section decoration')
         await vs.closeActiveEditor()
     })
 });

@@ -3,8 +3,8 @@ import * as vet from 'vscode-extension-tester'
 import * as path from 'path'
 import * as PollingUtils from '../utils/PollingUtils'
 import { TerminalTester } from './TerminalTester'
-import { DebuggerTester } from './DebuggerTester'
 import * as assert from 'assert'
+import { EditorTester } from './EditorTester'
 
 /**
  * VSCodeTester
@@ -16,14 +16,12 @@ export class VSCodeTester {
     private readonly statusbar: vet.StatusBar
     public readonly workbench: vet.Workbench
     public terminal!: TerminalTester
-    public debugger!: DebuggerTester
 
     public constructor () {
         this.vs = this
         this.browser = vet.VSBrowser.instance
         this.workbench = new vet.Workbench()
         this.statusbar = new vet.StatusBar()
-        this.debugger = new DebuggerTester(this)
     }
 
     /**
@@ -98,10 +96,10 @@ export class VSCodeTester {
     /**
      * Open a file from the 'test-files' directory
      */
-    public async openEditor (filename: string): Promise<vet.TextEditor> {
+    public async openEditor (filename: string): Promise<EditorTester> {
         const filepath = path.resolve(this.getTestFilesDirectory(), filename)
         await this.browser.openResources(filepath)
-        return new vet.TextEditor()
+        return new EditorTester(this.vs)
     }
 
     /**
@@ -125,7 +123,6 @@ export class VSCodeTester {
         const prompt = await this.workbench.openCommandPrompt() as vet.InputBox
         await prompt.setText('>matlab.openCommandWindow')
         await this.selectQuickPick(prompt, 'MATLAB: Open Command Window');
-        await this.assertMATLABConnected()
         const terminal = await new vet.BottomBarPanel().openTerminalView()
         const terminalTester = new TerminalTester(this, terminal)
         this.terminal = terminalTester
@@ -135,12 +132,6 @@ export class VSCodeTester {
     public async runCurrentFile (): Promise<void> {
         const prompt = await this.workbench.openCommandPrompt()
         await prompt.setText('>matlab.runFile')
-        return await prompt.confirm()
-    }
-
-    public async runCurrentSection (): Promise<void> {
-        const prompt = await this.workbench.openCommandPrompt()
-        await prompt.setText('>matlab.runSection')
         return await prompt.confirm()
     }
 
@@ -158,23 +149,16 @@ export class VSCodeTester {
         return await new vet.EditorView().closeEditor('Settings')
     }
 
-    public async assertDecorationOnLine (n: number, message = ''): Promise<void> {
-        return await this.poll(this.lineHasDecoration.bind(this, n), true, `Expected line ${n} to have decoration. ${message}`)
+    private async executeWorkbenchCommand (command: string): Promise<void> {
+        console.log(`Executing workbench command: ${command}`)
+        return await this.workbench.executeCommand(command)
     }
 
-    private async lineHasDecoration (n: number): Promise<boolean> {
-        const editor = new vet.TextEditor()
-        const lines = await editor.findElements(vet.By.css('div.view-lines > div'));
-        if (n < 1 || n > lines.length) return false;
-
-        const spans = await lines[n - 1].findElements(vet.By.css('span'));
-        for (const span of spans) {
-            const classAttr = await span.getAttribute('class');
-            if (classAttr?.includes('TextEditorDecoration')) {
-                return true;
-            }
-        }
-        return false;
+    /**
+    * Pause the test for the specified time
+    */
+    public async pause (ms: number): Promise<void> {
+        return await PollingUtils.pause(ms);
     }
 
     /**
