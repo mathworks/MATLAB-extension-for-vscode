@@ -162,6 +162,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(vscode.commands.registerCommand('matlab.runSelection', async () => await executionCommandProvider.handleRunSelection()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.interrupt', () => executionCommandProvider.handleInterrupt()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.openCommandWindow', async () => await terminalService.openTerminalOrBringToFront()))
+    context.subscriptions.push(vscode.commands.registerCommand('matlab.getCursorPosition', () => terminalService.getCursorPosition()))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)))
     context.subscriptions.push(vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await executionCommandProvider.handleChangeDirectory(uri)))
