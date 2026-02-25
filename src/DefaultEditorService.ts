@@ -1,4 +1,4 @@
-// Copyright 2025 The MathWorks, Inc.
+// Copyright 2025-2026 The MathWorks, Inc.
 
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { LanguageClient } from 'vscode-languageclient/node';
-import { MatlabState, MVM } from './commandwindow/MVM'
+import { MatlabMVMConnectionState, MVM } from './commandwindow/MVM'
 import Notification from './Notifications'
 
 export default class DefaultEditorService {
@@ -19,12 +19,12 @@ export default class DefaultEditorService {
             })
         )
 
-        mvm.on(MVM.Events.stateChanged, (oldState: MatlabState, newState: MatlabState) => {
+        mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
             if (oldState === newState) {
                 return;
             }
 
-            if (newState === MatlabState.READY || newState === MatlabState.BUSY) {
+            if (newState === MatlabMVMConnectionState.CONNECTED) {
                 if (!this.initialized) {
                     this.initialized = true
                     void this.handleConfigChanged()

@@ -132,7 +132,7 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     mvm = new MVM(multiclientNotifier);
     terminalService = new TerminalService(multiclientNotifier, mvm);
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
-    matlabDebugger = new MatlabDebugger(mvm, multiclientNotifier, telemetryLogger);
+    matlabDebugger = new MatlabDebugger(mvm, multiclientNotifier, telemetryLogger, terminalService);
 
     // Register a custom command which allows the user enable / disable Sign In options.
     // Using this custom command would be an alternative approach to going to enabling the setting.

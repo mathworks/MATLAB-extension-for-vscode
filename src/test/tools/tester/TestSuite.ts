@@ -60,12 +60,14 @@ export class TestSuite {
      */
     public async enqueueTests (tests: string[]): Promise<void> {
         let failed = false;
+        let firstRun = true;
         const exTester = new ExTester(this.storageFolder, this.releaseQuality, undefined)
         await exTester.downloadCode(this.vscodeVersion)
         await exTester.downloadChromeDriver(this.vscodeVersion)
         await exTester.installVsix({ vsixFile: this.vsixPath })
         console.log(`Queueing tests:\n${tests.join('\n')}\n`)
         for (const test of tests) {
+            if (!firstRun) await PollingUtils.pause(30000); // wait for state to be reset before running next test
             const testPath = path.join(this.testsRoot, test)
             console.log(`Running test: ${test}`)
             try {
@@ -84,7 +86,7 @@ export class TestSuite {
                 failed = true;
                 console.error('\x1b[31m%s\x1b[0m', err)
             }
-            await PollingUtils.pause(30000); // wait for state to be reset before running next test
+            firstRun = false;
         }
         if (failed) {
             console.error('\x1b[31m%s\x1b[0m', 'One or more tests failed.');

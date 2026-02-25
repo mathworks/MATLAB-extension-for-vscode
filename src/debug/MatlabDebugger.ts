@@ -1,83 +1,56 @@
-// Copyright 2024-2025 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { Notifier } from '../commandwindow/Utilities';
-import { MVM, MatlabState } from '../commandwindow/MVM'
+import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM'
 import MatlabDebugAdaptor from './MatlabDebugAdaptor';
-import Notification from '../Notifications';
 import TelemetryLogger from '../telemetry/TelemetryLogger';
+import BreakpointSynchronizer from './BreakpointSynchronizer';
+import TerminalService from '../commandwindow/TerminalService';
 
 export default class MatlabDebugger {
-    private readonly _baseDebugAdaptor: MatlabDebugAdaptor;
-    private readonly _nestedDebugAdaptor: MatlabDebugAdaptor;
+    private readonly _adaptor: MatlabDebugAdaptor;
     private readonly _mvm: MVM;
     private readonly _notifier: Notifier;
     private readonly _telemetryLogger: TelemetryLogger;
+    private readonly _terminalService: TerminalService;
 
-    private _isDebugAdaptorStarted: boolean = false;
+    private readonly _breakpointSynchronizer: BreakpointSynchronizer;
 
-    private _baseDebugSession: vscode.DebugSession | null = null;
-    private readonly _activeSessions: Set<vscode.DebugSession> = new Set();
+    private _activeSession?: vscode.DebugSession;
+
+    private _shouldAutoStart: boolean = false;
 
     private _hasSentNotification: boolean = false;
 
-    constructor (mvm: MVM, notifier: Notifier, telemetryLogger: TelemetryLogger) {
+    constructor (mvm: MVM, notifier: Notifier, telemetryLogger: TelemetryLogger, terminalService: TerminalService) {
         this._mvm = mvm;
         this._notifier = notifier;
         this._telemetryLogger = telemetryLogger;
-        this._baseDebugAdaptor = new MatlabDebugAdaptor(mvm, notifier, this._getBaseDebugSession.bind(this), true)
-        this._nestedDebugAdaptor = new MatlabDebugAdaptor(mvm, notifier, this._getBaseDebugSession.bind(this), false)
+        this._terminalService = terminalService;
+
+        this._adaptor = new MatlabDebugAdaptor(mvm, notifier);
+        this._breakpointSynchronizer = new BreakpointSynchronizer(mvm, this._adaptor.dispatchRequest.bind(this._adaptor));
         this._initialize();
+
+        this._shouldAutoStart = vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? false;
+        if (this._shouldAutoStart) {
+            this._breakpointSynchronizer.enable();
+        } else {
+            this._breakpointSynchronizer.disable();
+        }
 
         vscode.workspace.onDidChangeConfiguration(async (event) => {
             if (event.affectsConfiguration('MATLAB.startDebuggerAutomatically')) {
-                const shouldAutoStart = await vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? true;
-                if (shouldAutoStart && this._mvm.getMatlabState() !== MatlabState.DISCONNECTED) {
-                    void this._getBaseDebugSession(false);
+                this._shouldAutoStart = vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? false;
+                if (this._shouldAutoStart) {
+                    this._breakpointSynchronizer.enable();
+                    void this._maybeStartDebugger();
                 } else {
-                    if (!this._mvm.isDebugging()) {
-                        this._baseDebugAdaptor.handleDisconnect();
-                        if (this._baseDebugSession != null) {
-                            void vscode.debug.stopDebugging(this._baseDebugSession)
-                            this._baseDebugSession = null;
-                            this._isDebugAdaptorStarted = false;
-                        }
-                    }
+                    this._breakpointSynchronizer.disable();
                 }
             }
         });
-    }
-
-    private async _getBaseDebugSession (dontAutoStart: boolean): Promise<vscode.DebugSession | null> {
-        if (dontAutoStart) {
-            return this._baseDebugSession;
-        }
-
-        if (this._mvm.getMatlabState() === MatlabState.DISCONNECTED) {
-            throw new Error('No base debugging session exists');
-        }
-
-        if (this._baseDebugSession != null) {
-            return this._baseDebugSession;
-        }
-
-        await this._startBaseSession();
-
-        if (this._baseDebugSession === null) {
-            throw new Error('No base debugging session exists');
-        }
-
-        return this._baseDebugSession;
-    }
-
-    private async _startBaseSession (): Promise<void> {
-        await vscode.debug.startDebugging(undefined, {
-            name: 'base matlab',
-            type: 'matlab',
-            request: 'launch'
-        }, {
-            debugUI: { simple: true }
-        } as vscode.DebugSessionOptions);
     }
 
     private _initialize (): void {
@@ -90,17 +63,11 @@ export default class MatlabDebugger {
             }
         } as vscode.DebugConfigurationProvider)
 
-        const baseDebugAdaptor = this._baseDebugAdaptor;
-        const nestedDebugAdaptor = this._nestedDebugAdaptor;
-        // eslint-disable-next-line @typescript-eslint/no-this-alias
-        const matlabDebugger = this;
+        // eslint-disable-next-line  @typescript-eslint/no-this-alias
+        const outerThis = this;
         vscode.debug.registerDebugAdapterDescriptorFactory('matlab', {
             createDebugAdapterDescriptor (_session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-                if (matlabDebugger._baseDebugSession == null) {
-                    return new vscode.DebugAdapterInlineImplementation(baseDebugAdaptor);
-                } else {
-                    return new vscode.DebugAdapterInlineImplementation(nestedDebugAdaptor);
-                }
+                return new vscode.DebugAdapterInlineImplementation(outerThis._adaptor);
             }
         } as vscode.DebugAdapterDescriptorFactory);
 
@@ -109,37 +76,24 @@ export default class MatlabDebugger {
                 return;
             }
 
-            this._activeSessions.add(session);
+            if (this._activeSession != null) {
+                void vscode.debug.stopDebugging(session);
+            }
+
             session.name = 'MATLAB';
 
-            const isInvalidToStartSession = (await vscode.workspace.getConfiguration('MATLAB').get('matlabConnectionTiming')) === 'never'
-            if (isInvalidToStartSession && this._mvm.getMatlabState() === MatlabState.DISCONNECTED) {
+            const isInvalidToStartSession = vscode.workspace.getConfiguration('MATLAB').get('matlabConnectionTiming') === 'never'
+            if (isInvalidToStartSession && this._mvm.getMatlabState() === MatlabMVMConnectionState.DISCONNECTED) {
                 void vscode.debug.stopDebugging(session);
                 return;
             }
 
-            this._notifier.sendNotification(Notification.MatlabRequestInstance);
-            if (this._baseDebugSession == null) {
-                this._baseDebugSession = session;
-            } else {
-                if (!this._mvm.isDebugging()) {
-                    void vscode.debug.stopDebugging(session);
-                }
-            }
+            void this._terminalService.openTerminalOrBringToFront();
         });
 
         vscode.debug.onDidTerminateDebugSession(async (session: vscode.DebugSession) => {
-            this._activeSessions.delete(session);
-            if (session === this._baseDebugSession) {
-                this._baseDebugSession = null;
-            } else {
-                this._isDebugAdaptorStarted = false;
-            }
-            if (this._mvm.getMatlabState() !== MatlabState.DISCONNECTED) {
-                const shouldAutoStart = await vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? true;
-                if (shouldAutoStart) {
-                    void this._getBaseDebugSession(false);
-                }
+            if (this._activeSession === session) {
+                this._activeSession = undefined;
             }
         });
 
@@ -148,11 +102,7 @@ export default class MatlabDebugger {
         if ((vscode.debug as any).onDidChangeActiveStackItem !== undefined) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (vscode.debug as any).onDidChangeActiveStackItem((frame: any) => {
-                if (this._baseDebugSession === null) {
-                    return;
-                }
-
-                if (!this._activeSessions.has(frame.session) || frame.session === this._baseDebugSession) {
+                if (this._activeSession == null || this._activeSession !== frame.session || frame.frameId === undefined) {
                     return;
                 }
 
@@ -169,20 +119,13 @@ export default class MatlabDebugger {
         this._mvm.on(MVM.Events.debuggingStateChanged, this._handleMatlabDebuggingStateChange.bind(this));
     }
 
-    private async _handleMvmStateChange (oldState: MatlabState, newState: MatlabState): Promise<void> {
-        if (newState === MatlabState.READY && oldState === MatlabState.DISCONNECTED) {
+    private async _handleMvmStateChange (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState): Promise<void> {
+        if (newState === MatlabMVMConnectionState.CONNECTED && oldState === MatlabMVMConnectionState.DISCONNECTED) {
             void vscode.commands.executeCommand('setContext', 'matlab.isDebugging', false);
-            const shouldAutoStart = await vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? true;
-            if (shouldAutoStart) {
-                void this._getBaseDebugSession(false);
-            }
-        } else if (newState === MatlabState.DISCONNECTED) {
+        } else if (newState === MatlabMVMConnectionState.DISCONNECTED) {
             void vscode.commands.executeCommand('setContext', 'matlab.isDebugging', false);
-            this._baseDebugAdaptor.handleDisconnect();
-            this._activeSessions.forEach((session) => {
-                void vscode.debug.stopDebugging(session);
-            })
-            this._isDebugAdaptorStarted = false;
+            this._adaptor.handleDisconnect();
+            void vscode.debug.stopDebugging(this._activeSession);
         }
     }
 
@@ -193,16 +136,15 @@ export default class MatlabDebugger {
             return;
         }
 
-        const shouldReact = await this._shouldReactToDebugEvent();
-        const isStillDebugging = this._mvm.isDebugging();
-
-        if (shouldReact && isStillDebugging) {
-            void this._maybeStartDebugger();
-        }
+        void this._maybeStartDebugger();
     }
 
     private async _maybeStartDebugger (): Promise<void> {
-        if (this._isDebugAdaptorStarted) {
+        if (!this._shouldAutoStart || !this._mvm.isDebugging()) {
+            return;
+        }
+
+        if (this._activeSession !== undefined) {
             return;
         }
 
@@ -217,32 +159,18 @@ export default class MatlabDebugger {
             });
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const baseSession = this._baseDebugSession ?? undefined;
-
-        const wasDebuggerStartSuccessful = await vscode.debug.startDebugging(undefined, {
-            name: 'matlab',
-            type: 'matlab',
-            request: 'launch'
-        }, {
-            parentSession: baseSession,
+        const debuggerConfiguration = {
+            parentSession: undefined,
             compact: true,
             suppressDebugStatusbar: false,
             suppressDebugToolbar: false,
             suppressDebugView: false
-        });
+        } as vscode.DebugSessionOptions;
 
-        this._isDebugAdaptorStarted = wasDebuggerStartSuccessful;
-    }
-
-    private async _shouldReactToDebugEvent (): Promise<boolean> {
-        const shouldAutoStart = await vscode.workspace.getConfiguration('MATLAB')?.get<boolean>('startDebuggerAutomatically') ?? true;
-        if (!shouldAutoStart) {
-            const baseSession = await this._getBaseDebugSession(true);
-            if (baseSession === null) {
-                return false;
-            }
-        }
-        return true;
+        await vscode.debug.startDebugging(undefined, {
+            name: 'matlab',
+            type: 'matlab',
+            request: 'launch'
+        }, debuggerConfiguration);
     }
 }

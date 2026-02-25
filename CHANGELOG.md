@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.9] - 2026-02-19
+
+### Added
+- Support for displaying wide CJK (Chinese, Japanese, and Korean) characters in the MATLAB terminal. (Addresses [mathworks/MATLAB-extension-for-vscode#266](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/266) and [mathworks/MATLAB-extension-for-vscode#276](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/276))
+
+### Fixed
+- Resolves an issue starting MATLAB when the `HOME` environment variable is set to an invalid folder (Addresses [mathworks/MATLAB-extension-for-vscode#164](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/164))
+- Resolves an issue with extraneous debug sessions remaining after debugger is exited (Addresses [mathworks/MATLAB-extension-for-vscode#258](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/258))
+
 ## [1.3.8] - 2026-01-09
 
 ### Added
