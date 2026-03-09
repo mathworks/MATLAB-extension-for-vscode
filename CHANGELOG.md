@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.9] - 2026-03-06
+## [1.3.9] - 2026-03-09
 
 ### Added
 - Support for displaying wide CJK (Chinese, Japanese, and Korean) characters in the MATLAB terminal. (Addresses [mathworks/MATLAB-extension-for-vscode#266](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/266) and [mathworks/MATLAB-extension-for-vscode#276](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/276))
