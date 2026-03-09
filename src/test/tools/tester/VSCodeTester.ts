@@ -119,20 +119,12 @@ export class VSCodeTester {
     /**
     * Opens the MATLAB terminal and creates a new terminal tester
     */
-    public async openMATLABTerminal (): Promise<TerminalTester> {
-        const prompt = await this.workbench.openCommandPrompt() as vet.InputBox
-        await prompt.setText('>matlab.openCommandWindow')
-        await this.selectQuickPick(prompt, 'MATLAB: Open Command Window');
+    public async openMATLABTerminal (): Promise<void> {
+        await this.executeWorkbenchCommand('matlab.openCommandWindow')
+        await this.pause(1000)
         const terminal = await new vet.BottomBarPanel().openTerminalView()
         const terminalTester = new TerminalTester(this, terminal)
         this.terminal = terminalTester
-        return terminalTester
-    }
-
-    public async runCurrentFile (): Promise<void> {
-        const prompt = await this.workbench.openCommandPrompt()
-        await prompt.setText('>matlab.runFile')
-        return await prompt.confirm()
     }
 
     public async setSetting (id: string, value: string): Promise<void> {

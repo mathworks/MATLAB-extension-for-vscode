@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 
 import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, Capability } from './MVMInterface'
 import { createResolvablePromise, ResolvablePromise, Notifier } from './Utilities'
@@ -8,10 +8,9 @@ import EventEmitter = require('events')
 /**
  * The current state of MATLAB
  */
-export enum MatlabState {
+export enum MatlabMVMConnectionState {
     DISCONNECTED = 'disconnected',
-    READY = 'ready',
-    BUSY = 'busy'
+    CONNECTED = 'connected'
 }
 
 interface MatlabStateUpdate {
@@ -41,8 +40,8 @@ export class MVM extends EventEmitter {
 
     private readonly _notifier: Notifier;
 
-    private readonly _stateObservers: Array<(oldState: MatlabState, newState: MatlabState) => void> = [];
-    private _currentState: MatlabState = MatlabState.DISCONNECTED;
+    private readonly _stateObservers: Array<(oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => void> = [];
+    private _currentState: MatlabMVMConnectionState = MatlabMVMConnectionState.DISCONNECTED;
     private _currentRelease: string | null = null;
 
     private _currentReadyPromise: ResolvablePromise<void>;
@@ -90,11 +89,8 @@ export class MVM extends EventEmitter {
      *
      * @returns The current state of MATLAB
      */
-    getMatlabState (): MatlabState {
-        if (this._currentState === MatlabState.DISCONNECTED) {
-            return this._currentState;
-        }
-        return this._pendingUserEvals > 0 ? MatlabState.BUSY : MatlabState.READY;
+    getMatlabState (): MatlabMVMConnectionState {
+        return this._currentState;
     }
 
     /**
@@ -110,21 +106,21 @@ export class MVM extends EventEmitter {
      * @returns The current release of MATLAB
      */
     isDebugging (): boolean {
-        return this.getMatlabState() !== MatlabState.DISCONNECTED && this._isCurrentlyDebugging;
+        return this.getMatlabState() !== MatlabMVMConnectionState.DISCONNECTED && this._isCurrentlyDebugging;
     }
 
     private _handleMatlabStateChange (newState: MatlabStateUpdate): void {
         const oldState = this._currentState;
-        this._currentState = MatlabState[newState.state.toUpperCase() as keyof typeof MatlabState];
+        this._currentState = MatlabMVMConnectionState[newState.state.toUpperCase() as keyof typeof MatlabMVMConnectionState];
         this._currentRelease = newState.release;
 
-        if (this._currentState === MatlabState.DISCONNECTED) {
+        if (this._currentState === MatlabMVMConnectionState.DISCONNECTED) {
             this._handleDisconnection();
         }
 
         this.emit(MVM.Events.stateChanged, oldState, this._currentState);
 
-        if (this._currentState !== MatlabState.DISCONNECTED) {
+        if (this._currentState !== MatlabMVMConnectionState.DISCONNECTED) {
             this._pendingUserEvals = 0;
             this._currentReadyPromise.resolve();
         }

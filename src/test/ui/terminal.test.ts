@@ -10,8 +10,8 @@ suite('Terminal UI Tests', () => {
         vs = new VSCodeTester();
         await vs.openEditor('hScript1.m')
         await vs.assertMATLABConnected()
-        await vs.closeActiveEditor()
         await vs.openMATLABTerminal()
+        await vs.closeActiveEditor()
     });
 
     afterEach(async () => {

@@ -1,10 +1,10 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import * as debug from '@vscode/debugadapter'
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { Notifier } from '../commandwindow/Utilities'
-import { MVM, MatlabState } from '../commandwindow/MVM'
+import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM'
 import Notification from '../Notifications'
 
 class PackagedRequest {
@@ -29,9 +29,6 @@ interface PackagedEvent {
 export default class MatlabDebugAdaptor extends debug.DebugSession {
     private readonly _mvm: MVM;
     private readonly _notifier: Notifier;
-    private readonly _baseSessionGetter: (dontAutoStart: boolean) => Promise<vscode.DebugSession | null>;
-
-    private readonly _isBase: boolean;
 
     static _nextId = 1;
     private readonly _debugAdaptorId: number;
@@ -39,24 +36,19 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
     private _isMatlabConnected: boolean = false;
     private _isStarted: boolean = false;
 
-    constructor (mvm: MVM, notifier: Notifier, baseSessionGetter: (dontAutoStart: boolean) => Promise<vscode.DebugSession | null>, isBase: boolean) {
+    constructor (mvm: MVM, notifier: Notifier) {
         super()
 
         this._mvm = mvm;
         this._notifier = notifier;
-        this._baseSessionGetter = baseSessionGetter;
 
         this._debugAdaptorId = MatlabDebugAdaptor._nextId;
         MatlabDebugAdaptor._nextId += 1;
 
-        this._isBase = isBase;
-
         this._notifier.onNotification(Notification.DebugAdaptorResponse, this._handleResponseNotification.bind(this));
         this._notifier.onNotification(Notification.DebugAdaptorEvent, this._handleEventNotification.bind(this));
 
-        if (this._isBase) {
-            this._setupDocumentListeners();
-        }
+        this._setupDocumentListeners();
     }
 
     private _isLifecycleEvent (event: DebugProtocol.Event): boolean {
@@ -65,14 +57,8 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
 
     private _handleEventNotification (packagedEvent: PackagedEvent): void {
         const event = packagedEvent.debugEvent;
-        if (this._isBase) {
-            if (this._isLifecycleEvent(event)) {
-                this.sendEvent(event);
-            }
-        } else {
-            if (this._isStarted) {
-                this.sendEvent(event);
-            }
+        if (this._isStarted) {
+            this.sendEvent(event);
         }
 
         if (event.event === 'terminate') {
@@ -100,12 +86,12 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
     }
 
     private _setupDocumentListeners (): void {
-        this._mvm.on(MVM.Events.stateChanged, (oldState: MatlabState, newState: MatlabState) => {
+        this._mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
             if (oldState === newState) {
                 return;
             }
 
-            if (newState === MatlabState.DISCONNECTED) {
+            if (newState === MatlabMVMConnectionState.DISCONNECTED) {
                 this._isMatlabConnected = false;
             } else {
                 if (!this._isMatlabConnected) {
@@ -138,7 +124,7 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
         super.sendErrorResponse(response, codeOrMessage, format, variables, dest);
     }
 
-    protected dispatchRequest (request: DebugProtocol.Request): void {
+    dispatchRequest (request: DebugProtocol.Request): void {
         if (request.command === 'initialize') {
             this._isStarted = true;
         }

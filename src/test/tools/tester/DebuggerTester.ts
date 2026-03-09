@@ -23,6 +23,7 @@ export class DebuggerTester {
 
     public async setBreakpointOnLine (lineNumber: number): Promise<void> {
         await this.editor.toggleBreakpoint(lineNumber);
+        await this.vs.pause(1000)
         return await this.vs.poll(() => this.isBreakpointOnLine(lineNumber), true, `Expected breakpoint to exist on line ${lineNumber}`);
     }
 
