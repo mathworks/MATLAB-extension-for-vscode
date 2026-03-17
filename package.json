@@ -24,7 +24,8 @@
 		"onDebugResolve:matlab",
 		"onDebugDynamicConfigurations:matlab",
 		"onLanguage:matlab",
-		"onTerminalProfile:matlab.terminal-profile"
+		"onTerminalProfile:matlab.terminal-profile",
+		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
