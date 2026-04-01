@@ -2,24 +2,19 @@
 
 import * as vscode from 'vscode'
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { Disposable } from 'vscode';
+
 import { MatlabMVMConnectionState, MVM } from '../commandwindow/MVM';
 
 export default class BreakpointSynchronizer {
-    private readonly _mvm: MVM;
     private _tracking: boolean = false;
-    private _listeners: Disposable[] = [];
+    private _listeners: vscode.Disposable[] = [];
     private _timer: NodeJS.Timeout | null = null;
-    private readonly _requestDispatcher: (request: DebugProtocol.Request) => void;
 
     private _forcedOff: boolean = true;
 
     private readonly _dirtyFiles: Set<string> = new Set();
 
-    constructor (mvm: MVM, requestDispatcher: (request: DebugProtocol.Request) => void) {
-        this._mvm = mvm;
-        this._requestDispatcher = requestDispatcher;
-
+    constructor (private readonly _mvm: MVM, private readonly _requestDispatcher: (request: DebugProtocol.Request) => void) {
         this._mvm.on(MVM.Events.stateChanged, (oldState, newState) => {
             if (this._forcedOff) {
                 return;
@@ -159,5 +154,12 @@ export default class BreakpointSynchronizer {
         this._dirtyFiles.clear();
         this._listeners.forEach((listener) => listener.dispose());
         this._listeners = [];
+    }
+
+    dispose (): void {
+        if (this._timer != null) {
+            clearTimeout(this._timer);
+        }
+        this._stopTracking();
     }
 }

@@ -1,8 +1,8 @@
-// Copyright 2023-2024 The MathWorks, Inc.
+// Copyright 2023-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import * as path from 'path'
-import * as extension from '../../../extension'
+import { extension, CONNECTION_STATUS_LABELS } from '../../../extension'
 import * as PollingUtils from './PollingUtils'
 
 /**
@@ -14,7 +14,7 @@ import * as PollingUtils from './PollingUtils'
  * Change 'MATLAB Connection' to connect to MATLAB
  */
 export async function connectToMATLAB (): Promise<void> {
-    extension.sendConnectionActionNotification('connect')
+    extension?.sendConnectionActionNotification('connect')
     return await assertMATLABConnected()
 }
 
@@ -22,7 +22,7 @@ export async function connectToMATLAB (): Promise<void> {
  * Change 'MATLAB Connection' to disconnect from MATLAB
  */
 export async function disconnectFromMATLAB (): Promise<void> {
-    extension.sendConnectionActionNotification('disconnect')
+    extension?.sendConnectionActionNotification('disconnect')
     return await assertMATLABDisconnected()
 }
 
@@ -30,21 +30,21 @@ export async function disconnectFromMATLAB (): Promise<void> {
  * Get the status bar text to indicate if MATLAB connection
  */
 export function _getConnectionStatus (): string {
-    return extension?.connectionStatusNotification?.text
+    return extension?.getConnectionStatusBarItem().text ?? ''
 }
 
 /**
  * Poll for MATLAB to connect to VSCode
  */
 export async function assertMATLABConnected (): Promise<void> {
-    return await PollingUtils.poll(_getConnectionStatus, extension.CONNECTION_STATUS_LABELS.CONNECTED, 'Expected MATLAB to be connected', 180000)
+    return await PollingUtils.poll(_getConnectionStatus, CONNECTION_STATUS_LABELS.CONNECTED, 'Expected MATLAB to be connected', 180000)
 }
 
 /**
  * Poll for MATLAB to disconnect from VSCode
  */
 export async function assertMATLABDisconnected (): Promise<void> {
-    return await PollingUtils.poll(_getConnectionStatus, extension.CONNECTION_STATUS_LABELS.NOT_CONNECTED, 'Expected MATLAB to be disconnected')
+    return await PollingUtils.poll(_getConnectionStatus, CONNECTION_STATUS_LABELS.NOT_CONNECTED, 'Expected MATLAB to be disconnected')
 }
 
 /**

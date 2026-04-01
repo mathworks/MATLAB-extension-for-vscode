@@ -1,7 +1,9 @@
-// Copyright 2023-2024 The MathWorks, Inc.
+// Copyright 2023-2026 The MathWorks, Inc.
 
 import fetch from 'node-fetch'
 import { env, workspace } from 'vscode'
+
+import BaseService from '../BaseService'
 
 const PRODUCT = 'ML_VS_CODE'
 const APPLICATION_NAME = 'MATLAB_EXTENSION_FOR_VSCODE'
@@ -14,8 +16,10 @@ export interface TelemetryEvent {
     data: unknown
 }
 
-export default class TelemetryLogger {
-    constructor (private readonly extensionVersion: string) {}
+export default class TelemetryLogger extends BaseService {
+    constructor (private readonly extensionVersion: string) {
+        super()
+    }
 
     logEvent (event: TelemetryEvent): void {
         if (this.shouldLogTelemetry(event)) {

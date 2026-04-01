@@ -1,11 +1,13 @@
 // Copyright 2024-2026 The MathWorks, Inc.
 
-import * as vscode from 'vscode'
-import { MVM, MatlabMVMConnectionState } from './MVM'
-import { TextEvent, PromptState } from './MVMInterface'
-import { createResolvablePromise, Notifier, ResolvablePromise } from './Utilities';
-import Notification from '../Notifications';
+import * as vscode from 'vscode';
 import { CompletionList } from 'vscode-languageclient';
+
+import { Notifier } from './MultiClientNotifier';
+import { MVM, MatlabMVMConnectionState } from './MVM';
+import { TextEvent, PromptState } from './MVMInterface';
+import Notification from '../notifications/Notifications';
+import { createResolvablePromise, ResolvablePromise } from '../utils/ResolvablePromise';
 
 /**
  * Direction of cursor movement
@@ -100,7 +102,6 @@ type MatlabData = any; // eslint-disable-line @typescript-eslint/no-explicit-any
  * Represents command window. Is a pseudoterminal to be used as the input/output processor in a VS Code terminal.
  */
 export default class CommandWindow implements vscode.Pseudoterminal {
-    private readonly _mvm: MVM;
     private readonly _writeEmitter: vscode.EventEmitter<string>;
 
     private _initialized: boolean = false;
@@ -128,29 +129,28 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private _terminalDimensions: vscode.TerminalDimensions;
     private _lastSentTerminalDimensions: vscode.TerminalDimensions | null = null;
 
-    private readonly _notifier: Notifier;
-
     private _latestTabCompletionData?: CompletionList;
     private _currentCompletionIndex: number = -1;
     private _pendingTabCompletionRequestNumber: number = -1;
     private _pendingTabCompletionPromise?: ResolvablePromise<CompletionList>;
 
-    constructor (mvm: MVM, notifier: Notifier) {
-        this._mvm = mvm;
-        this._mvm.on(MVM.Events.output, this.addOutput.bind(this));
-        this._mvm.on(MVM.Events.clc, this.clear.bind(this));
-        this._mvm.on(MVM.Events.promptChange, this._handlePromptChange.bind(this));
+    private readonly _eventHandlers: vscode.Disposable[] = []
 
-        this._notifier = notifier;
-        this._notifier.onNotification(Notification.TerminalCompletionResponse, this._handleCompletionDataResponse.bind(this));
+    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier) {
+        this._eventHandlers.push(
+            this._mvm.on(MVM.Events.output, this.addOutput.bind(this)),
+            this._mvm.on(MVM.Events.clc, this.clear.bind(this)),
+            this._mvm.on(MVM.Events.promptChange, this._handlePromptChange.bind(this)),
+            this._mvm.on(MVM.Events.stateChanged, this._handleMatlabStateChange.bind(this)),
+
+            this._notifier.onNotification(Notification.TerminalCompletionResponse, this._handleCompletionDataResponse.bind(this))
+        )
 
         this._initialized = false;
 
         this._writeEmitter = new vscode.EventEmitter<string>();
         this.onDidWrite = this._writeEmitter.event;
         this._terminalDimensions = { rows: 30, columns: 100 };
-
-        this._mvm.on(MVM.Events.stateChanged, this._handleMatlabStateChange.bind(this));
 
         this._updateHasSelectionContext();
     }
@@ -706,7 +706,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             if (match?.[1] !== undefined && Number.parseInt(match[1]) < 25) {
                 void this._mvm.eval(`try; if usejava('jvm'); com.mathworks.mde.cmdwin.CmdWinMLIF.setCWSize(${this._terminalDimensions.rows}, ${this._terminalDimensions.columns}); end; end;`);
             } else {
-                void this._mvm.eval(`settings_vscode__ = settings; settings_vscode__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.rows}, ${this._terminalDimensions.columns}]; clear settings_vscode__;`);
+                void this._mvm.eval(`settings_vscode__ = settings; settings_vscode__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.columns}, ${this._terminalDimensions.rows}]; clear settings_vscode__;`);
             }
             this._lastSentTerminalDimensions = this._terminalDimensions;
         }
@@ -961,6 +961,11 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _isDoubleWidthCharacter (char: string): boolean {
         return WIDE_CHAR_REGEX.test(char);
+    }
+
+    dispose (): void {
+        this._eventHandlers.forEach(eventHandler => eventHandler.dispose());
+        this._writeEmitter.dispose();
     }
 
     onDidWrite: vscode.Event<string>;
