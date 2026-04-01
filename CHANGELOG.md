@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Resolves an issue where output is wrapping incorrectly in the MATLAB Terminal. (Address [mathworks/MATLAB-extension-for-vscode#316](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/316))
+- Syntax highlighting improvements (Community contribution from @Gustaf-C)
 - Resolves potential memory leaks when the extension is disabled.
 - Applied patches for CVE-2026-32141
 
