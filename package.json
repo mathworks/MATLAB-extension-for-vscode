@@ -320,6 +320,13 @@
 				"path": "./snippets/matlab.json"
 			}
 		],
+		"semanticTokenTypes": [
+			{
+				"id": "variable",
+				"description": "User-defined variables"
+			}
+		],
+		"semanticTokenModifiers": [],
 		"terminal": {
 			"profiles": [
 				{
