@@ -1,38 +1,44 @@
 // Copyright 2025-2026 The MathWorks, Inc.
 
+import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
-import { exec } from 'child_process';
 import * as path from 'path'
+
 import * as vscode from 'vscode'
 import { LanguageClient } from 'vscode-languageclient/node';
-import { MatlabMVMConnectionState, MVM } from './commandwindow/MVM'
-import Notification from './Notifications'
 
-export default class DefaultEditorService {
+import BaseService from '../BaseService';
+import { MatlabMVMConnectionState, MVM } from '../../commandwindow/MVM'
+import Notification from '../../notifications/Notifications'
+
+export default class DefaultEditorService extends BaseService {
     private initialized = false;
 
-    constructor (private readonly context: vscode.ExtensionContext, private readonly client: LanguageClient, private readonly mvm: MVM) {
-        context.subscriptions.push(
+    constructor (private readonly client: LanguageClient, private readonly mvm: MVM) {
+        super()
+        this.own(
             vscode.workspace.onDidChangeConfiguration(() => {
                 void this.handleConfigChanged()
             })
         )
 
-        mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
-            if (oldState === newState) {
-                return;
-            }
+        this.own(mvm.on(MVM.Events.stateChanged, this.handleStateChanged.bind(this)));
+    }
 
-            if (newState === MatlabMVMConnectionState.CONNECTED) {
-                if (!this.initialized) {
-                    this.initialized = true
-                    void this.handleConfigChanged()
-                }
-            } else {
-                this.initialized = false
+    private handleStateChanged (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState): void {
+        if (oldState === newState) {
+            return;
+        }
+
+        if (newState === MatlabMVMConnectionState.CONNECTED) {
+            if (!this.initialized) {
+                this.initialized = true
+                void this.handleConfigChanged()
             }
-        });
+        } else {
+            this.initialized = false
+        }
     }
 
     /** Helper function: checks if a specific path from array of path strings exists and returns true if a path string is found in file system else returns false

@@ -1,4 +1,4 @@
-// Copyright 2022 - 2023 The MathWorks, Inc.
+// Copyright 2022 - 2026 The MathWorks, Inc.
 
 export default {
     MATLAB_CLOSED: {

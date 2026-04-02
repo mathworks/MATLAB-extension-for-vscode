@@ -89,5 +89,15 @@ suite('Terminal UI Tests', () => {
         await vs.terminal.type(Key.ARROW_UP)
         await vs.terminal.assertContains('a = 123;', 'Up arrow after typing "a" should recall matching command')
         await vs.terminal.type(Key.ESCAPE)
-    });
+    })
+
+    test('Test wrapping for wide outputs', async () => {
+        await vs.terminal.executeCommand('ones(1, 100)') // wide enough to wrap
+        await vs.terminal.assertContains('Columns', 'output should be wrapped')
+    })
+
+    test('Test no wrapping for smaller outputs', async () => {
+        await vs.terminal.executeCommand('ones(1, 6)') // not wide enough to wrap
+        await vs.terminal.assertContains('1     1     1     1     1     1', 'output should not be wrapped')
+    })
 });

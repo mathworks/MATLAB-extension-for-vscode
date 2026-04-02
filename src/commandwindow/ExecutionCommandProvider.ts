@@ -1,12 +1,14 @@
-// Copyright 2024-2025 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
+import * as path from 'path'
 
 import * as vscode from 'vscode'
+
 import { MVM } from './MVM'
-import TerminalService from './TerminalService'
-import TelemetryLogger from '../telemetry/TelemetryLogger'
-import * as path from 'path'
-import { SectionModel } from '../model/SectionModel'
 import { Capability } from './MVMInterface'
+import TerminalService from './TerminalService'
+import BaseService from '../services/BaseService'
+import { SectionModel } from '../services/sections/model/SectionModel'
+import TelemetryLogger from '../services/telemetry/TelemetryLogger'
 
 // These values must match the results returned by mdbfileonpath.m in FilePathState.m
 enum FILE_PATH_STATE {
@@ -32,15 +34,9 @@ enum FILE_PATH_STATE {
     NOT_INSTALLED_PKG_SHADOWED_BY_PWD = 19
 }
 
-export default class ExecutionCommandProvider {
-    private readonly _mvm: MVM;
-    private readonly _terminalService: TerminalService;
-    private readonly _telemetryLogger: TelemetryLogger;
-
-    constructor (mvm: MVM, terminalService: TerminalService, telemetryLogger: TelemetryLogger) {
-        this._mvm = mvm;
-        this._terminalService = terminalService;
-        this._telemetryLogger = telemetryLogger;
+export default class ExecutionCommandProvider extends BaseService {
+    constructor (private readonly _mvm: MVM, private readonly _terminalService: TerminalService, private readonly _telemetryLogger: TelemetryLogger) {
+        super();
     }
 
     /**

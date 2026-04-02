@@ -2,10 +2,11 @@
 
 import * as vscode from 'vscode'
 import * as debug from '@vscode/debugadapter'
-import { DebugProtocol } from '@vscode/debugprotocol';
-import { Notifier } from '../commandwindow/Utilities'
+import { DebugProtocol } from '@vscode/debugprotocol'
+
+import { Notifier } from '../commandwindow/MultiClientNotifier'
 import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM'
-import Notification from '../Notifications'
+import Notification from '../notifications/Notifications'
 
 class PackagedRequest {
     debugRequest: DebugProtocol.Request;
@@ -27,32 +28,26 @@ interface PackagedEvent {
 }
 
 export default class MatlabDebugAdaptor extends debug.DebugSession {
-    private readonly _mvm: MVM;
-    private readonly _notifier: Notifier;
-
     static _nextId = 1;
     private readonly _debugAdaptorId: number;
 
     private _isMatlabConnected: boolean = false;
     private _isStarted: boolean = false;
 
-    constructor (mvm: MVM, notifier: Notifier) {
-        super()
+    private readonly _disposables: vscode.Disposable[];
 
-        this._mvm = mvm;
-        this._notifier = notifier;
+    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier) {
+        super()
 
         this._debugAdaptorId = MatlabDebugAdaptor._nextId;
         MatlabDebugAdaptor._nextId += 1;
 
-        this._notifier.onNotification(Notification.DebugAdaptorResponse, this._handleResponseNotification.bind(this));
-        this._notifier.onNotification(Notification.DebugAdaptorEvent, this._handleEventNotification.bind(this));
+        this._disposables = [
+            this._notifier.onNotification(Notification.DebugAdaptorResponse, this._handleResponseNotification.bind(this)),
+            this._notifier.onNotification(Notification.DebugAdaptorEvent, this._handleEventNotification.bind(this))
+        ]
 
         this._setupDocumentListeners();
-    }
-
-    private _isLifecycleEvent (event: DebugProtocol.Event): boolean {
-        return event.event === 'initialized' || event.event === 'exited' || event.event === 'terminate';
     }
 
     private _handleEventNotification (packagedEvent: PackagedEvent): void {
@@ -86,21 +81,25 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
     }
 
     private _setupDocumentListeners (): void {
-        this._mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
-            if (oldState === newState) {
-                return;
-            }
+        this._disposables.push(
+            this._mvm.on(MVM.Events.stateChanged, this._handleMvmStateChanged.bind(this)),
+            vscode.workspace.onDidOpenTextDocument(this._sendCacheFilePathRequest.bind(this))
+        );
+    }
 
-            if (newState === MatlabMVMConnectionState.DISCONNECTED) {
-                this._isMatlabConnected = false;
-            } else {
-                if (!this._isMatlabConnected) {
-                    vscode.workspace.textDocuments.forEach(this._sendCacheFilePathRequest.bind(this));
-                }
-                this._isMatlabConnected = true;
+    private _handleMvmStateChanged (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState): void {
+        if (oldState === newState) {
+            return;
+        }
+
+        if (newState === MatlabMVMConnectionState.DISCONNECTED) {
+            this._isMatlabConnected = false;
+        } else {
+            if (!this._isMatlabConnected) {
+                vscode.workspace.textDocuments.forEach(this._sendCacheFilePathRequest.bind(this));
             }
-        });
-        vscode.workspace.onDidOpenTextDocument(this._sendCacheFilePathRequest.bind(this));
+            this._isMatlabConnected = true;
+        }
     }
 
     private _sendCacheFilePathRequest (document: vscode.TextDocument): void {
@@ -135,5 +134,12 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
     handleDisconnect (): void {
         this.sendEvent(new debug.ExitedEvent(0));
         this.sendEvent(new debug.TerminatedEvent(false));
+    }
+
+    dispose_temp (): void {
+        // Note: This function is temporarily named to avoid unwanted
+        // disposal when a debug session ends.
+        this._disposables.forEach(disposable => disposable.dispose());
+        super.dispose();
     }
 }

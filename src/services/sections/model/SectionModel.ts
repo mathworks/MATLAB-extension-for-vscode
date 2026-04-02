@@ -1,10 +1,10 @@
-// Copyright 2025 The MathWorks, Inc.
+// Copyright 2025-2026 The MathWorks, Inc.
+import * as vscode from 'vscode'
+import { LanguageClient } from 'vscode-languageclient/node'
 
-import * as vscode from 'vscode';
-import Notification from '../Notifications'
-import LineRangeTree, { SectionData } from './LineRangeTree';
-import { Notifier, Disposer } from '../commandwindow/Utilities';
-import { EventEmitter } from 'events';
+import LineRangeTree, { SectionData } from './LineRangeTree'
+import EventedService from '../../EventedService'
+import Notification from '../../../notifications/Notifications'
 
 export { SectionData };
 
@@ -15,15 +15,17 @@ export interface SectionsData {
     isDirty?: boolean
 }
 
-export class SectionModel extends Disposer {
+export class SectionModel extends EventedService {
     private readonly _sectionsCacheByPath = new Map<string, SectionsData>();
-    eventEmitter = new EventEmitter()
 
-    initialize (client: Notifier): void {
-        this.own(client.onNotification(Notification.MatlabSections, (data) => this._onNewSectionsGenerated(data)))
+    constructor (client: LanguageClient) {
+        super();
 
-        this.own(vscode.workspace.onDidChangeTextDocument((event) => this._onDocumentChange(event)));
-        this.own(vscode.workspace.onDidCloseTextDocument((document: vscode.TextDocument) => this._onDocumentClose(document)));
+        this.own(
+            client.onNotification(Notification.MatlabSections, (data) => this._onNewSectionsGenerated(data)),
+            vscode.workspace.onDidChangeTextDocument((event) => this._onDocumentChange(event)),
+            vscode.workspace.onDidCloseTextDocument((document: vscode.TextDocument) => this._onDocumentClose(document))
+        )
     }
 
     getSectionsForFile (uri: vscode.Uri): SectionsData | undefined {
@@ -58,7 +60,7 @@ export class SectionModel extends Disposer {
 
         this._sectionsCacheByPath.set(decodedUri, sectionsData);
 
-        this.eventEmitter.emit('onSectionsUpdated', { sectionsData, editor });
+        this.emit('onSectionsUpdated', { sectionsData, editor });
     }
 
     private _onDocumentClose (document: vscode.TextDocument): void {

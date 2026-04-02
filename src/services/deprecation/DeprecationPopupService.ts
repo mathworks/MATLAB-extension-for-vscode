@@ -1,8 +1,10 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
 import { LanguageClient } from 'vscode-languageclient/node'
-import Notification from './Notifications'
+
+import BaseService from '../BaseService'
+import Notification from '../../notifications/Notifications'
 
 enum DeprecationType {
     NEVER_SUPPORTED = 1,
@@ -64,16 +66,12 @@ const GLOBAL_STORAGE_KEY = 'matlab.deprecation.popup'
  * launched MATLAB version is no longer supported (or is on a deprecation
  * track) by the language server.
  */
-export default class DeprecationPopupService {
-    constructor (private readonly context: vscode.ExtensionContext) {}
+export default class DeprecationPopupService extends BaseService {
+    constructor (private readonly context: vscode.ExtensionContext, client: LanguageClient) {
+        super()
 
-    /**
-     * Initializes the service to listen to notifications from the language server.
-     *
-     * @param client The language server client
-     */
-    initialize (client: LanguageClient): void {
-        this.context.subscriptions.push(
+        this.own(
+            // Listen to notifications from the language server
             client.onNotification(Notification.MatlabVersionDeprecation, (data: MessageData) => {
                 this.showDeprecationPopup(data.deprecationType, data.deprecationInfo)
             }),

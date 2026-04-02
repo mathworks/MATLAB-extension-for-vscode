@@ -1,9 +1,10 @@
-// Copyright 2024 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode'
+import { LanguageClient } from 'vscode-languageclient/node'
+
 import { openUrlInExternalBrowser } from './BrowserUtils'
-import Notification from '../Notifications'
-import { LanguageClient } from 'vscode-languageclient/node';
+import Notification from '../notifications/Notifications'
 
 let minimalLicensingInfo: string = ''
 let licensingUrlNotificationListener: vscode.Disposable | undefined
