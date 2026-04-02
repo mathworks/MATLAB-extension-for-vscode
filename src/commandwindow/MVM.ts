@@ -1,9 +1,10 @@
 // Copyright 2024-2026 The MathWorks, Inc.
 
+import { Notifier } from './MultiClientNotifier'
 import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, Capability } from './MVMInterface'
-import { createResolvablePromise, ResolvablePromise, Notifier } from './Utilities'
-import Notification from '../Notifications'
-import EventEmitter = require('events')
+import Notification from '../notifications/Notifications'
+import EventedService from '../services/EventedService'
+import { createResolvablePromise, ResolvablePromise } from '../utils/ResolvablePromise'
 
 /**
  * The current state of MATLAB
@@ -32,15 +33,12 @@ enum Events {
 /**
  * A clientside implementation of MATLAB
  */
-export class MVM extends EventEmitter {
+export class MVM extends EventedService {
     static Events = Events;
 
     private _requestMap: {[requestId: string]: {promise: ResolvablePromise<unknown>, isUserEval: boolean}} = {}
     private _pendingUserEvals: number;
 
-    private readonly _notifier: Notifier;
-
-    private readonly _stateObservers: Array<(oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => void> = [];
     private _currentState: MatlabMVMConnectionState = MatlabMVMConnectionState.DISCONNECTED;
     private _currentRelease: string | null = null;
 
@@ -48,29 +46,24 @@ export class MVM extends EventEmitter {
 
     private _isCurrentlyDebugging = false;
 
-    constructor (notifier: Notifier) {
+    constructor (private readonly _notifier: Notifier) {
         super();
 
-        this._notifier = notifier;
-
-        this._notifier.onNotification(Notification.MVMEvalComplete, this._handleEvalResponse.bind(this));
-        this._notifier.onNotification(Notification.MVMFevalComplete, this._handleFevalResponse.bind(this));
-        this._notifier.onNotification(Notification.MVMSetBreakpointComplete, this._handleBreakpointResponse.bind(this));
-        this._notifier.onNotification(Notification.MVMClearBreakpointComplete, this._handleBreakpointResponse.bind(this));
-        this._notifier.onNotification(Notification.MVMStateChange, this._handleMatlabStateChange.bind(this));
-        this._notifier.onNotification(Notification.MVMText, (data: TextEvent) => {
-            this.emit(Events.output, data);
-        });
-        this._notifier.onNotification(Notification.MVMClc, () => {
-            this.emit(Events.clc);
-        });
-        this._notifier.onNotification(Notification.MVMPromptChange, (data) => {
-            this.emit(Events.promptChange, data.state, data.isIdle);
-        });
-        this._notifier.onNotification(Notification.DebuggingStateChange, (isDebugging) => {
-            this._isCurrentlyDebugging = isDebugging;
-            this.emit(Events.debuggingStateChanged, isDebugging);
-        });
+        // Set up notification handlers
+        this.own(
+            this._notifier.onNotification(Notification.MVMEvalComplete, this._handleEvalResponse.bind(this)),
+            this._notifier.onNotification(Notification.MVMFevalComplete, this._handleFevalResponse.bind(this)),
+            this._notifier.onNotification(Notification.MVMSetBreakpointComplete, this._handleBreakpointResponse.bind(this)),
+            this._notifier.onNotification(Notification.MVMClearBreakpointComplete, this._handleBreakpointResponse.bind(this)),
+            this._notifier.onNotification(Notification.MVMStateChange, this._handleMatlabStateChange.bind(this)),
+            this._notifier.onNotification(Notification.MVMText, (data: TextEvent) => this.emit(Events.output, data)),
+            this._notifier.onNotification(Notification.MVMClc, () => this.emit(Events.clc)),
+            this._notifier.onNotification(Notification.MVMPromptChange, (data) => this.emit(Events.promptChange, data.state, data.isIdle)),
+            this._notifier.onNotification(Notification.DebuggingStateChange, (isDebugging) => {
+                this._isCurrentlyDebugging = isDebugging;
+                this.emit(Events.debuggingStateChanged, isDebugging);
+            })
+        );
 
         this._currentReadyPromise = createResolvablePromise();
 
@@ -302,5 +295,21 @@ export class MVM extends EventEmitter {
         }, () => {
             // Ignored
         });
+    }
+
+    dispose (): void {
+        this._currentReadyPromise.reject();
+
+        // Reject all active promises in the `_requestMap`
+        const requestIds = Object.keys(this._requestMap);
+        for (const requestId of requestIds) {
+            const requestObj = this._requestMap[requestId];
+            if (requestObj != null) {
+                requestObj.promise.reject(new Error('MVM instance disposed'));
+            }
+        }
+        this._requestMap = {}
+
+        super.dispose();
     }
 }

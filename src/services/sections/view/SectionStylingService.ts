@@ -1,29 +1,79 @@
-// Copyright 2024-2025 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 import * as vscode from 'vscode';
 
-import { blueBorderTopDecoration, blueBorderBottomDecoration, greyBorderTopDecoration, greyBorderBottomDecoration, fontWeightBoldDecoration } from './Decorations';
-import { SectionModel, SectionsData, SectionData } from '../model/SectionModel'
-import { Disposer } from '../commandwindow/Utilities';
-import { StartAndEndLines, TopAndBottomRanges, StylingRanges } from './StylingInterfaces';
+import { StartAndEndLines, TopAndBottomRanges, StylingRanges } from './SectionStylingInterfaces';
+import { SectionModel, SectionsData, SectionData } from '../model/SectionModel';
+import BaseService from '../../BaseService';
+
+// Define styles for decorating
+const BLUE_COLOR = 'rgb(38,140,221)';
+const LIGHT_GREY = 'rgb(136,136,136)';
+const DARK_GREY = 'rgb(166,166,166)';
+const BORDER_BOTTOM_STYLE = '0 0 1px 0';
+const BORDER_TOP_STYLE = '1px 0 0 0';
+
+const BLUE_BORDER = {
+    borderColor: BLUE_COLOR,
+    borderStyle: 'solid',
+    isWholeLine: true,
+    light: {
+        borderColor: BLUE_COLOR
+    },
+    dark: {
+        borderColor: BLUE_COLOR
+    }
+};
+
+const GREY_BORDER = {
+    borderColor: LIGHT_GREY,
+    borderStyle: 'solid',
+    isWholeLine: true,
+    light: {
+        borderColor: LIGHT_GREY
+    },
+    dark: {
+        borderColor: DARK_GREY
+    }
+}
+
 let previousFocusedEditor: vscode.TextEditor | undefined;
 
-export class SectionStylingService extends Disposer {
-    private readonly _sectionModel: SectionModel;
+export class SectionStylingService extends BaseService {
+    private readonly _blueBorderTopDecoration: vscode.TextEditorDecorationType;
+    private readonly _blueBorderBottomDecoration: vscode.TextEditorDecorationType;
+    private readonly _greyBorderTopDecoration: vscode.TextEditorDecorationType;
+    private readonly _greyBorderBottomDecoration: vscode.TextEditorDecorationType;
+    private readonly _fontWeightBoldDecoration: vscode.TextEditorDecorationType;
 
-    constructor (sectionModel: SectionModel) {
+    constructor (private readonly sectionModel: SectionModel) {
         super();
-        this._sectionModel = sectionModel;
-    }
 
-    initialize (): void {
-        this._sectionModel.eventEmitter.on('onSectionsUpdated', this._postProcessSectionsData.bind(this));
+        // Set up listeners
+        this.own(
+            // Listen to section model updates
+            this.sectionModel.on('onSectionsUpdated', this._postProcessSectionsData.bind(this)),
 
-        // Listen to cursor change to highlight the section
-        this.own(vscode.window.onDidChangeTextEditorSelection((event) => this._handleTextEditorSelectionChange(event)));
+            // Listen to cursor change to highlight the section
+            vscode.window.onDidChangeTextEditorSelection((event) => this._handleTextEditorSelectionChange(event)),
 
-        // Clear the active blue borders for focus out
-        this.own(vscode.window.onDidChangeActiveTextEditor((editor) => this._handleEditorFocusChange(editor)))
-        this.own(vscode.window.onDidChangeWindowState((windowFocusState) => this._handleWindowLostFocus(windowFocusState)));
+            // Clear the active blue borders for focus out
+            vscode.window.onDidChangeActiveTextEditor((editor) => this._handleEditorFocusChange(editor)),
+            vscode.window.onDidChangeWindowState((windowFocusState) => this._handleWindowLostFocus(windowFocusState))
+        );
+
+        // Create decorations
+        this._blueBorderTopDecoration = vscode.window.createTextEditorDecorationType(Object.assign({ borderWidth: BORDER_TOP_STYLE }, BLUE_BORDER));
+        this._blueBorderBottomDecoration = vscode.window.createTextEditorDecorationType(Object.assign({ borderWidth: BORDER_BOTTOM_STYLE }, BLUE_BORDER));
+        this._greyBorderTopDecoration = vscode.window.createTextEditorDecorationType(Object.assign({ borderWidth: BORDER_TOP_STYLE }, GREY_BORDER));
+        this._greyBorderBottomDecoration = vscode.window.createTextEditorDecorationType(Object.assign({ borderWidth: BORDER_BOTTOM_STYLE }, GREY_BORDER));
+        this._fontWeightBoldDecoration = vscode.window.createTextEditorDecorationType({ fontWeight: 'bold', isWholeLine: true });
+        this.own(
+            this._blueBorderTopDecoration,
+            this._blueBorderBottomDecoration,
+            this._greyBorderTopDecoration,
+            this._greyBorderBottomDecoration,
+            this._fontWeightBoldDecoration
+        );
     }
 
     private _postProcessSectionsData ({ sectionsData, editor }: { sectionsData: SectionsData, editor: vscode.TextEditor }): void {
@@ -71,7 +121,7 @@ export class SectionStylingService extends Disposer {
     private _handleTextEditorSelectionChange (event: vscode.TextEditorSelectionChangeEvent): void {
         const editor = event.textEditor;
         const cursorPosition = editor.selection.active;
-        const editorSections = this._sectionModel.getSectionsForFile(editor.document.uri);
+        const editorSections = this.sectionModel.getSectionsForFile(editor.document.uri);
 
         if (editorSections === undefined) {
             return;
@@ -88,7 +138,7 @@ export class SectionStylingService extends Disposer {
     }
 
     private _clearBlueDecorations (previousEditor: vscode.TextEditor): void {
-        const sections = this._sectionModel.getSectionsForFile(previousEditor.document.uri);
+        const sections = this.sectionModel.getSectionsForFile(previousEditor.document.uri);
         if (sections !== undefined && sections.isDirty === false) {
             this._highlightSections(previousEditor, sections, null);
         }
@@ -183,11 +233,11 @@ export class SectionStylingService extends Disposer {
     }
 
     private _setDecorations (editor: vscode.TextEditor, stylingRange: StylingRanges, explicitSectionRanges: vscode.Range[]): void {
-        editor.setDecorations(blueBorderTopDecoration, stylingRange.blue.top);
-        editor.setDecorations(blueBorderBottomDecoration, stylingRange.blue.bottom);
-        editor.setDecorations(greyBorderTopDecoration, stylingRange.grey.top);
-        editor.setDecorations(greyBorderBottomDecoration, stylingRange.grey.bottom);
-        editor.setDecorations(fontWeightBoldDecoration, explicitSectionRanges);
+        editor.setDecorations(this._blueBorderTopDecoration, stylingRange.blue.top);
+        editor.setDecorations(this._blueBorderBottomDecoration, stylingRange.blue.bottom);
+        editor.setDecorations(this._greyBorderTopDecoration, stylingRange.grey.top);
+        editor.setDecorations(this._greyBorderBottomDecoration, stylingRange.grey.bottom);
+        editor.setDecorations(this._fontWeightBoldDecoration, explicitSectionRanges);
     }
 
     private _generateRanges (lines: number[]): vscode.Range[] {
