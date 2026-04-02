@@ -60,6 +60,7 @@ const ACTION_KEYS = {
 
     INVERT_COLORS: ESC + '[7m',
     RESTORE_COLORS: ESC + '[27m',
+    YELLOW_FOREGROUND: ESC + '[33m',
     RED_FOREGROUND: ESC + '[31m',
     ALL_DEFAULT_COLORS: ESC + '[0m',
 
@@ -724,7 +725,13 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     addOutput (output: TextEvent): void {
         if (this._initialized) {
             if (output.stream === 0) {
-                this.handleText(output.text, true);
+                if (output.text.startsWith('Warning:')) {
+                    this._writeEmitter.fire(ACTION_KEYS.YELLOW_FOREGROUND);
+                    this.handleText(output.text, true);
+                    this._writeEmitter.fire(ACTION_KEYS.ALL_DEFAULT_COLORS);
+                } else {
+                    this.handleText(output.text, true);
+                }
             } else {
                 this._writeEmitter.fire(ACTION_KEYS.RED_FOREGROUND);
                 this.handleText(output.text, true);
