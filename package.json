@@ -28,6 +28,24 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "matlab-workspace",
+					"title": "MATLAB Workspace",
+					"icon": "$(symbol-variable)"
+				}
+			]
+		},
+		"views": {
+			"matlab-workspace": [
+				{
+					"type": "webview",
+					"id": "matlab.workspaceVariables",
+					"name": "Workspace Variables"
+				}
+			]
+		},
 		"commands": [
 			{
 				"command": "matlab.changeMatlabConnection",
@@ -87,6 +105,11 @@
 			{
 				"command": "matlab.showLanguageServerOutput",
 				"title": "MATLAB: Show Language Server Output"
+			},
+			{
+				"command": "matlab.refreshWorkspaceVariables",
+				"title": "MATLAB: Refresh Workspace Variables",
+				"icon": "$(refresh)"
 			}
 		],
 		"keybindings": [

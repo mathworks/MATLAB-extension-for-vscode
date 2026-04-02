@@ -18,6 +18,7 @@ import { SectionModel } from './model/SectionModel'
 import SectionStylingService from './styling/SectionStylingService'
 import MatlabDebugger from './debug/MatlabDebugger'
 import DefaultEditorService from './DefaultEditorService'
+import WorkspaceVariableProvider from './workspace/WorkspaceVariableProvider'
 
 let client: LanguageClient
 const OPEN_SETTINGS_ACTION = 'workbench.action.openSettings'
@@ -48,6 +49,7 @@ let mvm: MVM;
 let matlabDebugger: MatlabDebugger;
 let terminalService: TerminalService;
 let executionCommandProvider: ExecutionCommandProvider;
+let workspaceVariableProvider: WorkspaceVariableProvider;
 
 export async function activate (context: vscode.ExtensionContext): Promise<void> {
     // Initialize telemetry logger
@@ -133,6 +135,14 @@ export async function activate (context: vscode.ExtensionContext): Promise<void>
     terminalService = new TerminalService(multiclientNotifier, mvm);
     executionCommandProvider = new ExecutionCommandProvider(mvm, terminalService, telemetryLogger);
     matlabDebugger = new MatlabDebugger(mvm, multiclientNotifier, telemetryLogger, terminalService);
+
+    workspaceVariableProvider = new WorkspaceVariableProvider(mvm)
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(WorkspaceVariableProvider.viewType, workspaceVariableProvider)
+    )
+    context.subscriptions.push(
+        vscode.commands.registerCommand('matlab.refreshWorkspaceVariables', async () => await workspaceVariableProvider.refresh())
+    )
 
     // Register a custom command which allows the user enable / disable Sign In options.
     // Using this custom command would be an alternative approach to going to enabling the setting.
