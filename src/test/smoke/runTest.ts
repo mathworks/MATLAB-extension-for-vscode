@@ -40,8 +40,8 @@ async function main (): Promise<void> {
                     extensionTestsEnv: { test },
                     launchArgs: ['--user-data-dir', `${os.tmpdir()}`]
                 })
+                firstRun = false
             }
-            firstRun = false;
         }
     } catch (err) {
         console.log(err)
