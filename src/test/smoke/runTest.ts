@@ -6,7 +6,6 @@ import { GlobSync } from 'glob'
 import * as os from 'os'
 import * as PollingUtils from '../tools/utils/PollingUtils'
 
-
 async function main (): Promise<void> {
     try {
         // Run the test against minimum supported and latest stable, and insiders VS Code version
@@ -33,7 +32,7 @@ async function main (): Promise<void> {
         // Download VS Code, unzip it and run the integration test
         for (const version of versions) {
             for (const test of tests) {
-            if (!firstRun) await PollingUtils.pause(30000); // wait for state to be reset before running next test
+                if (!firstRun) await PollingUtils.pause(30000); // wait for state to be reset before running next test
                 await runTests({
                     version,
                     extensionDevelopmentPath,
