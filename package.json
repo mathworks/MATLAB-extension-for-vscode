@@ -322,8 +322,12 @@
 		],
 		"semanticTokenTypes": [
 			{
+				"id": "function",
+				"description": "Function references"
+			},
+			{
 				"id": "variable",
-				"description": "User-defined variables"
+				"description": "Variable references"
 			}
 		],
 		"semanticTokenModifiers": [],
