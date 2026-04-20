@@ -320,6 +320,17 @@
 				"path": "./snippets/matlab.json"
 			}
 		],
+		"semanticTokenTypes": [
+			{
+				"id": "function",
+				"description": "Function references"
+			},
+			{
+				"id": "variable",
+				"description": "Variable references"
+			}
+		],
+		"semanticTokenModifiers": [],
 		"terminal": {
 			"profiles": [
 				{
