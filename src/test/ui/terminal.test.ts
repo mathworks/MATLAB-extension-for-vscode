@@ -100,4 +100,13 @@ suite('Terminal UI Tests', () => {
         await vs.terminal.executeCommand('ones(1, 6)') // not wide enough to wrap
         await vs.terminal.assertContains('1     1     1     1     1     1', 'output should not be wrapped')
     })
+
+    test('Test prompt string from input command', async () => {
+        await vs.terminal.executeCommand('prompt = "Input a color :";')
+        await vs.terminal.executeCommand('clc')
+        await vs.terminal.executeCommand('input(prompt, "s");')
+        await vs.terminal.assertContains('Input a color :', 'Prompt string from input command should be displayed')
+        // Exit input prompt
+        await vs.terminal.executeCommand('red')
+    })
 });

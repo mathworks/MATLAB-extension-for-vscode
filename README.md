@@ -36,7 +36,7 @@ If you have MATLAB R2021b or later installed on your system, you have access to 
 To run a MATLAB code file in Visual Studio Code, click the Run button at the top of the file. You also can use the `Run File` or `Run Current Selection` commands. When you run the file, output displays in the "Terminal" pane of Visual Studio Code. You also can enter MATLAB code directly in the MATLAB terminal. To stop execution of MATLAB code, press **Ctrl+C**.
 
 To debug a MATLAB code file, add breakpoints to the file by clicking the area to the left of an executable line. Then run the file. Visual Studio Code stops at the first breakpoint. 
-When Visual Studio Code is paused, you can use the **Debug toolbar** to peforms debugging actions such as **Continue**, **Step into**, and **Stop**. You also can enter commands in the MATLAB terminal to perform debug actions or change variable values. Use the **Run and Debug** view to see your workspace variables, watch points, and call stack.
+When Visual Studio Code is paused, you can use the **Debug toolbar** to peform debugging actions such as **Continue**, **Step into**, and **Stop**. You also can enter commands in the MATLAB terminal to perform debug actions or change variable values. Use the **Run and Debug** view to see your workspace variables, watch points, and call stack.
 
 ![MATLAB Execution Demo](public/RunDebugCode.gif)
 
@@ -46,6 +46,15 @@ There are some limitations to running and debugging MATLAB code in Visual Studio
 * Creating a custom run configuration for a file is not supported.
 * When using the **dbstop** and **dbclear** functions to set and clear breakpoints, the breakpoints are added to file but are not shown in Visual Studio Code.
 * Variable values changed in the MATLAB terminal when Visual Studio Code is paused do not update in the **Run and Debug** view until the next time Visual Studio Code pauses.
+
+## Work with MATLAB Projects
+If you have MATLAB R2021b or later installed on your system, you can work with MATLAB Projects directly in Visual Studio Code. You can create new projects, open existing projects, and close the current project.
+
+To create a new project, right-click a folder in the Explorer and select **MATLAB: Project > MATLAB: New Project**. To open an existing project, right-click a project file or a folder that contains a project and select **MATLAB: Project > MATLAB: Open Project**. 
+
+When a project is open, Visual Studio Code shows the project name in the status bar.
+
+![MATLAB Projects Screenshot](public/Projects.png)
 
 ## Run MATLAB in Jupyter Notebooks
 You also can use this extension along with the Jupyter Extension for Visual Studio Code to run MATLAB in Jupyter notebooks using Visual Studio Code. For instructions, see [Run MATLAB in Jupyter Notebooks Using VS Code](https://github.com/mathworks/jupyter-matlab-proxy/blob/main/install_guides/vscode/README.md).

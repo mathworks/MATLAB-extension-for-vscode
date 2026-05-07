@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.11] - 2026-05-08
+
+### Added
+- Support for creating and opening MATLAB projects (Addresses [mathworks/MATLAB-extension-for-vscode#123](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/123))
+- Warnings in the MATLAB terminal now appear in yellow (Community contribution from @philipb314)
+- Improved contextual syntax highlighting for function and variable names (Community contribution from @Gustaf-C - Addresses [mathworks/MATLAB-extension-for-vscode#45](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/45))
+
+### Fixed
+- Resolves an issue with breakpoints in non‑existent files (Addresses [mathworks/MATLAB-extension-for-vscode#312](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/312))
+- Resolves an issue affecting the display of the `input` command prompt (Addresses [mathworks/MATLAB-extension-for-vscode#198](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/198))
+- Applied patches for CVE-2026-2950, CVE-2026-4800, CVE-2026-33671, CVE-2026-33672, and CVE-2026-33750
+
 ## [1.3.10] - 2026-04-02
 
 ### Fixed
-- Resolves an issue where output is wrapping incorrectly in the MATLAB Terminal. (Address [mathworks/MATLAB-extension-for-vscode#316](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/316))
+- Resolves an issue where output is wrapping incorrectly in the MATLAB terminal. (Addresses [mathworks/MATLAB-extension-for-vscode#316](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/316))
 - Syntax highlighting improvements (Community contribution from @Gustaf-C)
 - Resolves potential memory leaks when the extension is disabled.
 - Applied patches for CVE-2026-32141
