@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Support for creating and opening MATLAB projects (Addresses [mathworks/MATLAB-extension-for-vscode#123](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/123))
-- Warnings in the MATLAB terminal now appear in yellow (Community contribution from @philipb314)
+- Warnings in the MATLAB terminal now appear in yellow (Community contribution from @phmandl)
 - Improved contextual syntax highlighting for function and variable names (Community contribution from @Gustaf-C - Addresses [mathworks/MATLAB-extension-for-vscode#45](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/45))
 
 ### Fixed
