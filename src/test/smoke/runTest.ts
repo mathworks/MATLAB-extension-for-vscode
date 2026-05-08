@@ -4,6 +4,7 @@ import * as path from 'path'
 import { runTests } from '@vscode/test-electron'
 import { GlobSync } from 'glob'
 import * as os from 'os'
+import * as PollingUtils from '../tools/utils/PollingUtils'
 
 async function main (): Promise<void> {
     try {
@@ -27,10 +28,11 @@ async function main (): Promise<void> {
         // List of tests to run
         const testsRoot = path.resolve(__dirname)
         const tests = new GlobSync('**/**.test.js', { cwd: testsRoot }).found
-
+        let firstRun = true;
         // Download VS Code, unzip it and run the integration test
         for (const version of versions) {
             for (const test of tests) {
+                if (!firstRun) await PollingUtils.pause(30000); // wait for state to be reset before running next test
                 await runTests({
                     version,
                     extensionDevelopmentPath,
@@ -38,6 +40,7 @@ async function main (): Promise<void> {
                     extensionTestsEnv: { test },
                     launchArgs: ['--user-data-dir', `${os.tmpdir()}`]
                 })
+                firstRun = false
             }
         }
     } catch (err) {

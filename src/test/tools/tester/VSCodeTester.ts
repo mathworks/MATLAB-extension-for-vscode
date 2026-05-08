@@ -120,7 +120,7 @@ export class VSCodeTester {
     * Opens the MATLAB terminal and creates a new terminal tester
     */
     public async openMATLABTerminal (): Promise<void> {
-        await this.executeWorkbenchCommand('matlab.openCommandWindow')
+        await this.executeCommand('matlab.openCommandWindow')
         await this.pause(1000)
         const terminal = await new vet.BottomBarPanel().openTerminalView()
         const terminalTester = new TerminalTester(this, terminal)
@@ -141,9 +141,93 @@ export class VSCodeTester {
         return await new vet.EditorView().closeEditor('Settings')
     }
 
-    private async executeWorkbenchCommand (command: string): Promise<void> {
-        console.log(`Executing workbench command: ${command}`)
+    public async executeCommand (command: string): Promise<void> {
+        console.log(`Executing command: ${command}`)
         return await this.workbench.executeCommand(command)
+    }
+
+    /**
+     * Open the Explorer sidebar and right-click on empty space to open the context menu
+     */
+    public async openExplorerContextMenu (): Promise<vet.ContextMenu> {
+        const activityBar = new vet.ActivityBar()
+        const explorerControl = await activityBar.getViewControl('Explorer')
+        await explorerControl?.openView()
+
+        let contextMenu: vet.ContextMenu | null = null
+        await this.poll(async () => {
+            try {
+                const driver = this.browser.driver
+                await driver.actions().sendKeys(vet.Key.ESCAPE).perform()
+                await PollingUtils.pause(500)
+
+                const sideBar = new vet.SideBarView()
+                const sections = await sideBar.getContent().getSections()
+                const section = sections[0]
+                await section.expand()
+                const rect = await section.getRect()
+                await driver.actions()
+                    .move({ origin: section, x: 0, y: Math.floor(rect.height / 2) - 10 })
+                    .contextClick()
+                    .perform()
+                contextMenu = await new vet.ContextMenu(this.workbench).wait(5000)
+                return true
+            } catch (e) {
+                return false
+            }
+        }, true, 'Expected to open explorer context menu')
+        return contextMenu!
+    }
+
+    /**
+     * Type text into an open input box and confirm with Enter
+     */
+    public async typeInInputBox (text: string): Promise<void> {
+        const input = await vet.InputBox.create()
+        await input.setText(text)
+        await input.confirm()
+    }
+
+    /**
+     * Get the text of a status bar item that contains the given substring
+     */
+    private async getStatusBarItemText (substring: string): Promise<string | null> {
+        try {
+            const items = await this.statusbar.findElements(vet.By.css('.statusbar-item a'))
+            for (const item of items) {
+                const label = await item.getAttribute('aria-label')
+                if (label?.includes(substring)) {
+                    return label
+                }
+            }
+            return null
+        } catch (e) {
+            return null
+        }
+    }
+
+    /**
+     * Poll for a status bar item containing the given text to be visible
+     */
+    public async assertStatusBarItemContains (text: string, message = '', timeout = 30000): Promise<void> {
+        return await this.poll(
+            async () => (await this.getStatusBarItemText(text)) !== null,
+            true,
+            message !== '' ? message : `Expected status bar item containing "${text}" to be visible`,
+            timeout
+        )
+    }
+
+    /**
+     * Poll for a status bar item containing the given text to not be visible
+     */
+    public async assertStatusBarItemNotContains (text: string, message = '', timeout = 30000): Promise<void> {
+        return await this.poll(
+            async () => (await this.getStatusBarItemText(text)) === null,
+            true,
+            message !== '' ? message : `Expected status bar item containing "${text}" to not be visible`,
+            timeout
+        )
     }
 
     /**

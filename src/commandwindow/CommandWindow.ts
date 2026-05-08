@@ -135,6 +135,8 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private _pendingTabCompletionRequestNumber: number = -1;
     private _pendingTabCompletionPromise?: ResolvablePromise<CompletionList>;
 
+    private _currentInputPromptString?: string;
+
     private readonly _eventHandlers: vscode.Disposable[] = []
 
     constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier) {
@@ -142,6 +144,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._mvm.on(MVM.Events.output, this.addOutput.bind(this)),
             this._mvm.on(MVM.Events.clc, this.clear.bind(this)),
             this._mvm.on(MVM.Events.promptChange, this._handlePromptChange.bind(this)),
+            this._mvm.on(MVM.Events.inputPrompt, this._handleInputPrompt.bind(this)),
             this._mvm.on(MVM.Events.stateChanged, this._handleMatlabStateChange.bind(this)),
 
             this._notifier.onNotification(Notification.TerminalCompletionResponse, this._handleCompletionDataResponse.bind(this))
@@ -897,10 +900,14 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         } else if (state === PromptState.PAUSE) {
             this._changePrompt(PROMPTS.BUSY_PROMPT);
         } else if (state === PromptState.INPUT) {
-            this._changePrompt(PROMPTS.FAKE_INPUT_PROMPT);
+            this._changePrompt(this._currentInputPromptString ?? PROMPTS.FAKE_INPUT_PROMPT);
         } else {
             this._changePrompt(PROMPTS.BUSY_PROMPT);
         }
+    }
+
+    private _handleInputPrompt (promptString: string): void {
+        this._currentInputPromptString = promptString;
     }
 
     private _changePrompt (prompt: string): void {

@@ -27,6 +27,7 @@ enum Events {
     output = 'output',
     promptChange = 'promptChange',
     stateChanged = 'stateChanged',
+    inputPrompt = 'inputPrompt',
     debuggingStateChanged = 'debuggingStateChanged'
 }
 
@@ -59,6 +60,7 @@ export class MVM extends EventedService {
             this._notifier.onNotification(Notification.MVMText, (data: TextEvent) => this.emit(Events.output, data)),
             this._notifier.onNotification(Notification.MVMClc, () => this.emit(Events.clc)),
             this._notifier.onNotification(Notification.MVMPromptChange, (data) => this.emit(Events.promptChange, data.state, data.isIdle)),
+            this._notifier.onNotification(Notification.MVMInputPrompt, (promptString: string) => this.emit(Events.inputPrompt, promptString)),
             this._notifier.onNotification(Notification.DebuggingStateChange, (isDebugging) => {
                 this._isCurrentlyDebugging = isDebugging;
                 this.emit(Events.debuggingStateChanged, isDebugging);

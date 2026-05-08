@@ -55,13 +55,19 @@ export default class BreakpointSynchronizer {
 
         this._listeners.push(vscode.debug.onDidChangeBreakpoints((event) => {
             event.added.filter((b) => b instanceof vscode.SourceBreakpoint).forEach((breakpoint) => {
-                this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                if (this.isMatlabFile(breakpoint.location.uri.fsPath)) {
+                    this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                }
             });
             event.changed.filter((b) => b instanceof vscode.SourceBreakpoint).forEach((breakpoint) => {
-                this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                if (this.isMatlabFile(breakpoint.location.uri.fsPath)) {
+                    this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                }
             });
             event.removed.filter((b) => b instanceof vscode.SourceBreakpoint).forEach((breakpoint) => {
-                this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                if (this.isMatlabFile(breakpoint.location.uri.fsPath)) {
+                    this._dirtyFiles.add(breakpoint.location.uri.fsPath);
+                }
             });
             this._triggerUpdate();
         }));
@@ -118,6 +124,9 @@ export default class BreakpointSynchronizer {
         // For each breakpoint in VS Code, optionally filter out based on whether we are doing a full refresh, or only sending changed breakpoints.
         vscode.debug.breakpoints.filter((b) => b instanceof vscode.SourceBreakpoint).filter((breakpoint) => {
             const path = breakpoint.location.uri.fsPath;
+            if (!this.isMatlabFile(path)) {
+                return false;
+            }
             if (refreshAll) {
                 return true;
             } else {
@@ -161,5 +170,9 @@ export default class BreakpointSynchronizer {
             clearTimeout(this._timer);
         }
         this._stopTracking();
+    }
+
+    isMatlabFile (filePath: string): boolean {
+        return filePath.endsWith('.m');
     }
 }

@@ -21,6 +21,7 @@ import SectionStylingService from './services/sections/view/SectionStylingServic
 import TelemetryLogger, { TelemetryEvent } from './services/telemetry/TelemetryLogger'
 import * as LicensingUtils from './utils/LicensingUtils'
 import BaseService from './services/BaseService'
+import MatlabProjectService from './services/projects/MatlabProjectService'
 
 const CONNECTION_STATUS_COMMAND = 'matlab.changeMatlabConnection'
 const OPEN_SETTINGS_COMMAND = 'workbench.action.openSettings'
@@ -94,6 +95,9 @@ class MatlabExtension extends BaseService {
         this.sectionModel = new SectionModel(this.client)
         const sectionStylingService = new SectionStylingService(this.sectionModel)
 
+        // Initialize MATLAB Project Service
+        const matlabProjectService = new MatlabProjectService(this.client, this.mvm)
+
         // Add all disposable services to context subscriptions
         this.own(
             this.telemetryLogger,
@@ -105,7 +109,8 @@ class MatlabExtension extends BaseService {
             deprecationPopupService,
             defaultEditorService,
             this.sectionModel,
-            sectionStylingService
+            sectionStylingService,
+            matlabProjectService
         )
 
         // =============== Setup UI Affordances =============== //
