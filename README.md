@@ -126,6 +126,8 @@ We encourage all feedback. If you encounter a technical issue or have an enhance
 
 ## Release Notes
 
+For a complete list of changes, see the [CHANGELOG](CHANGELOG.md).
+
 ### 1.3.0
 Release date: 2024-12-18
 
