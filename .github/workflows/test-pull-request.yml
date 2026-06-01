@@ -209,7 +209,7 @@ jobs:
 
   test-ui-windows:
     name: UI Test ${{ matrix.version }}-windows
-    needs: [build-windows, test-smoke-windows]
+    needs: build-windows
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -233,7 +233,7 @@ jobs:
 
   test-ui-macos:
     name: UI Test ${{ matrix.version }}-macos
-    needs: [build-macos, test-smoke-macos]
+    needs: build-macos
     runs-on: macos-latest
     strategy:
       fail-fast: false
