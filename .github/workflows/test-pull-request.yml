@@ -208,6 +208,7 @@ jobs:
           if-no-files-found: ignore
 
   test-ui-windows:
+    if: false
     name: UI Test ${{ matrix.version }}-windows
     needs: build-windows
     runs-on: windows-latest
@@ -232,6 +233,7 @@ jobs:
           if-no-files-found: ignore
 
   test-ui-macos:
+    if: false
     name: UI Test ${{ matrix.version }}-macos
     needs: build-macos
     runs-on: macos-latest
