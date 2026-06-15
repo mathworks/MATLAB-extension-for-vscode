@@ -1,0 +1,197 @@
+/* Copyright 2026 The MathWorks, Inc. */
+
+/* All colors reference VS Code CSS custom properties for theme integration */
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+
+.wsb-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Scrollable region for both vertical and horizontal overflow */
+.wsb-table-wrap {
+    flex: 1;
+    overflow: auto;
+}
+
+/* Fills container width via width:100%.
+   table-layout:fixed enforces hard min/max-width constraints on cells.
+   Grows beyond container when resized columns' explicit px widths exceed 100%. */
+.wsb-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+
+/* Sticky positioning keeps headers visible during vertical scroll */
+.wsb-table th {
+    position: sticky;
+    top: -1px;
+    z-index: 1;
+    background: var(--vscode-sideBarSectionHeader-background);
+    text-align: left;
+    padding: 2px;
+    white-space: nowrap;
+    cursor: default;
+    min-width: 55px;
+    max-width: 200px;
+    border: 1px solid var(--vscode-editorGroup-border);
+}
+
+/* Name column needs more room for the type icon + variable name */
+th[data-col="Name"] {
+    min-width: 65px;
+    max-width: 150px;
+}
+
+/* Remove default max-width when user has manually resized a column */
+.wsb-manually-resized {
+    max-width: none;
+}
+
+/* ── Sort Indicator ─────────────────────────────────────────────── */
+
+/* Hidden by default; visible on header hover or when the column is actively sorted */
+.wsb-sort-icon {
+    display: none;
+    margin-left: 5px;
+}
+
+th:hover .wsb-sort-icon,
+th.wsb-sorted .wsb-sort-icon {
+    display: inline;
+}
+
+/* ── Column Resizer ─────────────────────────────────────────────── */
+
+/* Drag handle at the right edge of each header cell.
+   8px hit area makes targeting easier under the col-resize cursor. */
+.wsb-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 2;
+}
+
+/* ── Data Cells ─────────────────────────────────────────────────── */
+
+/* Data cells inherit their width from the header row via table-layout:fixed.
+   Inputs handle their own text clipping via overflow:hidden + text-overflow:ellipsis. */
+.wsb-table td {
+    padding: 2px;
+    border: 1px solid var(--vscode-editorGroup-border);
+}
+
+
+/* ── Cell Inputs ───────────────────────────────────────────────── */
+
+/* Shared base for all cell inputs: borderless, inherits styling, truncates with ellipsis.
+   min-width:0 overrides the browser's intrinsic input minimum so table-layout:fixed controls sizing.
+   box-sizing:border-box ensures width:100% includes Chromium's default input padding. */
+.wsb-text-input,
+.wsb-value-input,
+.wsb-name-input {
+    background: inherit;
+    border: none;
+    color: inherit;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Readonly inputs show default cursor instead of text I-beam */
+.wsb-text-input,
+.wsb-value-input[readonly],
+.wsb-name-input[readonly] {
+    cursor: default;
+}
+
+/* ── Name Column Icon + Input ──────────────────────────────────── */
+
+/* Flex row for type icon + name input; min-width:0 allows truncation inside flex */
+.wsb-icon-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    width: 100%;
+}
+
+/* Fixed-size type icon; flex-shrink:0 prevents it from collapsing in narrow columns */
+.wsb-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* Name input overrides for flex layout inside .wsb-icon-label */
+.wsb-name-input {
+    padding: 0;
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
+}
+
+/* ── Row States ─────────────────────────────────────────────────── */
+
+/* Outline instead of border avoids layout shift on selection */
+.wsb-table tbody tr {
+    outline: 1px solid transparent;
+    outline-offset: -1px;
+}
+
+.wsb-table tbody tr:nth-child(even) {
+    background: var(--vscode-keybindingTable-rowsBackground);
+}
+
+.wsb-table tbody tr:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+
+.wsb-table tbody tr.wsb-selected {
+    background: var(--vscode-list-activeSelectionBackground);
+    outline-color: var(--vscode-list-focusOutline);
+}
+
+/* ── Error Flash ────────────────────────────────────────────────── */
+
+/* Transient red border on value/name inputs when an operation fails (2-second timeout).
+   !important is needed to override the input's border: none. */
+.wsb-value-error {
+    border: 1px solid var(--vscode-inputValidation-errorBorder) !important;
+}
+
+/* ── Status Bar ────────────────────────────────────────────────── */
+
+/* Fixed-height bar showing truncation info; truncates its own text if the panel is narrow */
+.wsb-status-bar {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wsb-status-link {
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.wsb-status-link:hover {
+    text-decoration: underline;
+}

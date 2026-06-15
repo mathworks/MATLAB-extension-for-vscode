@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.3.11",
+	"version": "1.3.12",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -89,6 +89,26 @@
 				"title": "MATLAB: Show Language Server Output"
 			},
 			{
+				"command": "matlab.wsb.editValue",
+				"title": "Edit Value"
+			},
+			{
+				"command": "matlab.wsb.deleteVariable",
+				"title": "Delete"
+			},
+			{
+				"command": "matlab.wsb.renameVariable",
+				"title": "Rename"
+			},
+			{
+				"command": "matlab.wsb.sortAscending",
+				"title": "Sort Ascending"
+			},
+			{
+				"command": "matlab.wsb.sortDescending",
+				"title": "Sort Descending"
+      },
+      {
 				"command": "matlab.project.open",
 				"title": "MATLAB: Open Project..."
 			},
@@ -126,6 +146,21 @@
 				"command": "matlab.interrupt",
 				"key": "Ctrl+C",
 				"when": "((editorTextFocus && !editorHasSelection && editorLangId == matlab) || (terminalFocus && matlab.isActiveTerminal && !matlab.terminalHasSelection && !terminalTextSelectedInFocused))"
+			},
+			{
+				"command": "matlab.wsb.deleteVariable",
+				"key": "delete",
+				"when": "focusedView == 'workspaceBrowserSidebarView'"
+			},
+			{
+				"command": "matlab.wsb.renameVariable",
+				"key": "f2",
+				"when": "focusedView == 'workspaceBrowserSidebarView'"
+			},
+			{
+				"command": "matlab.wsb.editValue",
+				"key": "enter",
+				"when": "focusedView == 'workspaceBrowserSidebarView'"
 			}
 		],
 		"breakpoints": [
@@ -160,6 +195,26 @@
 				},
 				{
 					"command": "matlab.changeDirectory",
+					"when": "false"
+				},
+				{
+					"command": "matlab.wsb.editValue",
+					"when": "false"
+				},
+				{
+					"command": "matlab.wsb.deleteVariable",
+					"when": "false"
+				},
+				{
+					"command": "matlab.wsb.renameVariable",
+					"when": "false"
+				},
+				{
+					"command": "matlab.wsb.sortAscending",
+					"when": "false"
+				},
+				{
+					"command": "matlab.wsb.sortDescending",
 					"when": "false"
 				}
 			],
@@ -229,6 +284,33 @@
 					"when": "explorerResourceIsFolder"
 				}
 			],
+
+			"webview/context": [
+				{
+					"command": "matlab.wsb.deleteVariable",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'row'",
+					"group": "wsb_row@2"
+				},
+				{
+					"command": "matlab.wsb.renameVariable",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'row'",
+					"group": "wsb_row@3"
+				},
+				{
+					"command": "matlab.wsb.editValue",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'row'",
+					"group": "wsb_row@4"
+				},
+				{
+					"command": "matlab.wsb.sortAscending",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'header'"
+				},
+				{
+					"command": "matlab.wsb.sortDescending",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'header'"
+        }
+      ],
+
 			"matlab.project": [
 				{
 					"command": "matlab.project.new",
@@ -257,84 +339,108 @@
 				"label": "MATLAB: Project"
 			}
 		],
-		"configuration": {
-			"title": "MATLAB",
-			"properties": {
-				"MATLAB.installPath": {
-					"type": "string",
-					"markdownDescription": "The full path to the top-level directory of the MATLAB installation you want to use with this extension. You can determine the full path to your MATLAB installation using the `matlabroot` command in MATLAB. For more information, refer to the [README](https://github.com/mathworks/MATLAB-extension-for-vscode/blob/main/README.md). This setting can be specified for both the user and workspace setting scopes using the User and Workspace tabs above.",
-					"scope": "machine-overridable"
-				},
-				"MATLAB.matlabConnectionTiming": {
-					"type": "string",
-					"default": "onStart",
-					"description": "Choose when this extension starts MATLAB in the background. Some functionality will be unavailable without MATLAB running in the background.",
-					"enum": [
-						"onStart",
-						"onDemand",
-						"never"
-					],
-					"enumDescriptions": [
-						"Start MATLAB as soon as a MATLAB code file is opened",
-						"Start MATLAB when needed for a given action",
-						"Never start MATLAB"
-					],
-					"scope": "window"
-				},
-				"MATLAB.indexWorkspace": {
-					"type": "boolean",
-					"default": true,
-					"description": "Automatically index all MATLAB code files (.m) in the current workspace.",
-					"scope": "window"
-				},
-				"MATLAB.startDebuggerAutomatically": {
-					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Automatically start the Visual Studio Code debugger when MATLAB reaches a breakpoint.",
-					"scope": "window"
-				},
-				"MATLAB.telemetry": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Help improve this extension by sending user experience information to MathWorks. For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).",
-					"scope": "window",
-					"tags": [
-						"telemetry",
-						"usesOnlineServices"
-					]
-				},
-				"MATLAB.signIn": {
-					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Enable this option to present Sign In Options for unactivated MATLAB installations.",
-					"scope": "machine"
-				},
-				"MATLAB.showFeatureNotAvailableError": {
-					"type": "boolean",
-					"default": true,
-					"description": "Display an error when a feature requires MATLAB and MATLAB is unable to start.",
-					"scope": "window"
-				},
-				"MATLAB.maxFileSizeForAnalysis": {
-					"type": "number",
-					"default": 0,
-					"markdownDescription": "The maximum number of characters a file can contain for features such as linting, code navigation, and symbol renaming to be enabled. Use `0` for no limit.",
-					"scope": "window"
-				},
-				"MATLAB.prewarmGraphics": {
-					"type": "boolean",
-					"default": true,
-					"description": "Prewarm graphics at MATLAB startup to improve performance of first-time graphics rendering.",
-					"scope": "window"
-				},
-				"MATLAB.defaultEditor": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Use Visual Studio Code instead of the MATLAB Editor to open and edit files using the `open` and `edit` commands. Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).",
-					"scope": "window"
+		"configuration": [
+			{
+				"title": "MATLAB",
+				"properties": {
+					"MATLAB.installPath": {
+						"type": "string",
+						"markdownDescription": "The full path to the top-level directory of the MATLAB installation you want to use with this extension. You can determine the full path to your MATLAB installation using the `matlabroot` command in MATLAB. For more information, refer to the [README](https://github.com/mathworks/MATLAB-extension-for-vscode/blob/main/README.md). This setting can be specified for both the user and workspace setting scopes using the User and Workspace tabs above.",
+						"scope": "machine-overridable"
+					},
+					"MATLAB.matlabConnectionTiming": {
+						"type": "string",
+						"default": "onStart",
+						"description": "Choose when this extension starts MATLAB in the background. Some functionality will be unavailable without MATLAB running in the background.",
+						"enum": [
+							"onStart",
+							"onDemand",
+							"never"
+						],
+						"enumDescriptions": [
+							"Start MATLAB as soon as a MATLAB code file is opened",
+							"Start MATLAB when needed for a given action",
+							"Never start MATLAB"
+						],
+						"scope": "window"
+					},
+					"MATLAB.indexWorkspace": {
+						"type": "boolean",
+						"default": true,
+						"description": "Automatically index all MATLAB code files (.m) in the current workspace.",
+						"scope": "window"
+					},
+					"MATLAB.startDebuggerAutomatically": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Automatically start the Visual Studio Code debugger when MATLAB reaches a breakpoint.",
+						"scope": "window"
+					},
+					"MATLAB.telemetry": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Help improve this extension by sending user experience information to MathWorks. For more information, see the [MathWorks Privacy Policy](https://www.mathworks.com/company/aboutus/policies_statements.html).",
+						"scope": "window",
+						"tags": [
+							"telemetry",
+							"usesOnlineServices"
+						]
+					},
+					"MATLAB.signIn": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Enable this option to present Sign In Options for unactivated MATLAB installations.",
+						"scope": "machine"
+					},
+					"MATLAB.showFeatureNotAvailableError": {
+						"type": "boolean",
+						"default": true,
+						"description": "Display an error when a feature requires MATLAB and MATLAB is unable to start.",
+						"scope": "window"
+					},
+					"MATLAB.maxFileSizeForAnalysis": {
+						"type": "number",
+						"default": 0,
+						"markdownDescription": "The maximum number of characters a file can contain for features such as linting, code navigation, and symbol renaming to be enabled. Use `0` for no limit.",
+						"scope": "window"
+					},
+					"MATLAB.prewarmGraphics": {
+						"type": "boolean",
+						"default": true,
+						"description": "Prewarm graphics at MATLAB startup to improve performance of first-time graphics rendering.",
+						"scope": "window"
+					},
+					"MATLAB.defaultEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Use Visual Studio Code instead of the MATLAB Editor to open and edit files using the `open` and `edit` commands. Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).",
+						"scope": "window"
+					}
+				}
+			},
+			{
+				"title": "Workspace",
+				"properties": {
+					"MATLAB.maximumWorkspaceVariables": {
+						"type": "integer",
+						"default": 500,
+						"markdownDescription": "Maximum number of variables to display in the Workspace panel.\n\n_Limiting this value helps ensure panel performance._",
+						"scope": "window"
+					},
+					"MATLAB.workspaceSortMethod": {
+						"type": "string",
+						"default": "natural",
+						"enum": ["natural", "lexicographic"],
+						"enumDescriptions": [
+							"Compare numbers within names by numeric value",
+							"Compare names character by character"
+						],
+						"markdownDescription": "Choose how variables are sorted in the Workspace panel.\n\n_Sorting is natural by default._",
+						"scope": "window"
+					}
 				}
 			}
-		},
+		],
 		"languages": [
 			{
 				"id": "matlab",
@@ -383,37 +489,64 @@
 					"id": "matlab.terminal-profile"
 				}
 			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "matlabSidebar",
+					"title": "MATLAB",
+					"icon": "./public/logo_outline.svg"
+				}
+			]
+		},
+		"views": {
+			"matlabSidebar": [
+				{
+					"id": "workspaceBrowserSidebarView",
+					"name": "Workspace",
+					"type": "webview",
+					"icon": "./public/logo_outline.svg"
+				}
+			]
 		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile && cd server && npm prune --production && cd ..",
-		"compile": "tsc -p ./ && cd server && npm run compile && cd ..",
-		"watch": "tsc -watch -p ./ && cd server && npm run watch && cd ..",
+		"compile": "tsc -p ./ && npm run copy-wsb-resources && webpack && cd server && npm run compile && cd ..",
+		"watch": "tsc -watch -p ./ && npm run copy-wsb-resources && cd server && npm run watch && webpack --watch && cd ..",
 		"test-setup": "npm run compile && npm run lint && npm run copy-test-files && npm run copy-config-files",
 		"copy-test-files": "cd src && copyfiles ./test/test-files/**/*.m ./../out/ && cd ..",
 		"copy-config-files": "cd src && copyfiles ./test/tools/config/*.* ./../out/ -all && cd ..",
+		"copy-wsb-resources": "copyfiles \"src/workspacebrowser/resources/**/*\" out/workspacebrowser/resources/ -u 3",
 		"lint": "eslint src --ext ts",
 		"lint:fix": "eslint src --ext ts --fix",
 		"test-smoke": "npm run test-setup && node ./out/test/smoke/runTest.js",
 		"test-ui": "npm run test-setup && node ./out/test/ui/runTest.js",
 		"test-smoke:fast": "node ./out/test/smoke/runTest.js",
 		"test-ui:fast": "node ./out/test/ui/runTest.js",
+		"test-wsb": "npm run test-setup && node out/test/workspacebrowser/runTest.js",
+		"test-wsb:fast": "node out/test/workspacebrowser/runTest.js",
 		"test": "npm run test-setup && npm run test:fast",
-		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast",
+		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast && npm run test-wsb:fast",
 		"project-install": "node ./build/projectInstall.js",
 		"project-install-clean": "node ./build/projectInstall.js --clean",
 		"package": "vsce package"
 	},
 	"devDependencies": {
+		"@types/chai": "^5.2.2",
 		"@types/glob": "^8.0.0",
+		"@types/jsdom": "^21.1.7",
 		"@types/mocha": "^9.1.1",
+		"@types/mock-require": "^3.0.0",
 		"@types/node": "^18.19.50",
 		"@types/node-fetch": "^2.6.2",
+		"@types/sinon": "^17.0.3",
 		"@types/vscode": "^1.67.0",
 		"@typescript-eslint/eslint-plugin": "^5.36.1",
 		"@typescript-eslint/parser": "^5.36.1",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^2.19.0",
+		"chai": "^5.2.1",
 		"copyfiles": "^2.4.1",
 		"eslint": "^8.23.0",
 		"eslint-config-standard-with-typescript": "^22.0.0",
@@ -421,9 +554,16 @@
 		"eslint-plugin-node": "^11.1.0",
 		"eslint-plugin-promise": "^6.0.1",
 		"glob": "^8.0.3",
+		"jsdom": "^26.1.0",
 		"mocha": "^10.0.0",
+		"mock-require": "^3.0.3",
+		"node-loader": "^2.1.0",
+		"sinon": "^18.0.0",
+		"ts-loader": "^9.5.2",
 		"typescript": "^5.0.4",
-		"vscode-extension-tester": "8.14.1"
+		"vscode-extension-tester": "8.14.1",
+		"webpack": "^5.101.0",
+		"webpack-cli": "^6.0.1"
 	},
 	"dependencies": {
 		"@vscode/debugadapter": "^1.56.0",

@@ -57,6 +57,10 @@ enum Notification {
     // Default Editor
     EditorExecutablePath = 'matlab/otherEditor',
 
+    // Workspace Browser
+    WSBServerMessage = 'WSBServerMessage',
+    WSBClientMessage = 'WSBClientMessage',
+
     // MATLAB projects
     ProjectOpened = 'matlab/project/opened',
     ProjectClosed = 'matlab/project/closed'
