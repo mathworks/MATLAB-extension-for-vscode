@@ -3,6 +3,7 @@ import * as vet from 'vscode-extension-tester'
 import * as path from 'path'
 import * as PollingUtils from '../utils/PollingUtils'
 import { TerminalTester } from './TerminalTester'
+import { WorkspaceBrowserTester } from './WorkspaceBrowserTester'
 import * as assert from 'assert'
 import { EditorTester } from './EditorTester'
 
@@ -16,6 +17,7 @@ export class VSCodeTester {
     private readonly statusbar: vet.StatusBar
     public readonly workbench: vet.Workbench
     public terminal!: TerminalTester
+    public workspaceBrowser!: WorkspaceBrowserTester
 
     public constructor () {
         this.vs = this
@@ -44,6 +46,41 @@ export class VSCodeTester {
         await this.selectQuickPick(prompt, 'MATLAB: Change MATLAB Connection')
         await this.selectQuickPick(prompt, 'Disconnect from MATLAB')
         return await this.assertMATLABDisconnected()
+    }
+
+    /**
+     * Determines if the connected MATLAB's version is less than the provided version.
+     *
+     * @param version The MATLAB version to check against (e.g. "R2023a")
+     */
+    public async isMatlabVersionLessThan (version: string): Promise<boolean> {
+        const matlabVersion = await this.getMatlabVersion()
+        return matlabVersion != null && matlabVersion < version
+    }
+
+    /**
+     * Determines if MATLAB version has been outputted into the terminal.
+     * Returns true if MATLAB version is not null.
+     */
+    private async isMATLABVersionAvailable (): Promise<boolean> {
+        const version = await this.terminal.extractContent(/R\d\d\d\d[ab]/)
+        return version != null
+    }
+
+    /**
+     * Gets the MATLAB version of the connected MATLAB.
+     *
+     * **Note:** As a side effect of calling this, the terminal will be cleared.
+     *
+     * @returns The MATLAB version (e.g. "R2023a") of the connected MATLAB version
+     */
+    private async getMatlabVersion (): Promise<string | null> {
+        await this.assertMATLABConnected()
+        await this.terminal.executeCommand('version')
+        await this.poll(this.isMATLABVersionAvailable.bind(this), true, 'Expected version output in terminal', 100000)
+        const version = await this.terminal.extractContent(/R\d\d\d\d[ab]/)
+        await this.terminal.executeCommand('clc')
+        return version === null ? null : version[0]
     }
 
     /**
@@ -121,10 +158,34 @@ export class VSCodeTester {
     */
     public async openMATLABTerminal (): Promise<void> {
         await this.executeCommand('matlab.openCommandWindow')
-        await this.pause(1000)
+        await this.pause(5000)
         const terminal = await new vet.BottomBarPanel().openTerminalView()
         const terminalTester = new TerminalTester(this, terminal)
         this.terminal = terminalTester
+    }
+
+    /**
+    * Opens the Workspace Browser sidebar and creates a new WorkspaceBrowserTester
+    */
+    public async openWorkspaceBrowser (): Promise<void> {
+        const activityBar = new vet.ActivityBar()
+        const matlabControl = await activityBar.getViewControl('MATLAB')
+        if (matlabControl != null) {
+            await matlabControl.click()
+        }
+        await this.poll(this.isSideBarOpen.bind(this), true, 'Expected MATLAB sidebar to open')
+        this.workspaceBrowser = new WorkspaceBrowserTester(this)
+    }
+
+    private async isSideBarOpen (): Promise<boolean> {
+        try {
+            const sideBar = new vet.SideBarView()
+            const content = sideBar.getContent()
+            const sections = await content.getSections()
+            return sections.length > 0
+        } catch {
+            return false
+        }
     }
 
     public async setSetting (id: string, value: string): Promise<void> {

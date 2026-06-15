@@ -85,6 +85,7 @@ export default class MatlabDebugger extends BaseService {
                     return;
                 }
 
+                this._activeSession = session;
                 void this._terminalService.openTerminalOrBringToFront();
             }),
 

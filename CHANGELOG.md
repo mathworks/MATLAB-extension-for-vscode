@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.12] - 2026-06-15
+
+### Added
+- Interactively inspect the MATLAB workspace in the MATLAB view with support for renaming, sorting, and deleting variables (Addresses [mathworks/MATLAB-extension-for-vscode#100](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/100))
+- Improved formatting of warnings in output
+- Support for the diary command (Addresses [mathworks/MATLAB-extension-for-vscode#186](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/186))
+- Support for word-based navigation and editing keyboard shortcuts in the MATLAB Terminal, including Ctrl+Left/Right to move by word, Ctrl+Shift+Left/Right to select by word, and Ctrl+Backspace/Delete to delete words (Addresses [mathworks/MATLAB-extension-for-vscode#249](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/249))
+
 ## [1.3.11] - 2026-05-08
 
 ### Added

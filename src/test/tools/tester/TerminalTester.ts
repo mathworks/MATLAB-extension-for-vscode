@@ -33,6 +33,24 @@ export class TerminalTester {
     }
 
     /**
+     * Extracts content from the terminal based on the provided regular expression.
+     *
+     * @param regexp A regexp used to match content within the terminal
+     * @returns An array of string results which match the provided RegExp, or null if no results are found
+     */
+    public async extractContent (regexp: RegExp): Promise<string[] | null> {
+        const content = await this.terminal.getText()
+
+        if (regexp.global) {
+            const matchResults = content.match(regexp)
+            return matchResults
+        } else {
+            const matchResults = content.match(regexp)
+            return matchResults === null ? null : [matchResults[0]]
+        }
+    }
+
+    /**
      * Get the content of the MATLAB terminal
      */
     private async getTerminalContent (): Promise<string> {

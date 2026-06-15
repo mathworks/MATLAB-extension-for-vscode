@@ -21,6 +21,7 @@ import SectionStylingService from './services/sections/view/SectionStylingServic
 import TelemetryLogger, { TelemetryEvent } from './services/telemetry/TelemetryLogger'
 import * as LicensingUtils from './utils/LicensingUtils'
 import BaseService from './services/BaseService'
+import WorkspaceBrowserProvider from './workspacebrowser/WorkspaceBrowserProvider'
 import MatlabProjectService from './services/projects/MatlabProjectService'
 
 const CONNECTION_STATUS_COMMAND = 'matlab.changeMatlabConnection'
@@ -96,7 +97,7 @@ class MatlabExtension extends BaseService {
         const sectionStylingService = new SectionStylingService(this.sectionModel)
 
         // Initialize MATLAB Project Service
-        const matlabProjectService = new MatlabProjectService(this.client, this.mvm)
+        const matlabProjectService = new MatlabProjectService(this.client, this.mvm, this.telemetryLogger)
 
         // Add all disposable services to context subscriptions
         this.own(
@@ -155,6 +156,13 @@ class MatlabExtension extends BaseService {
 
         // Set up event listener to react to changes in VS Code's configuration
         this.own(vscode.workspace.onDidChangeConfiguration(() => this.handleConfigurationChanged))
+
+        // Initialize workspace browser — the provider handles lifecycle internally via MVM events
+        const workspaceBrowserProvider = new WorkspaceBrowserProvider(context, multiclientNotifier, this.mvm, this.telemetryLogger)
+        this.own(
+            vscode.window.registerWebviewViewProvider('workspaceBrowserSidebarView', workspaceBrowserProvider),
+            workspaceBrowserProvider
+        )
     }
 
     /**

@@ -1,0 +1,16 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.5 3.5H14.5V13.5C14.5 14.0523 14.0523 14.5 13.5 14.5H1.5C0.947716 14.5 0.5 14.0523 0.5 13.5V3.5Z" fill="#FFF5BC" stroke="#1656A7"/>
+<path d="M5 8H6V9H5V8Z" fill="#1656A8"/>
+<path d="M7 8H8V9H7V8Z" fill="#1656A8"/>
+<path d="M9 8H10V9H9V8Z" fill="#1656A8"/>
+<path d="M11 8H12V9H11V8Z" fill="#1656A8"/>
+<path d="M3 8H4V9H3V8Z" fill="#1656A8"/>
+<path d="M5 10H6V11H5V10Z" fill="#616162"/>
+<path d="M7 10H8V11H7V10Z" fill="#616162"/>
+<path d="M9 10H10V11H9V10Z" fill="#616162"/>
+<path d="M11 6H12V7H11V6Z" fill="#616162"/>
+<path d="M9 6H10V7H9V6Z" fill="#616162"/>
+<path d="M7 6H8V7H7V6Z" fill="#616162"/>
+<path d="M3 10H4V11H3V10Z" fill="#616162"/>
+<path d="M0.500305 1.5C0.500305 0.947715 0.94802 0.5 1.50031 0.5H13.5C14.0523 0.5 14.5 0.947636 14.5 1.49987L14.5003 3.5H0.500305V1.5Z" fill="#B4DEFF" stroke="#1656A7"/>
+</svg>

@@ -6,6 +6,7 @@ import { LanguageClient } from 'vscode-languageclient/node'
 import BaseService from '../BaseService'
 import { MatlabMVMConnectionState, MVM } from '../../commandwindow/MVM'
 import Notification from '../../notifications/Notifications'
+import TelemetryLogger from '../telemetry/TelemetryLogger'
 
 interface ProjectInformation {
     name: string
@@ -24,7 +25,7 @@ export default class MatlabProjectService extends BaseService {
     private readonly projectOpenStatusNotification: vscode.StatusBarItem
     private isProjectOpen = false
 
-    constructor (private readonly client: LanguageClient, private readonly mvm: MVM) {
+    constructor (private readonly client: LanguageClient, private readonly mvm: MVM, private readonly telemetryLogger: TelemetryLogger) {
         super()
 
         // Initialize isOpen context to false
@@ -102,7 +103,7 @@ export default class MatlabProjectService extends BaseService {
         this.updateUiOnProjectOpening()
 
         // Send command to MALTAB to open the project
-        const result = await this.mvm.feval('matlabls.project.openProject', 0, [fileOrFolderUri.fsPath])
+        const result = await this.mvm.feval('matlabls.project.openProject', 0, [fileOrFolderUri.fsPath], true)
 
         if ('error' in result) {
             const error = result.error as MatlabError
@@ -110,6 +111,13 @@ export default class MatlabProjectService extends BaseService {
             this.updateUiOnProjectClose()
         } else {
             // No direct action - the UI will be updated via notification from the language server
+            this.telemetryLogger.logEvent({
+                eventKey: 'ML_VS_CODE_ACTIONS',
+                data: {
+                    action_type: 'projectOpened',
+                    result: ''
+                }
+            })
         }
     }
 
@@ -136,6 +144,13 @@ export default class MatlabProjectService extends BaseService {
             void vscode.window.showErrorMessage(error.msg)
         } else {
             // No direct action - the UI will be updated via notification from the language server
+            this.telemetryLogger.logEvent({
+                eventKey: 'ML_VS_CODE_ACTIONS',
+                data: {
+                    action_type: 'projectClosed',
+                    result: ''
+                }
+            })
         }
     }
 
@@ -187,6 +202,13 @@ export default class MatlabProjectService extends BaseService {
             void vscode.window.showErrorMessage(error.msg)
         } else {
             // No direct action - the UI will be updated via notification from the language server
+            this.telemetryLogger.logEvent({
+                eventKey: 'ML_VS_CODE_ACTIONS',
+                data: {
+                    action_type: 'projectCreated',
+                    result: ''
+                }
+            })
         }
     }
 
