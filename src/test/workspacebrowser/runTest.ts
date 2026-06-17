@@ -90,7 +90,9 @@ if (typeof (global as unknown as Record<string, unknown>).CSS === 'undefined') {
 async function runTests (): Promise<void> {
     // chai v5 is ESM-only — pre-load via dynamic import and inject into
     // the require cache so compiled CommonJS test files can require() it.
-    const chaiModule = await import('chai')
+    // new Function prevents TypeScript from compiling import() to require().
+    const dynamicImport = new Function('specifier', 'return import(specifier)') as (s: string) => Promise<unknown>
+    const chaiModule = await dynamicImport('chai')
     const chaiPath = require.resolve('chai')
     require.cache[chaiPath] = {
         id: chaiPath,
