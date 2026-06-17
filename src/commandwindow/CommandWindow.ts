@@ -58,6 +58,13 @@ const ACTION_KEYS = {
     TAB: '\t',
     SHIFT_TAB: ESC + '[Z',
 
+    CTRL_LEFT: ESC + '[1;5D',
+    CTRL_RIGHT: ESC + '[1;5C',
+    CTRL_SHIFT_LEFT: ESC + '[1;6D',
+    CTRL_SHIFT_RIGHT: ESC + '[1;6C',
+    CTRL_BACKSPACE: '\x17',
+    CTRL_DELETE: ESC + 'd',
+
     INVERT_COLORS: ESC + '[7m',
     RESTORE_COLORS: ESC + '[27m',
     RED_FOREGROUND: ESC + '[31m',
@@ -82,6 +89,8 @@ const RIGHT_REGEX = /^(\x1b\[C)+$/;
 const WIDE_CHAR_REGEX = /[\u3001-\u3015\u301C\u3040-\u30FF\u3131-\u314E\u3400-\u4DBF\u4e00-\u9FFF\uAC00-\uD7A3\uFF01-\uFF0F\uFF1A\uFF1B\uFF1F\uFF20\uFF3B\uFF3C\uFF3D\uFF3F\uFF5B\uFF5D]/;
 
 const RELEASE_REGEX = /^R20([0-9]{2})(a|b)$/;
+// eslint-disable-next-line no-control-regex
+const WARNING_SENTINAL_REGEX = /((?:\[\x08)|(?:\]\x08))/;
 
 const PROMPTS = {
     IDLE_PROMPT: '>> ',
@@ -465,6 +474,18 @@ export default class CommandWindow implements vscode.Pseudoterminal {
                 return this._handleTab(Direction.FORWARDS);
             case ACTION_KEYS.SHIFT_TAB:
                 return this._handleTab(Direction.BACKWARDS);
+            case ACTION_KEYS.CTRL_LEFT:
+                return this._handleWordLeftRight(CursorDirection.LEFT, AnchorPolicy.MOVE);
+            case ACTION_KEYS.CTRL_RIGHT:
+                return this._handleWordLeftRight(CursorDirection.RIGHT, AnchorPolicy.MOVE);
+            case ACTION_KEYS.CTRL_SHIFT_LEFT:
+                return this._handleWordLeftRight(CursorDirection.LEFT, AnchorPolicy.KEEP);
+            case ACTION_KEYS.CTRL_SHIFT_RIGHT:
+                return this._handleWordLeftRight(CursorDirection.RIGHT, AnchorPolicy.KEEP);
+            case ACTION_KEYS.CTRL_BACKSPACE:
+                return this._handleWordBackspace();
+            case ACTION_KEYS.CTRL_DELETE:
+                return this._handleWordDelete();
             default: {
                 let result = false;
                 // Handle repeated left/right arrow keys. This is what is received when using Alt+Mouse to move the cursor.
@@ -627,6 +648,98 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return true;
     }
 
+    private _isWordChar (ch: string): boolean {
+        return /\w/.test(ch);
+    }
+
+    private _isWhitespace (ch: string): boolean {
+        return /\s/.test(ch);
+    }
+
+    private _charCategory (ch: string): number {
+        if (this._isWordChar(ch)) return 0;
+        if (this._isWhitespace(ch)) return 1;
+        return 2; // punctuation/symbols
+    }
+
+    private _findWordBoundary (direction: CursorDirection): number {
+        const editableText = this._currentPromptLine.substring(this._currentPrompt.length);
+        let pos = this._activeCursorIndex;
+
+        if (direction === CursorDirection.LEFT) {
+            if (pos === 0) return 0;
+            pos--;
+            // Skip whitespace going left
+            while (pos > 0 && this._isWhitespace(editableText[pos])) {
+                pos--;
+            }
+            // Skip same-category characters going left
+            const cat = this._charCategory(editableText[pos]);
+            while (pos > 0 && this._charCategory(editableText[pos - 1]) === cat) {
+                pos--;
+            }
+        } else {
+            const max = this._getMaxIndexOnLine();
+            if (pos === max) return max;
+            // Skip same-category characters going right
+            const cat = this._charCategory(editableText[pos]);
+            while (pos < max && this._charCategory(editableText[pos]) === cat) {
+                pos++;
+            }
+            // Skip whitespace going right
+            while (pos < max && this._isWhitespace(editableText[pos])) {
+                pos++;
+            }
+        }
+        return pos;
+    }
+
+    private _handleWordLeftRight (direction: CursorDirection, anchorPolicy: AnchorPolicy): boolean {
+        const isLineDirty = this._possiblyUpdateAnchorForCursorChange(anchorPolicy);
+        const newIndex = this._findWordBoundary(direction);
+        if (newIndex === this._activeCursorIndex) {
+            return isLineDirty;
+        }
+        this._activeCursorIndex = newIndex;
+        this._forcedEndOfLineCursorValue = undefined;
+        this._invalidateCompletionData();
+        return true;
+    }
+
+    private _handleWordBackspace (): boolean {
+        if (this._activeAnchorIndex !== undefined) {
+            return this._removeSelection();
+        }
+        if (this._activeCursorIndex === 0) {
+            return false;
+        }
+        const targetIndex = this._findWordBoundary(CursorDirection.LEFT);
+        const before = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(targetIndex));
+        const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(this._activeCursorIndex));
+        this._currentPromptLine = before + after;
+        this._activeCursorIndex = targetIndex;
+        this._forcedEndOfLineCursorValue = false;
+        this._markCurrentLineChanged();
+        this._invalidateCompletionData();
+        return true;
+    }
+
+    private _handleWordDelete (): boolean {
+        if (this._activeAnchorIndex !== undefined) {
+            return this._removeSelection();
+        }
+        if (this._activeCursorIndex === this._getMaxIndexOnLine()) {
+            return false;
+        }
+        const targetIndex = this._findWordBoundary(CursorDirection.RIGHT);
+        const before = this._currentPromptLine.substring(0, this._getAbsoluteIndexOnLine(this._activeCursorIndex));
+        const after = this._currentPromptLine.substring(this._getAbsoluteIndexOnLine(targetIndex));
+        this._currentPromptLine = before + after;
+        this._markCurrentLineChanged();
+        this._invalidateCompletionData();
+        return true;
+    }
+
     private _replaceCurrentLineWithNewLine (updatedLine: string, cursorIndex?: number): boolean {
         this._currentPromptLine = updatedLine;
         this._activeCursorIndex = cursorIndex ?? this._getMaxIndexOnLine();
@@ -728,9 +841,10 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     addOutput (output: TextEvent): void {
         if (this._initialized) {
             if (output.stream === 0) {
-                if (output.text.startsWith('Warning:')) {
+                if (output.text.startsWith('[\b')) {
+                    const text = output.text.replace(WARNING_SENTINAL_REGEX, '')
                     this._writeEmitter.fire(ACTION_KEYS.YELLOW_FOREGROUND);
-                    this.handleText(output.text, true);
+                    this.handleText(text, true);
                     this._writeEmitter.fire(ACTION_KEYS.ALL_DEFAULT_COLORS);
                 } else {
                     this.handleText(output.text, true);
@@ -900,6 +1014,9 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         } else if (state === PromptState.PAUSE) {
             this._changePrompt(PROMPTS.BUSY_PROMPT);
         } else if (state === PromptState.INPUT) {
+            // Bring command window to the front
+            void vscode.commands.executeCommand('matlab.openCommandWindow')
+
             this._changePrompt(this._currentInputPromptString ?? PROMPTS.FAKE_INPUT_PROMPT);
         } else {
             this._changePrompt(PROMPTS.BUSY_PROMPT);
