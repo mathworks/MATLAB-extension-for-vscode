@@ -228,3 +228,44 @@ jobs:
           name: screenshots-macos-${{ matrix.version }}
           path: ${{ github.workspace }}/.s/screenshots
           if-no-files-found: ignore
+
+  # UNIT TESTS
+  test-unit-linux:
+    name: Unit Tests-linux
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - *checkout
+      - *download-linux-build-artifacts
+      - *setup-node
+      - *install-dependencies
+      - &run-unit-tests
+        name: Run Unit tests
+        run: npm run test-unit:fast
+      - &run-wsb-tests
+        name: Run Workspace Browser tests
+        run: npm run test-wsb:fast
+
+  test-unit-windows:
+    name: Unit Tests-windows
+    needs: build-windows
+    runs-on: windows-latest
+    steps:
+      - *checkout
+      - *download-windows-build-artifacts
+      - *setup-node
+      - *install-dependencies
+      - *run-unit-tests
+      - *run-wsb-tests
+
+  test-unit-macos:
+    name: Unit Tests-macos
+    needs: build-macos
+    runs-on: macos-14
+    steps:
+      - *checkout
+      - *download-macos-build-artifacts
+      - *setup-node
+      - *install-dependencies
+      - *run-unit-tests
+      - *run-wsb-tests

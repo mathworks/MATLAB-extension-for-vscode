@@ -11,6 +11,41 @@ on:
 permissions: {}    
 
 jobs:
+  test-unit:
+    name: unit-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-14]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: "refs/pull/${{ github.event.number }}/merge"
+          persist-credentials: false
+      - name: Verify Head
+        shell: bash
+        run: |
+          if [ "$(git ls-remote origin ${{ github.event.number }}/head | awk '{print $1}')" != "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "HEAD does not match github.event.pull_request.head.sha"
+            exit 1
+          fi
+      - name: Setup node
+        uses: actions/setup-node@v4
+      - name: npm clean install
+        run: npm run project-install-clean
+      - name: Package vsix
+        run: npm run package
+      - name: npm install
+        run: npm run project-install
+      - name: Run Unit tests
+        run: npm run test-unit
+      - name: Run Workspace Browser tests
+        run: npm run test-wsb
+
   test-smoke:
     name: smoke-${{ matrix.version }}-${{ matrix.os }}
     runs-on: ${{ matrix.os }}

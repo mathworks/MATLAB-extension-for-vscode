@@ -524,10 +524,12 @@
 		"test-ui": "npm run test-setup && node ./out/test/ui/runTest.js",
 		"test-smoke:fast": "node ./out/test/smoke/runTest.js",
 		"test-ui:fast": "node ./out/test/ui/runTest.js",
+		"test-unit": "npm run test-setup && node ./out/test/unit/runTest.js",
+		"test-unit:fast": "node ./out/test/unit/runTest.js",
 		"test-wsb": "npm run test-setup && node out/test/workspacebrowser/runTest.js",
 		"test-wsb:fast": "node out/test/workspacebrowser/runTest.js",
 		"test": "npm run test-setup && npm run test:fast",
-		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast && npm run test-wsb:fast",
+		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast && npm run test-unit:fast && npm run test-wsb:fast",
 		"project-install": "node ./build/projectInstall.js",
 		"project-install-clean": "node ./build/projectInstall.js --clean",
 		"package": "vsce package"
