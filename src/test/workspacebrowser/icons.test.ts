@@ -21,6 +21,7 @@ suite('getIconFilename', () => {
             ['char', 'wsCharacter.svg'],
             ['logical', 'wsCheck.svg'],
             ['duration', 'wsClock.svg'],
+            ['dictionary', 'wsDataDictionary.svg'],
             ['datetime', 'wsDate.svg'],
             ['default', 'wsDefault.svg'],
             ['categorical', 'wsDots.svg'],

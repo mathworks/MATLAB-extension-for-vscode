@@ -41,6 +41,7 @@ If you have MATLAB R2021b or later installed on your system, you have access to 
 * Code analysis, such as continuous code checking and automatic fixes
 * Code outline
 * Symbol renaming
+* Test discovery and execution
 
 ![MATLAB Extension Demo](public/AdvancedFeatures.gif)
 
@@ -83,6 +84,17 @@ To create a new project, right-click a folder in the Explorer and select **MATLA
 When a project is open, Visual Studio Code shows the project name in the status bar.
 
 ![MATLAB Projects Screenshot](public/Projects.png)
+
+## Run MATLAB Tests
+If you have MATLAB R2021b or later installed on your system, you can run MATLAB unit tests using the Test Explorer in Visual Studio Code. To add tests to the Test Explorer, open the Testing view by selecting the Testing icon in the Activity Bar on the left side of the Visual Studio Code window, and then click **Add Test Folder** or **Add Test File** in the Test Explorer. You also can add tests using the `MATLAB: Add Test Folder` and `MATLAB: Add Test File` commands in the Command Palette.
+
+When you add a test folder, the extension adds all tests in that folder and its subfolders. Tests appear in a hierarchical tree organized by file, test procedure, and parameterization. The test tree updates automatically when test files are modified or when files are added to or removed from your test folders. The extension supports class-based tests (including parameterized tests), function-based tests, and script-based tests.
+
+To run tests, click **Run Test** to the right of a test or test file in the Test Explorer, or click **Run Tests** in the toolbar. Results appear in real time as each test completes, with icons indicating whether the test passed, failed, or remained incomplete. Additionally, as the tests run, test output appears in real time in the Test Results panel.
+
+If a test fails, click the failed test in the Test Explorer to navigate directly to the failing line in your test code and view test diagnostics. Alternatively, click the failed test in the Test Results panel to view diagnostic messages.
+
+![Test Explorer showing test results with passed and failed tests, and diagnostic output in the Test Results panel](public/RunTests.png)
 
 ## Run MATLAB in Jupyter Notebooks
 You also can use this extension along with the Jupyter Extension for Visual Studio Code to run MATLAB in Jupyter notebooks using Visual Studio Code. For instructions, see [Run MATLAB in Jupyter Notebooks Using VS Code](https://github.com/mathworks/jupyter-matlab-proxy/blob/main/install_guides/vscode/README.md).

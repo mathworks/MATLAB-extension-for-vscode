@@ -31,7 +31,7 @@ function createTestCommandWindow (): CommandWindow {
     mockMvm.getMatlabState = () => MatlabMVMConnectionState.CONNECTED;
     mockMvm.emit = () => {};
 
-    const cw = new CommandWindow(mockMvm, mockNotifier as any);
+    const cw = new CommandWindow(mockMvm, mockNotifier as any, null as any);
     cw.open({ rows: 30, columns: 100 });
 
     // Simulate MATLAB becoming ready — sets prompt to '>> ' and state to READY

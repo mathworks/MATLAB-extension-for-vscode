@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.3.12",
+	"version": "1.3.13",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -27,6 +27,13 @@
 		"onTerminalProfile:matlab.terminal-profile"
 	],
 	"main": "./out/extension.js",
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"description": "MATLAB language server cannot run in an untrusted workspace.",
+			"restrictedConfigurations": ["MATLAB.installPath"]
+		}
+	},
 	"contributes": {
 		"commands": [
 			{
@@ -124,6 +131,31 @@
 			{
 				"command": "matlab.project.actions",
 				"title": "MATLAB: Project Actions..."
+			},
+			{
+				"command": "matlab.testing.runAllTests",
+				"title": "MATLAB: Run All Tests"
+			},
+			{
+				"command": "matlab.testing.discoverTests",
+				"title": "MATLAB: Discover Tests"
+			},
+			{
+				"command": "matlab.testing.addTestFolder",
+				"title": "Add Test Folder",
+				"category": "MATLAB",
+				"icon": "$(new-folder)"
+			},
+			{
+				"command": "matlab.testing.addTestFile",
+				"title": "Add Test File",
+				"category": "MATLAB",
+				"icon": "$(new-file)"
+			},
+			{
+				"command": "matlab.testing.removeTestItem",
+				"title": "Remove Test",
+				"icon": "$(trash)"
 			}
 		],
 		"keybindings": [
@@ -183,6 +215,13 @@
 				]
 			}
 		],
+		"viewsWelcome": [
+			{
+				"view": "testing",
+				"contents": "[Add Test Folder](command:matlab.testing.addTestFolder)\n[Add Test File](command:matlab.testing.addTestFile)",
+				"when": "matlab.testing.isActive"
+			}
+		],
 		"menus": {
 			"commandPalette": [
 				{
@@ -195,6 +234,10 @@
 				},
 				{
 					"command": "matlab.changeDirectory",
+					"when": "false"
+				},
+				{
+					"command": "matlab.testing.removeTestItem",
 					"when": "false"
 				},
 				{
@@ -216,6 +259,25 @@
 				{
 					"command": "matlab.wsb.sortDescending",
 					"when": "false"
+				}
+			],
+			"testing/item/context": [
+				{
+					"command": "matlab.testing.removeTestItem",
+					"group": "matlab@1",
+					"when": "controllerId == matlab-tests"
+				}
+			],
+			"view/title": [
+				{
+					"command": "matlab.testing.addTestFolder",
+					"when": "view == workbench.view.testing && matlab.testing.isActive",
+					"group": "navigation@1"
+				},
+				{
+					"command": "matlab.testing.addTestFile",
+					"when": "view == workbench.view.testing && matlab.testing.isActive",
+					"group": "navigation@2"
 				}
 			],
 			"editor/title/run": [
@@ -515,7 +577,7 @@
 		"compile": "tsc -p ./ && npm run copy-wsb-resources && webpack && cd server && npm run compile && cd ..",
 		"watch": "tsc -watch -p ./ && npm run copy-wsb-resources && cd server && npm run watch && webpack --watch && cd ..",
 		"test-setup": "npm run compile && npm run lint && npm run copy-test-files && npm run copy-config-files",
-		"copy-test-files": "cd src && copyfiles ./test/test-files/**/*.m ./../out/ && cd ..",
+		"copy-test-files": "cd src && copyfiles ./test/test-files/**/*.m ./../out/ && copyfiles ./test/test-files/**/*.toml ./../out/ && copyfiles ./test/test-files/**/*.json ./../out/ && cd ..",
 		"copy-config-files": "cd src && copyfiles ./test/tools/config/*.* ./../out/ -all && cd ..",
 		"copy-wsb-resources": "copyfiles \"src/workspacebrowser/resources/**/*\" out/workspacebrowser/resources/ -u 3",
 		"lint": "eslint src --ext ts",
@@ -570,6 +632,8 @@
 	"dependencies": {
 		"@vscode/debugadapter": "^1.56.0",
 		"node-fetch": "^2.6.6",
-		"vscode-languageclient": "^8.0.2"
+		"vscode-languageclient": "^8.0.2",
+		"vscode-textmate": "^9.3.2",
+		"vscode-oniguruma": "^2.0.1"
 	}
 }

@@ -1,6 +1,13 @@
 // Copyright 2024-2026 The MathWorks, Inc.
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as fsPromise from 'fs/promises';
+import * as path from 'path';
+
+import * as vscodeTextmate from 'vscode-textmate';
+import * as oniguruma from 'vscode-oniguruma';
+
 import { CompletionList } from 'vscode-languageclient';
 
 import { Notifier } from './MultiClientNotifier';
@@ -8,6 +15,9 @@ import { MVM, MatlabMVMConnectionState } from './MVM';
 import { TextEvent, PromptState } from './MVMInterface';
 import Notification from '../notifications/Notifications';
 import { createResolvablePromise, ResolvablePromise } from '../utils/ResolvablePromise';
+
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+/* eslint-disable no-control-regex */
 
 /**
  * Direction of cursor movement
@@ -69,8 +79,15 @@ const ACTION_KEYS = {
     RESTORE_COLORS: ESC + '[27m',
     RED_FOREGROUND: ESC + '[31m',
     YELLOW_FOREGROUND: ESC + '[33m',
+    DEFAULT_FOREGROUND: ESC + '[39m',
     ALL_DEFAULT_COLORS: ESC + '[0m',
-
+    RGB_FOREGROUND: (hexStr: string) => {
+        const noHashStr: string = hexStr.substring(1);
+        const r = Number('0x' + noHashStr.substring(0, 2)).toString();
+        const g = Number('0x' + noHashStr.substring(2, 4)).toString();
+        const b = Number('0x' + noHashStr.substring(4, 6)).toString();
+        return ESC + `[38;2;${r};${g};${b}m`
+    },
     COPY: '\x03',
     PASTE: '\x16',
 
@@ -81,15 +98,12 @@ const ACTION_KEYS = {
     QUERY_CURSOR: ESC + '[6n',
     SET_CURSOR_STYLE_TO_BAR: ESC + '[5 q'
 };
-// eslint-disable-next-line no-control-regex
+
 const LEFT_REGEX = /^(\x1b\[D)+$/;
-// eslint-disable-next-line no-control-regex
 const RIGHT_REGEX = /^(\x1b\[C)+$/;
-// eslint-disable-next-line no-control-regex
 const WIDE_CHAR_REGEX = /[\u3001-\u3015\u301C\u3040-\u30FF\u3131-\u314E\u3400-\u4DBF\u4e00-\u9FFF\uAC00-\uD7A3\uFF01-\uFF0F\uFF1A\uFF1B\uFF1F\uFF20\uFF3B\uFF3C\uFF3D\uFF3F\uFF5B\uFF5D]/;
 
 const RELEASE_REGEX = /^R20([0-9]{2})(a|b)$/;
-// eslint-disable-next-line no-control-regex
 const WARNING_SENTINAL_REGEX = /((?:\[\x08)|(?:\]\x08))/;
 
 const PROMPTS = {
@@ -98,6 +112,11 @@ const PROMPTS = {
     FAKE_INPUT_PROMPT: '? ',
     BUSY_PROMPT: ''
 };
+
+const enum EncodedTokenDataConsts {
+    FOREGROUND_MASK = 0b00000000111111111000000000000000,
+    FOREGROUND_OFFSET = 15
+}
 
 // A modification of the word boundary regex being used by VS Code when replacing completions.
 // The first part splits on numbers. The second/third parts split on quoted strings, ie. plot("Color"|
@@ -112,6 +131,7 @@ type MatlabData = any; // eslint-disable-line @typescript-eslint/no-explicit-any
  * Represents command window. Is a pseudoterminal to be used as the input/output processor in a VS Code terminal.
  */
 export default class CommandWindow implements vscode.Pseudoterminal {
+    private readonly _context: vscode.ExtensionContext;
     private readonly _writeEmitter: vscode.EventEmitter<string>;
 
     private _initialized: boolean = false;
@@ -146,9 +166,14 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _currentInputPromptString?: string;
 
+    private _tokenizer?: vscodeTextmate.IGrammar;
+    private _tokenizerRegistry?: vscodeTextmate.Registry;
+
     private readonly _eventHandlers: vscode.Disposable[] = []
 
-    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier) {
+    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier, context: vscode.ExtensionContext) {
+        this._context = context;
+
         this._eventHandlers.push(
             this._mvm.on(MVM.Events.output, this.addOutput.bind(this)),
             this._mvm.on(MVM.Events.clc, this.clear.bind(this)),
@@ -166,6 +191,10 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._terminalDimensions = { rows: 30, columns: 100 };
 
         this._updateHasSelectionContext();
+    }
+
+    initialize (): void {
+        void this._initalizeTokenizer();
     }
 
     /**
@@ -231,20 +260,94 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         this._updateHasSelectionContext();
     }
 
-    private _writeCurrentPromptLine (): void {
-        if (this._activeAnchorIndex === undefined) {
-            this._writeEmitter.fire(this._currentPromptLine)
+    private _setRGBColor (color?: string): void {
+        if (color === undefined) {
+            this._writeEmitter.fire(ACTION_KEYS.DEFAULT_FOREGROUND);
         } else {
-            const selectionStart = this._currentPrompt.length + Math.min(this._activeCursorIndex, this._activeAnchorIndex);
-            const selectionEnd = this._currentPrompt.length + Math.max(this._activeCursorIndex, this._activeAnchorIndex);
-            const preSelection = this._currentPromptLine.slice(0, selectionStart);
-            const selection = this._currentPromptLine.slice(selectionStart, selectionEnd);
-            const postSelection = this._currentPromptLine.slice(selectionEnd);
-            this._writeEmitter.fire(preSelection);
-            this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
-            this._writeEmitter.fire(selection);
-            this._writeEmitter.fire(ACTION_KEYS.RESTORE_COLORS);
-            this._writeEmitter.fire(postSelection);
+            this._writeEmitter.fire(ACTION_KEYS.RGB_FOREGROUND(color));
+        }
+    }
+
+    private _writeCurrentPromptLine (): void {
+        const selectionStart = this._activeAnchorIndex === undefined ? Infinity : Math.min(this._activeCursorIndex, this._activeAnchorIndex);
+        const selectionEnd = this._activeAnchorIndex === undefined ? Infinity : Math.max(this._activeCursorIndex, this._activeAnchorIndex);
+
+        this._writeEmitter.fire(ACTION_KEYS.ALL_DEFAULT_COLORS);
+
+        const line = this._stripCurrentPrompt(this._currentPromptLine);
+        if ((this._tokenizer == null) || line === '') {
+            this._writeEmitter.fire(this._currentPromptLine);
+            return;
+        }
+
+        this._writeEmitter.fire(this._currentPrompt);
+
+        // Tokenize the prompt line. The tokenizeLine2 call returns the result in binary format containing,
+        // among other data, the start and end indices and foreground color to use based on the current theme
+        const lineTokens = this._tokenizer.tokenizeLine2(this._stripCurrentPrompt(this._currentPromptLine), vscodeTextmate.INITIAL);
+        let selectionInProgress = false;
+
+        // Iterate over each token and display it
+        for (let j = 0; j < lineTokens.tokens.length / 2; j++) {
+            // Unpack the current token data
+            const tokenStart = lineTokens.tokens[2 * j];
+            const tokenEnd = lineTokens.tokens[2 * j + 2] ?? line.length;
+            const tokenMetaData = lineTokens.tokens[2 * j + 1];
+            const foregroundId = ((tokenMetaData & EncodedTokenDataConsts.FOREGROUND_MASK) >>> EncodedTokenDataConsts.FOREGROUND_OFFSET);
+            const color = this._tokenizerRegistry?.getColorMap()[foregroundId];
+
+            // If the current selection is entirely within the current token
+            if (selectionStart >= tokenStart && selectionStart < tokenEnd && selectionEnd < tokenEnd) {
+                const preSelection = line.substring(tokenStart, selectionStart);
+                const selection = line.substring(selectionStart, selectionEnd);
+                const postSelection = line.substring(selectionEnd, tokenEnd);
+                this._setRGBColor(color);
+                this._writeEmitter.fire(preSelection);
+                this._setRGBColor(undefined);
+                this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
+                this._writeEmitter.fire(selection);
+                this._writeEmitter.fire(ACTION_KEYS.RESTORE_COLORS);
+                this._setRGBColor(color);
+                this._writeEmitter.fire(postSelection);
+
+            // If the current selection contains the start of the current token
+            } else if (selectionStart >= tokenStart && selectionStart < tokenEnd) {
+                const preSelection = line.substring(tokenStart, selectionStart);
+                const selection = line.substring(selectionStart, tokenEnd);
+                this._setRGBColor(color);
+                this._writeEmitter.fire(preSelection);
+                this._setRGBColor(undefined);
+                this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
+                this._writeEmitter.fire(selection);
+                selectionInProgress = true;
+
+            // If the current selection contains the end of the current token
+            } else if (selectionEnd >= tokenStart && selectionEnd < tokenEnd) {
+                const selection = line.substring(tokenStart, selectionEnd);
+                const postSelection = line.substring(selectionEnd, tokenEnd);
+                this._setRGBColor(undefined);
+                this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
+                this._writeEmitter.fire(selection);
+                this._writeEmitter.fire(ACTION_KEYS.RESTORE_COLORS);
+                this._setRGBColor(color);
+                this._writeEmitter.fire(postSelection);
+                selectionInProgress = false;
+
+            // If the current selection does not contain the start or end of the current selection at all.
+            } else {
+                const tokenStr = line.substring(tokenStart, tokenEnd);
+                if (selectionInProgress) {
+                    this._writeEmitter.fire(ACTION_KEYS.INVERT_COLORS);
+                } else {
+                    this._setRGBColor(color);
+                }
+                this._writeEmitter.fire(tokenStr);
+                if (selectionInProgress) {
+                    this._writeEmitter.fire(ACTION_KEYS.RESTORE_COLORS);
+                }
+            }
+
+            this._writeEmitter.fire(ACTION_KEYS.ALL_DEFAULT_COLORS);
         }
     }
 
@@ -821,9 +924,9 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             }
             const match = release.match(RELEASE_REGEX);
             if (match?.[1] !== undefined && Number.parseInt(match[1]) < 25) {
-                void this._mvm.eval(`try; if usejava('jvm'); com.mathworks.mde.cmdwin.CmdWinMLIF.setCWSize(${this._terminalDimensions.rows}, ${this._terminalDimensions.columns}); end; end;`);
+                void this._mvm.eval(`try; if usejava('jvm'); com.mathworks.mde.cmdwin.CmdWinMLIF.setCWSize(${this._terminalDimensions.rows}, ${this._terminalDimensions.columns}); end; end;`, false);
             } else {
-                void this._mvm.eval(`settings_vscode__ = settings; settings_vscode__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.columns}, ${this._terminalDimensions.rows}]; clear settings_vscode__;`);
+                void this._mvm.eval(`settings_vscode__ = settings; settings_vscode__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.columns}, ${this._terminalDimensions.rows}]; clear settings_vscode__;`, false);
             }
             this._lastSentTerminalDimensions = this._terminalDimensions;
         }
@@ -1094,9 +1197,108 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         return WIDE_CHAR_REGEX.test(char);
     }
 
+    /**
+     * Initialize the textmate tokenizer. This is the same as what the VS Code Editor uses and should guarentee identical results.
+     */
+    private async _initalizeTokenizer (): Promise<void> {
+        // Load the oniguruma regex library used by the tokenizer.
+        const wasmBin = fs.readFileSync(this._context.asAbsolutePath('node_modules/vscode-oniguruma/release/onig.wasm')).buffer;
+
+        const vscodeOnigurumaLib = oniguruma.loadWASM(wasmBin as any).then(() => {
+            return {
+                createOnigScanner (patterns: any) { return new oniguruma.OnigScanner(patterns); },
+                createOnigString (s: any) { return new oniguruma.OnigString(s); }
+            };
+        });
+
+        const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme') as string;
+
+        // Create a registry that can create a grammar from a scope name, providing it the MATLAB syntax file and the current theme.
+        const registry = new vscodeTextmate.Registry({
+            theme: this._processTheme(themeName),
+            onigLib: vscodeOnigurumaLib,
+            loadGrammar: async () => {
+                const languageFile = await fsPromise.readFile(this._context.asAbsolutePath('syntaxes/Matlab.tmbundle/Syntaxes/MATLAB.tmLanguage'));
+                return vscodeTextmate.parseRawGrammar(languageFile.toString());
+            }
+        });
+
+        // Handle theme changes by reprocessing the new theme and
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme') as string;
+            registry.setTheme(this._processTheme(themeName));
+        });
+        this._tokenizerRegistry = registry;
+
+        // Load the MATLAB grammar
+        this._tokenizer = await registry.loadGrammar('source.matlab') ?? undefined;
+    }
+
+    /**
+     * Convert the current VS Code theme into a form that can be used by the textmate tokenizer.
+     */
+    private _processTheme (themeName: string): vscodeTextmate.IRawTheme {
+        const theme: vscodeTextmate.IRawTheme = {
+            name: themeName,
+            settings: []
+        };
+
+        // Find the given theme extension.
+        let currentThemePath;
+        for (const extension of vscode.extensions.all) {
+            const themes = extension.packageJSON.contributes?.themes;
+            const currentTheme = themes?.find((theme: any) => theme.label === themeName || theme.id === themeName);
+            if (currentTheme) {
+                currentThemePath = path.join(extension.extensionPath, currentTheme.path);
+                break;
+            }
+        }
+
+        // Load the theme and all recursively included themes.
+        const themePaths = [];
+        const themeFiles = [];
+        if (currentThemePath) {
+            themePaths.push(currentThemePath);
+        }
+        while (themePaths.length > 0) {
+            const themePath: string = themePaths.pop()!;
+
+            let themeData: any;
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                themeData = require(themePath);
+            } catch (err) {
+                console.log('Error while loading and parsing theme file: ', themePath, err);
+                // Return the still empty theme in the case of an error.
+                return theme;
+            }
+
+            if (themeData !== undefined) {
+                themeFiles.push(themeData);
+                if (themeData.include) {
+                    themePaths.push(path.join(path.dirname(themePath), themeData.include));
+                }
+            }
+        }
+
+        // Create the data structure that maps from textmate paths to colors.
+        while (themeFiles.length > 0) {
+            const themeData = themeFiles.pop();
+            if (themeData.tokenColors) {
+                theme.settings.push(...themeData.tokenColors);
+            }
+        }
+
+        // Manually add parentheses, brackets, and braces to the theme, because this is usually handled by bracket matching, not syntax highlighting.
+        theme.settings.push({ scope: ['punctuation.section.parens', 'punctuation.section.brackets', 'punctuation.section.braces'], settings: { foreground: '#FFD703' } });
+
+        return theme;
+    }
+
     dispose (): void {
         this._eventHandlers.forEach(eventHandler => eventHandler.dispose());
         this._writeEmitter.dispose();
+        this._tokenizerRegistry?.dispose();
     }
 
     onDidWrite: vscode.Event<string>;

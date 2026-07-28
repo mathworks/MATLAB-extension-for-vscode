@@ -1,0 +1,28 @@
+{
+    "name": "myPkg1",
+    "version": "1.0.0",
+    "id": "adc86eb1-3725-468b-9bac-e2f6f46dd609",
+    "formerNames": [],
+    "displayName": "myPkg1",
+    "summary": "",
+    "tags": [],
+    "readme": "",
+    "provider": {
+        "name": "",
+        "organization": "",
+        "email": "",
+        "url": ""
+    },
+    "folders": [],
+    "dependencies": [],
+    "releaseCompatibility": "",
+    "supportedPlatforms": [
+        {
+            "platform": "any",
+            "architectures": [
+                "any"
+            ]
+        }
+    ],
+    "schemaVersion": "1.2.0"
+}

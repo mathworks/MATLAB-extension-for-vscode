@@ -21,10 +21,12 @@ function createProviderComponents (): {
         on: sinon.SinonStub
     }
     stateChangedCallback: (oldState: string, newState: string) => void
+    promptChangeCallback: (state: string, isIdle: boolean) => void
     sendNotification: sinon.SinonStub
     telemetryLogger: { logEvent: sinon.SinonStub }
 } {
     let stateChangedCallback: ((oldState: string, newState: string) => void) | undefined
+    let promptChangeCallback: ((state: string, isIdle: boolean) => void) | undefined
 
     const sendNotification = sinon.stub()
     const onNotification = sinon.stub().returns({ dispose: () => {} })
@@ -39,6 +41,8 @@ function createProviderComponents (): {
         on: sinon.stub().callsFake((event: string, cb: (...args: any[]) => void) => {
             if (event === 'stateChanged') {
                 stateChangedCallback = cb
+            } else if (event === 'promptChange') {
+                promptChangeCallback = cb
             }
             return { dispose: () => {} }
         })
@@ -53,7 +57,7 @@ function createProviderComponents (): {
     const telemetryLogger = { logEvent: sinon.stub() }
     const provider = new WorkspaceBrowserProvider(context as any, notifier as any, mvm as any, telemetryLogger as any)
 
-    return { provider, mvm, stateChangedCallback: stateChangedCallback!, sendNotification, telemetryLogger }
+    return { provider, mvm, stateChangedCallback: stateChangedCallback!, promptChangeCallback: promptChangeCallback!, sendNotification, telemetryLogger }
 }
 
 function createWebviewView (): { webviewView: any, postMessage: sinon.SinonStub, triggerDispose: () => void } {
@@ -103,35 +107,6 @@ suite('WorkspaceBrowserProvider — lifecycle', () => {
 
             expect(webviewView.webview.html).to.include('R2023a')
             expect(webviewView.webview.html).to.include('or later')
-        })
-
-        test('logs wsbPanelOpened telemetry event', () => {
-            const { provider, telemetryLogger } = createProviderComponents()
-            const { webviewView } = createWebviewView()
-
-            provider.resolveWebviewView(webviewView, {} as any, { isCancellationRequested: false } as any)
-
-            expect(telemetryLogger.logEvent.calledOnce).to.be.true
-            expect(telemetryLogger.logEvent.firstCall.args[0]).to.deep.equal({
-                eventKey: 'ML_VS_CODE_ACTIONS',
-                data: { action_type: 'wsbPanelOpened', result: '' }
-            })
-        })
-
-        test('logs wsbPanelClosed telemetry event on dispose', () => {
-            const { provider, telemetryLogger } = createProviderComponents()
-            const { webviewView, triggerDispose } = createWebviewView()
-
-            provider.resolveWebviewView(webviewView, {} as any, { isCancellationRequested: false } as any)
-            telemetryLogger.logEvent.resetHistory()
-
-            triggerDispose()
-
-            expect(telemetryLogger.logEvent.calledOnce).to.be.true
-            expect(telemetryLogger.logEvent.firstCall.args[0]).to.deep.equal({
-                eventKey: 'ML_VS_CODE_ACTIONS',
-                data: { action_type: 'wsbPanelClosed', result: '' }
-            })
         })
 
         test('shows full interactive HTML when MATLAB is connected and supported', () => {
@@ -202,6 +177,92 @@ suite('WorkspaceBrowserProvider — lifecycle', () => {
             stateChangedCallback('disconnected', 'connected')
 
             expect(webviewView.webview.html).to.include('R2023a')
+        })
+    })
+
+    // ── Prompt-Idle Priming ─────────────────────────────────────────
+    // The prime workaround only targets R2023a/R2023b where the backend's change
+    // listener goes dormant after `clear`. On R2024a+ the eval must be skipped.
+
+    suite('prompt-idle priming', () => {
+        const PRIME_CMD = 'workspace__init__2981022=1;clear workspace__init__2981022;'
+        let clock: sinon.SinonFakeTimers
+
+        setup(() => {
+            clock = sinon.useFakeTimers()
+        })
+
+        teardown(() => {
+            clock.restore()
+        })
+
+        test('fires eval for R2023b on idle', () => {
+            const { mvm, stateChangedCallback, promptChangeCallback } = createProviderComponents()
+            mvm.getMatlabRelease.returns('R2023b')
+            stateChangedCallback('disconnected', 'connected')
+            mvm.eval.resetHistory()
+
+            promptChangeCallback('', true)
+            clock.tick(300)
+
+            expect(mvm.eval.calledWith(PRIME_CMD, false)).to.be.true
+        })
+
+        test('fires eval for R2023a on idle', () => {
+            const { mvm, stateChangedCallback, promptChangeCallback } = createProviderComponents()
+            mvm.getMatlabRelease.returns('R2023a')
+            stateChangedCallback('disconnected', 'connected')
+            mvm.eval.resetHistory()
+
+            promptChangeCallback('', true)
+            clock.tick(300)
+
+            expect(mvm.eval.calledWith(PRIME_CMD, false)).to.be.true
+        })
+
+        test('does NOT fire eval for R2024a on idle', () => {
+            const { mvm, stateChangedCallback, promptChangeCallback } = createProviderComponents()
+            mvm.getMatlabRelease.returns('R2024a')
+            stateChangedCallback('disconnected', 'connected')
+            mvm.eval.resetHistory()
+
+            promptChangeCallback('', true)
+            clock.tick(300)
+
+            const primeCall = mvm.eval.getCalls().find(
+                (c: sinon.SinonSpyCall) => c.args[0] === PRIME_CMD
+            )
+            expect(primeCall).to.be.undefined
+        })
+
+        test('does NOT fire eval when release is null', () => {
+            const { mvm, stateChangedCallback, promptChangeCallback } = createProviderComponents()
+            mvm.getMatlabRelease.returns(null)
+            stateChangedCallback('disconnected', 'connected')
+            mvm.eval.resetHistory()
+
+            promptChangeCallback('', true)
+            clock.tick(300)
+
+            const primeCall = mvm.eval.getCalls().find(
+                (c: sinon.SinonSpyCall) => c.args[0] === PRIME_CMD
+            )
+            expect(primeCall).to.be.undefined
+        })
+
+        test('does NOT fire eval when not idle', () => {
+            const { mvm, stateChangedCallback, promptChangeCallback } = createProviderComponents()
+            mvm.getMatlabRelease.returns('R2023b')
+            stateChangedCallback('disconnected', 'connected')
+            mvm.eval.resetHistory()
+
+            promptChangeCallback('', false)
+            clock.tick(300)
+
+            const primeCall = mvm.eval.getCalls().find(
+                (c: sinon.SinonSpyCall) => c.args[0] === PRIME_CMD
+            )
+            expect(primeCall).to.be.undefined
         })
     })
 })

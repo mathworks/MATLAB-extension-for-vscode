@@ -15,6 +15,9 @@ export const WSB_DEFAULT_MAX_VARIABLES = 500
 // Debounce interval for coalescing rapid DataChanged events from the server
 const DATA_THROTTLE_MS = 300
 
+// Minimum interval between workspace browser backend refresh commands
+const PRIME_THROTTLE_MS = 300
+
 const MAX_VARS_SETTING_ID = 'MATLAB.maximumWorkspaceVariables'
 const SORT_METHOD_SETTING_ID = 'MATLAB.workspaceSortMethod'
 const MAX_VARS_BUTTON_TEXT = 'Change Maximum Variable Count'
@@ -45,6 +48,13 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
     private dataRequestPending: boolean = false
     private dataRequestTimer: ReturnType<typeof setTimeout> | undefined
 
+    // Prevents overlapping backend refresh commands
+    private primePending: boolean = false
+    private primeThrottleTimer: ReturnType<typeof setTimeout> | undefined
+
+    // Maintains whether the connected MATLAB release requires a refresh after each idle transition
+    private requiresPrime: boolean = false
+
     // Prevents duplicate max-variables warnings during a single connection session
     private maxVarsMessageShown: boolean = false
 
@@ -70,6 +80,16 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         this.own(
             mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
                 this.onMatlabStateChanged(newState)
+            })
+        )
+
+        // MATLAB releases R2023a/b lose workspace change tracking after certain commands.
+        // Refresh the backend each time MATLAB becomes idle to keep updates flowing.
+        this.own(
+            mvm.on(MVM.Events.promptChange, (_state: string, isIdle: boolean) => {
+                if (isIdle && this.requiresPrime) {
+                    this.schedulePrime()
+                }
             })
         )
 
@@ -171,8 +191,10 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
 
     private onMatlabStateChanged (newState: MatlabMVMConnectionState): void {
         if (newState === MatlabMVMConnectionState.CONNECTED) {
+            this.requiresPrime = WorkspaceBrowserProvider.needsPrime(this.mvm.getMatlabRelease())
             this.onMatlabConnected()
         } else {
+            this.requiresPrime = false
             this.onMatlabDisconnected()
         }
     }
@@ -208,6 +230,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         this.numColumns = 0
         this.maxVarsMessageShown = false
         this.cancelPendingDataRequest()
+        this.cancelPendingPrime()
 
         if (this.view != null) {
             this.view.webview.html = getDisconnectedHtml()
@@ -220,6 +243,11 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
     static isSupported (release: string | null): boolean {
         if (release == null || release === '') return false
         return release >= WSB_MINIMUM_RELEASE
+    }
+
+    static needsPrime (release: string | null): boolean {
+        if (release == null || release === '') return false
+        return release >= WSB_MINIMUM_RELEASE && release <= 'R2023b'
     }
 
     // Begins with a letter, contains only alphanumeric/underscore, max 2048 characters
@@ -356,6 +384,10 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
                 this.handleStateChanged(msg.state as SavedState)
                 break
             case 'openMaxVariablesSetting':
+                this.telemetryLogger.logEvent({
+                    eventKey: 'ML_VS_CODE_ACTIONS',
+                    data: { action_type: 'wsbChangeLimitClicked', result: '' }
+                })
                 void vscode.commands.executeCommand('workbench.action.openSettings', MAX_VARS_SETTING_ID)
                 break
         }
@@ -385,6 +417,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         try {
             await this.mvm.getReadyPromise()
         } catch {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbEditValue', result: 'notReady' } })
             this.postToWebview({ type: 'operationError', operation: 'editValue', variable, message: 'MATLAB is not ready' })
             return
         }
@@ -392,11 +425,15 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         try {
             const response = await this.evalInWorkspace(`${variable} = ${newValue};`)
             if ('error' in response) {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbEditValue', result: 'error' } })
                 const message = this.extractErrorMessage(response.error)
                 this.postToWebview({ type: 'operationError', operation: 'editValue', variable, message })
                 this.showMatlabError('editValue', message)
+            } else {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbEditValue', result: 'success' } })
             }
         } catch (e: unknown) {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbEditValue', result: 'error' } })
             const message = e instanceof Error ? e.message : String(e)
             this.postToWebview({ type: 'operationError', operation: 'editValue', variable, message })
             this.showMatlabError('editValue', message)
@@ -406,6 +443,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
     // Rename a variable by assigning to the new name and clearing the old one in the active workspace
     private async handleRenameVariable (oldName: string, newName: string): Promise<void> {
         if (!WorkspaceBrowserProvider.isValidMatlabIdentifier(newName)) {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'invalidName' } })
             const message = `'${newName}' is not a valid MATLAB variable name. ` +
                 'Names must begin with a letter, contain only letters/digits/underscores, and not exceed 2048 characters.'
             this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message })
@@ -415,6 +453,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
 
         // Client-side duplicate check against cached workspace state
         if (this.cachedRows?.some((row: WorkspaceVariable) => row.name === newName) === true) {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'duplicate' } })
             const message = `A variable named "${newName}" already exists`
             this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message })
             this.showMatlabError('rename', message)
@@ -424,6 +463,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         try {
             await this.mvm.getReadyPromise()
         } catch {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'notReady' } })
             this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message: 'MATLAB is not ready' })
             return
         }
@@ -431,11 +471,15 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         try {
             const response = await this.evalInWorkspace(`${newName} = ${oldName}; clear('${oldName}');`)
             if ('error' in response) {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'error' } })
                 const message = this.extractErrorMessage(response.error)
                 this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message })
                 this.showMatlabError('rename', message)
+            } else {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'success' } })
             }
         } catch (e: unknown) {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'error' } })
             const message = e instanceof Error ? e.message : String(e)
             this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message })
             this.showMatlabError('rename', message)
@@ -449,11 +493,15 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             { modal: true },
             'Delete'
         )
-        if (confirmation !== 'Delete') return
+        if (confirmation !== 'Delete') {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbDeleteVariable', result: 'cancelled' } })
+            return
+        }
 
         try {
             await this.mvm.getReadyPromise()
         } catch {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbDeleteVariable', result: 'notReady' } })
             this.postToWebview({ type: 'operationError', operation: 'delete', variable, message: 'MATLAB is not ready' })
             return
         }
@@ -461,11 +509,15 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         try {
             const response = await this.evalInWorkspace(`clear('${variable}');`)
             if ('error' in response) {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbDeleteVariable', result: 'error' } })
                 const message = this.extractErrorMessage(response.error)
                 this.postToWebview({ type: 'operationError', operation: 'delete', variable, message })
                 this.showMatlabError('delete', message)
+            } else {
+                this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbDeleteVariable', result: 'success' } })
             }
         } catch (e: unknown) {
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbDeleteVariable', result: 'error' } })
             const message = e instanceof Error ? e.message : String(e)
             this.postToWebview({ type: 'operationError', operation: 'delete', variable, message })
             this.showMatlabError('delete', message)
@@ -494,6 +546,27 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             return await this.mvm.feval('eval', 0, [command], false)
         }
         return await this.mvm.feval('evalin', 0, ['base', command], false)
+    }
+
+    // ── Prime Throttling ───────────────────────────────────────────────
+
+    private schedulePrime (): void {
+        if (this.primePending) return
+        this.primePending = true
+        this.primeThrottleTimer = setTimeout(() => {
+            this.primeThrottleTimer = undefined
+            void this.mvm.eval('workspace__init__2981022=1;clear workspace__init__2981022;', false).then(() => {
+                this.primePending = false
+            })
+        }, PRIME_THROTTLE_MS)
+    }
+
+    private cancelPendingPrime (): void {
+        if (this.primeThrottleTimer != null) {
+            clearTimeout(this.primeThrottleTimer)
+            this.primeThrottleTimer = undefined
+        }
+        this.primePending = false
     }
 
     // ── Data Request Throttling ──────────────────────────────────────
@@ -579,6 +652,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         const max = this.getMaxVariableCount()
         if (this.numRows > max && !this.maxVarsMessageShown) {
             this.maxVarsMessageShown = true
+            this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbTruncationShown', result: '' } })
             const message = MAX_VARIABLES_MESSAGE_TEMPLATE
                 .replace('{currentCount}', this.numRows.toString())
                 .replace('{maxVariables}', max.toString())
@@ -586,6 +660,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             void vscode.window.showInformationMessage(message, MAX_VARS_BUTTON_TEXT)
                 .then((selection: string | undefined) => {
                     if (selection === MAX_VARS_BUTTON_TEXT) {
+                        this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbChangeLimitClicked', result: '' } })
                         void vscode.commands.executeCommand('workbench.action.openSettings', MAX_VARS_SETTING_ID)
                     }
                 })

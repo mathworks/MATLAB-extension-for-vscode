@@ -30,12 +30,15 @@ export class TestSuite {
             'MATLAB.telemetry': false,
             'MATLAB.startDebuggerAutomatically': true,
             'window.dialogStyle': 'custom',
+            'window.titleBarStyle': 'custom',
             'terminal.integrated.copyOnSelection': true,
+            'terminal.integrated.gpuAcceleration': 'off', // Forces xterm to use DOM renderer so terminal color classes are queryable by tests
             'debug.toolBarLocation': 'docked',
             'workbench.startupEditor': 'none',
             'terminal.integrated.sendKeybindingsToShell': true,
             'editor.action.toggleTabFocusMode': false
         })
+
         fs.writeFileSync(settingsjson, settings)
         this.vscodeSettings = settingsjson
 

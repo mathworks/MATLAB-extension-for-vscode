@@ -58,6 +58,36 @@ suite('WorkspaceBrowserProvider — version gate', () => {
         })
     })
 
+    suite('needsPrime', () => {
+        test('R2023a needs priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('R2023a')).to.be.true
+        })
+
+        test('R2023b needs priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('R2023b')).to.be.true
+        })
+
+        test('R2024a does not need priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('R2024a')).to.be.false
+        })
+
+        test('R2025a does not need priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('R2025a')).to.be.false
+        })
+
+        test('R2022b does not need priming (below minimum)', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('R2022b')).to.be.false
+        })
+
+        test('null release does not need priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime(null)).to.be.false
+        })
+
+        test('empty string does not need priming', () => {
+            expect(WorkspaceBrowserProvider.needsPrime('')).to.be.false
+        })
+    })
+
     suite('getUnsupportedHtml', () => {
         test('returns HTML mentioning R2023a', () => {
             const html = getUnsupportedHtml()
