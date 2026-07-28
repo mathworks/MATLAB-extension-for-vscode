@@ -9,8 +9,7 @@ const PRODUCT = 'ML_VS_CODE'
 const APPLICATION_NAME = 'MATLAB_EXTENSION_FOR_VSCODE'
 const APPLICATION_KEY = 'OWY3N2FkZTMtYWU1My00MjU3LThjZTktMzFmMTAyYjM0Njc5'
 
-const ENDPOINT = 'https://udc-service-integ3.mathworks.com/udc/service/v1/events'
-// const ENDPOINT = 'https://udc-service.mathworks.com/udc/service/v1/events'
+const ENDPOINT = 'https://udc-service.mathworks.com/udc/service/v1/events'
 
 export interface TelemetryEvent {
     eventKey: string
