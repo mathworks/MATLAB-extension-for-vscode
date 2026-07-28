@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.13] - 2026-07-28
+
+### Added
+- Support for discovering and running MATLAB unit tests (Addresses [mathworks/MATLAB-extension-for-vscode#138](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/138))
+- Support for syntax highlighting in the MATLAB terminal (Addresses [mathworks/MATLAB-extension-for-vscode#295](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/295))
+ 
+### Fixed
+- Resolves an issue that prevents MATLAB workspace data from updating when a `clear` command is followed by a long-running operation, such as `figure`. (Addresses [mathworks/MATLAB-extension-for-vscode#332](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/332))
+- Prevents starting the MATLAB language server in untrusted workspaces.
+- Resolves an issue with telemetry not being reported when extension settings are changed.
+
 ## [1.3.12] - 2026-06-15
 
 ### Added

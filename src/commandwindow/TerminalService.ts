@@ -20,11 +20,15 @@ export default class TerminalService extends BaseService {
     private _currentMatlabTerminal?: vscode.Terminal;
     private _terminalCreationPromise?: ResolvablePromise<void>;
     private _timeout: NodeJS.Timeout | undefined;
+    private readonly _client: Notifier;
 
-    constructor (private readonly _client: Notifier, mvm: MVM) {
+    constructor (readonly client: Notifier, mvm: MVM, context: vscode.ExtensionContext) {
         super();
 
-        this._commandWindow = new CommandWindow(mvm, _client);
+        this._client = client;
+
+        this._commandWindow = new CommandWindow(mvm, this._client, context);
+        this._commandWindow.initialize();
 
         this._terminalOptions = {
             name: 'MATLAB',

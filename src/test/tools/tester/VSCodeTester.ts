@@ -241,6 +241,32 @@ export class VSCodeTester {
     }
 
     /**
+     * Right-click a specific file in the Explorer sidebar and return the context menu
+     */
+    public async openFileContextMenu (filename: string): Promise<vet.ContextMenu> {
+        const activityBar = new vet.ActivityBar()
+        const explorerControl = await activityBar.getViewControl('Explorer')
+        const view = await explorerControl?.openView() as vet.SideBarView
+
+        let contextMenu: vet.ContextMenu | null = null
+        await this.poll(async () => {
+            try {
+                const content = view.getContent()
+                const sections = await content.getSections()
+                const section = sections[0]
+                await section.expand()
+                const item = await section.findItem(filename) as vet.ViewItem
+                if (item == null) return false
+                contextMenu = await item.openContextMenu()
+                return true
+            } catch (e) {
+                return false
+            }
+        }, true, `Expected to find and right-click ${filename} in Explorer`)
+        return contextMenu!
+    }
+
+    /**
      * Type text into an open input box and confirm with Enter
      */
     public async typeInInputBox (text: string): Promise<void> {

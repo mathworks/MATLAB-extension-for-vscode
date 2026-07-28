@@ -56,6 +56,35 @@
                 // Mock stubs and disposables use empty function bodies as intentional no-ops.
                 "@typescript-eslint/no-empty-function": "off"
             }
+        },
+        {
+            "files": ["src/test/unit/**/*.ts"],
+            "rules": {
+                // Mock objects require any types for flexible test doubles.
+                "@typescript-eslint/no-explicit-any": "off",
+                // Mock stubs and disposables use empty function bodies as intentional no-ops.
+                "@typescript-eslint/no-empty-function": "off",
+                // Test mocks use Function type for generic callback parameters.
+                "@typescript-eslint/ban-types": "off",
+                // Mock properties don't need readonly annotations.
+                "@typescript-eslint/prefer-readonly": "off",
+                // Dynamic delete is used in mock client teardown.
+                "@typescript-eslint/no-dynamic-delete": "off",
+                // Tests use new for side effects (instantiating classes under test).
+                "no-new": "off",
+                // Padded blocks are acceptable in test organization.
+                "padded-blocks": "off",
+                // Truthy object checks are used in mock conditionals.
+                "@typescript-eslint/strict-boolean-expressions": "off",
+                // Mock registration requires require() before imports.
+                "@typescript-eslint/no-var-requires": "off",
+                // Cache setup objects are more readable on one line.
+                "object-property-newline": "off",
+                // Unused vars are common in test setup (instantiation triggers side effects).
+                "@typescript-eslint/no-unused-vars": "off",
+                // Type assertions used in mock wiring.
+                "@typescript-eslint/no-unnecessary-type-assertion": "off"
+            }
         }
     ]
 }

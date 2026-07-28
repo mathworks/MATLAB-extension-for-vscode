@@ -63,7 +63,13 @@ enum Notification {
 
     // MATLAB projects
     ProjectOpened = 'matlab/project/opened',
-    ProjectClosed = 'matlab/project/closed'
+    ProjectClosed = 'matlab/project/closed',
+
+    // Testing
+    TestRunRequest = 'matlab/testing/run/request',
+    TestRunEvent = 'matlab/testing/run/event',
+    TestRunOutput = 'matlab/testing/run/output',
+    TestRunComplete = 'matlab/testing/run/complete'
 }
 
 export default Notification

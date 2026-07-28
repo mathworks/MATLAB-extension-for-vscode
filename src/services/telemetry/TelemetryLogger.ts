@@ -9,7 +9,8 @@ const PRODUCT = 'ML_VS_CODE'
 const APPLICATION_NAME = 'MATLAB_EXTENSION_FOR_VSCODE'
 const APPLICATION_KEY = 'OWY3N2FkZTMtYWU1My00MjU3LThjZTktMzFmMTAyYjM0Njc5'
 
-const ENDPOINT = 'https://udc-service.mathworks.com/udc/service/v1/events'
+const ENDPOINT = 'https://udc-service-integ3.mathworks.com/udc/service/v1/events'
+// const ENDPOINT = 'https://udc-service.mathworks.com/udc/service/v1/events'
 
 export interface TelemetryEvent {
     eventKey: string
@@ -35,7 +36,9 @@ export default class TelemetryLogger extends BaseService {
 
         if (event.eventKey === 'ML_VS_CODE_SETTING_CHANGE') {
             // Do log when the `matlab.telemetry` setting changes
-            return (event.data as { setting_name: string }).setting_name === 'telemetry'
+            if ((event.data as { setting_name: string }).setting_name === 'telemetry') {
+                return true
+            }
         }
 
         // Otherwise, adhere to the `matlab.telemetry` setting

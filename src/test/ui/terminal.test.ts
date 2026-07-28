@@ -5,6 +5,7 @@ import { Key } from 'selenium-webdriver';
 
 suite('Terminal UI Tests', () => {
     let vs: VSCodeTester
+    let skipWarningColorTests: boolean
 
     before(async () => {
         vs = new VSCodeTester();
@@ -12,6 +13,7 @@ suite('Terminal UI Tests', () => {
         await vs.assertMATLABConnected()
         await vs.openMATLABTerminal()
         await vs.closeActiveEditor()
+        skipWarningColorTests = await vs.isMatlabVersionLessThan('R2025b')
     });
 
     afterEach(async () => {
@@ -99,6 +101,46 @@ suite('Terminal UI Tests', () => {
     test('Test no wrapping for smaller outputs', async () => {
         await vs.terminal.executeCommand('ones(1, 6)') // not wide enough to wrap
         await vs.terminal.assertContains('1     1     1     1     1     1', 'output should not be wrapped')
+    })
+
+    test('Test warning text appears yellow', async function () {
+        if (skipWarningColorTests) {
+            this.skip()
+        }
+        await vs.terminal.executeCommand("warning('test warning message')")
+        await vs.terminal.assertTextIsYellow('test warning message', 'warning output should be yellow')
+    })
+
+    test('Test normal output is white', async function () {
+        if (skipWarningColorTests) {
+            this.skip()
+        }
+        await vs.terminal.executeCommand("disp('normal text')")
+        await vs.terminal.assertTextIsWhite('normal text', 'normal output should be default color')
+    })
+
+    test('Test color resets after warning', async function () {
+        if (skipWarningColorTests) {
+            this.skip()
+        }
+        await vs.terminal.executeCommand("warning('yellow text')")
+        await vs.terminal.executeCommand("disp('after warning')")
+        await vs.terminal.assertTextIsYellow('yellow text', 'warning should be yellow')
+        await vs.terminal.assertTextIsWhite('after warning', 'text after warning should be default color')
+    })
+
+    test('Test syntax highlighting colors typed text', async () => {
+        await vs.terminal.type("x = 'hello'")
+        await vs.terminal.assertTextHasColor('hello', 'typed text should have syntax coloring')
+        await vs.terminal.type(Key.ESCAPE)
+    })
+
+    test('Test selected text is uncolored', async () => {
+        await vs.terminal.type("x = 'hello'")
+        await vs.terminal.assertTextHasColor('hello', 'typed text should have syntax coloring before selection')
+        await vs.terminal.type(Key.chord(Key.SHIFT, Key.HOME))
+        await vs.terminal.assertTextHasUniformColor('hello', 'selected text should have uniform color, not syntax highlighting')
+        await vs.terminal.type(Key.ESCAPE)
     })
 
     test('Test prompt string from input command', async () => {

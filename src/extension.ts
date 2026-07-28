@@ -23,6 +23,7 @@ import * as LicensingUtils from './utils/LicensingUtils'
 import BaseService from './services/BaseService'
 import WorkspaceBrowserProvider from './workspacebrowser/WorkspaceBrowserProvider'
 import MatlabProjectService from './services/projects/MatlabProjectService'
+import MatlabTestService from './services/testing/MatlabTestService'
 
 const CONNECTION_STATUS_COMMAND = 'matlab.changeMatlabConnection'
 const OPEN_SETTINGS_COMMAND = 'workbench.action.openSettings'
@@ -82,7 +83,7 @@ class MatlabExtension extends BaseService {
         // Initialize MVM, Terminal, and Debugger
         const multiclientNotifier = new MultiClientNotifier(this.client)
         this.mvm = new MVM(multiclientNotifier)
-        this.terminalService = new TerminalService(multiclientNotifier, this.mvm)
+        this.terminalService = new TerminalService(multiclientNotifier, this.mvm, context)
         this.executionCommandProvider = new ExecutionCommandProvider(this.mvm, this.terminalService, this.telemetryLogger)
         this.matlabDebugger = new MatlabDebugger(this.mvm, multiclientNotifier, this.telemetryLogger, this.terminalService)
 
@@ -99,6 +100,9 @@ class MatlabExtension extends BaseService {
         // Initialize MATLAB Project Service
         const matlabProjectService = new MatlabProjectService(this.client, this.mvm, this.telemetryLogger)
 
+        // Initialize MATLAB Test Service
+        const matlabTestService = new MatlabTestService(this.client, this.mvm, this.telemetryLogger, context)
+
         // Add all disposable services to context subscriptions
         this.own(
             this.telemetryLogger,
@@ -111,7 +115,8 @@ class MatlabExtension extends BaseService {
             defaultEditorService,
             this.sectionModel,
             sectionStylingService,
-            matlabProjectService
+            matlabProjectService,
+            matlabTestService
         )
 
         // =============== Setup UI Affordances =============== //
@@ -132,7 +137,7 @@ class MatlabExtension extends BaseService {
             vscode.commands.registerCommand('matlab.runSection', async () => await this.executionCommandProvider.handleRunSection(this.sectionModel)),
             vscode.commands.registerCommand('matlab.runSelection', async () => await this.executionCommandProvider.handleRunSelection()),
             vscode.commands.registerCommand('matlab.interrupt', () => this.executionCommandProvider.handleInterrupt()),
-            vscode.commands.registerCommand('matlab.openCommandWindow', async () => await this.terminalService.openTerminalOrBringToFront()),
+            vscode.commands.registerCommand('matlab.openCommandWindow', this.handleOpenCommandWindow.bind(this)),
             vscode.commands.registerCommand('matlab.addFolderToPath', async (uri: vscode.Uri) => await this.executionCommandProvider.handleAddFolderToPath(uri)),
             vscode.commands.registerCommand('matlab.addFolderAndSubfoldersToPath', async (uri: vscode.Uri) => await this.executionCommandProvider.handleAddFolderAndSubfoldersToPath(uri)),
             vscode.commands.registerCommand('matlab.changeDirectory', async (uri: vscode.Uri) => await this.executionCommandProvider.handleChangeDirectory(uri)),
@@ -169,7 +174,15 @@ class MatlabExtension extends BaseService {
      * Starts the langauge client
      */
     async start (): Promise<void> {
-        await this.client.start()
+        if (vscode.workspace.isTrusted) {
+            await this.client.start()
+        } else {
+            this.showUntrustedWorkspaceError()
+
+            this.own(vscode.workspace.onDidGrantWorkspaceTrust(async () => {
+                await this.client.start()
+            }))
+        }
     }
 
     getConnectionStatusBarItem (): vscode.StatusBarItem {
@@ -183,6 +196,22 @@ class MatlabExtension extends BaseService {
     sendConnectionActionNotification (connectionAction: 'connect' | 'disconnect'): void {
         void this.client.sendNotification(Notification.MatlabConnectionClientUpdate, {
             connectionAction
+        })
+    }
+
+    /**
+     * Shows an error message to indicate that the language server cannot be started
+     * from untrusted workspaces.
+     */
+    private showUntrustedWorkspaceError (): void {
+        const manageAction = 'Manage Workspace Trust'
+        void vscode.window.showErrorMessage(
+            'MATLAB language server cannot run in an untrusted workspace.',
+            manageAction
+        ).then(choice => {
+            if (choice === manageAction) {
+                void vscode.commands.executeCommand('workbench.trust.manage')
+            }
         })
     }
 
@@ -246,6 +275,11 @@ class MatlabExtension extends BaseService {
      * Handles user input about whether to connect or disconnect from MATLAB®
      */
     private handleChangeMatlabConnection (): void {
+        if (!vscode.workspace.isTrusted) {
+            this.showUntrustedWorkspaceError()
+            return
+        }
+
         const connect = 'Connect to MATLAB'
         const disconnect = 'Disconnect from MATLAB'
         const options = [connect, disconnect]
@@ -283,6 +317,19 @@ class MatlabExtension extends BaseService {
                 this.sendConnectionActionNotification('disconnect')
             }
         })
+    }
+
+    /**
+     * Handler for the `matlab.openCommandWindow` command.
+     * Verifies the workspace is trusted before opening the command window.
+     */
+    private async handleOpenCommandWindow (): Promise<void> {
+        if (!vscode.workspace.isTrusted) {
+            this.showUntrustedWorkspaceError()
+            return
+        }
+
+        await this.terminalService.openTerminalOrBringToFront()
     }
 
     /**
