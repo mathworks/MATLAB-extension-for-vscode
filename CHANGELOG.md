@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolves an issue where tests in namespace (`+`) folders were not discovered or run correctly in the Test Explorer (Addresses [mathworks/MATLAB-extension-for-vscode#345](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/345))
 - Resolves an issue where pressing **Enter** to evaluate a command that spans multiple lines in the MATLAB terminal truncates the command
 - Resolves an issue when completing the "cd" command in the MATLAB terminal (Addresses [mathworks/MATLAB-extension-for-vscode#334](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/334))
-- Improved code suggestions when MATLAB is stopped in the debugger (Addresses [mathworks/MATLAB-extension-for-vscode#138](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/251))
+- Improved code suggestions when MATLAB is stopped in the debugger (Addresses [mathworks/MATLAB-extension-for-vscode#251](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/251))
 
 ## [1.3.13] - 2026-07-28
 
