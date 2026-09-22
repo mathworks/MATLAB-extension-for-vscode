@@ -55,6 +55,16 @@ function populateTable (): void {
     handleMessage({ type: 'setData', rows: testRows })
 }
 
+// Simulates the two-slow-click flow: first click sets the timestamp,
+// clock advances past the edit delay, second click enters edit mode.
+// Ticks to 1ms first so Date.now() never returns 0 (used as "no timestamp" sentinel).
+function enterEditViaClicks (input: HTMLInputElement, clock: sinon.SinonFakeTimers): void {
+    if (clock.now === 0) clock.tick(1)
+    input.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    clock.tick(350)
+    input.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
 // ── Test Suites ──────────────────────────────────────────────────
 
 suite('webview', () => {
@@ -147,15 +157,17 @@ suite('webview', () => {
             expect(input.readOnly).to.be.true
         })
 
-        test('Value column contains a readonly input that becomes editable on double-click', () => {
+        test('Value column contains a readonly input that becomes editable on two slow clicks', () => {
             populateTable()
+            const clock = sinon.useFakeTimers()
             const input = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
             expect(input).to.not.be.null
             expect(input.value).to.equal('3.14')
             expect(input.readOnly).to.be.true
 
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             expect(input.readOnly).to.be.false
+            clock.restore()
         })
 
         test('resizer divs are appended to resizable header cells', () => {
@@ -270,22 +282,29 @@ suite('webview', () => {
     // ── Value editing ────────────────────────────────────────────
     // Inline value editing lets users assign new values to MATLAB variables
     // directly from the workspace browser. The edit flow must:
-    // - Require a double-click to enter edit mode (single click selects the row)
+    // - Require two slow clicks to enter edit mode (double-click opens Variable Viewer)
     // - Only post editValue when the value actually changed (avoid no-op fevals)
     // - Support Escape to revert without committing
     // - Return to readonly on blur
     // A bug here would cause silent data loss or unnecessary server traffic.
 
     suite('value editing', () => {
+        let clock: sinon.SinonFakeTimers
+
         setup(() => {
+            clock = sinon.useFakeTimers()
             init(mockApi)
             populateTable()
             postedMessages = []
         })
 
-        test('double-click enters edit mode then blur with changed value posts editValue', () => {
+        teardown(() => {
+            clock.restore()
+        })
+
+        test('two slow clicks enter edit mode then blur with changed value posts editValue', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             expect(input.readOnly).to.be.false
 
             input.value = '42'
@@ -302,7 +321,7 @@ suite('webview', () => {
 
         test('blur with unchanged value does not post editValue', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.blur()
 
             const editMsg = postedMessages.find(m => m.type === 'editValue')
@@ -311,7 +330,7 @@ suite('webview', () => {
 
         test('Escape key reverts the value to original', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.value = '999'
             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
             expect(input.value).to.equal('3.14')
@@ -341,7 +360,7 @@ suite('webview', () => {
 
         test('editValue error reverts input and applies error class', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.dataset.originalValue = '3.14'
             input.value = 'bad_value'
 
@@ -363,19 +382,26 @@ suite('webview', () => {
 
     // ── Name editing (rename) ───────────────────────────────────
     // Inline name editing lets users rename MATLAB variables directly from the
-    // workspace browser. Like value editing, it requires double-click to enter
+    // workspace browser. Like value editing, it requires two slow clicks to enter
     // edit mode and validates against duplicate names client-side.
 
     suite('name editing', () => {
+        let clock: sinon.SinonFakeTimers
+
         setup(() => {
+            clock = sinon.useFakeTimers()
             init(mockApi)
             populateTable()
             postedMessages = []
         })
 
-        test('double-click enters edit mode then blur with changed name posts renameVariable', () => {
+        teardown(() => {
+            clock.restore()
+        })
+
+        test('two slow clicks enter edit mode then blur with changed name posts renameVariable', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             expect(input.readOnly).to.be.false
 
             input.value = 'delta'
@@ -392,7 +418,7 @@ suite('webview', () => {
 
         test('blur with unchanged name does not post renameVariable', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.blur()
 
             const renameMsg = postedMessages.find(m => m.type === 'renameVariable')
@@ -401,7 +427,7 @@ suite('webview', () => {
 
         test('Escape key reverts the name to original', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.value = 'newname'
             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
             expect(input.value).to.equal('alpha')
@@ -409,7 +435,7 @@ suite('webview', () => {
 
         test('duplicate name posts renameVariable to extension for server-side validation', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.value = 'beta'
             input.blur()
 
@@ -419,7 +445,7 @@ suite('webview', () => {
 
         test('rename operationError reverts name input and applies error class', () => {
             const input = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            input.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(input, clock)
             input.dataset.originalValue = 'alpha'
             input.value = 'badname'
 
@@ -549,10 +575,17 @@ suite('webview', () => {
     // and must not interfere with text editing in name/value inputs.
 
     suite('delete key', () => {
+        let clock: sinon.SinonFakeTimers
+
         setup(() => {
+            clock = sinon.useFakeTimers()
             init(mockApi)
             populateTable()
             postedMessages = []
+        })
+
+        teardown(() => {
+            clock.restore()
         })
 
         test('pressing Delete with a selected row posts deleteVariable message', () => {
@@ -580,9 +613,9 @@ suite('webview', () => {
             const tr = document.querySelector('tr[data-var="alpha"]') as HTMLTableRowElement
             tr.click()
 
-            // Enter edit mode on the name input
+            // Enter edit mode on the name input via two slow clicks
             const nameInput = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            nameInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(nameInput, clock)
             expect(nameInput.readOnly).to.be.false
             nameInput.focus()
             postedMessages = []
@@ -597,9 +630,9 @@ suite('webview', () => {
             const tr = document.querySelector('tr[data-var="alpha"]') as HTMLTableRowElement
             tr.click()
 
-            // Enter edit mode on the value input
+            // Enter edit mode on the value input via two slow clicks
             const valueInput = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            valueInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(valueInput, clock)
             expect(valueInput.readOnly).to.be.false
             valueInput.focus()
             postedMessages = []
@@ -763,8 +796,9 @@ suite('webview', () => {
         })
 
         test('Arrow keys while editing do not move focus', () => {
+            const clock = sinon.useFakeTimers()
             const valueInput = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            valueInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(valueInput, clock)
             valueInput.focus()
             expect(valueInput.readOnly).to.be.false
 
@@ -773,6 +807,7 @@ suite('webview', () => {
             const state = getState()
             expect(state.selectedVarName).to.equal('alpha')
             expect(document.activeElement).to.equal(valueInput)
+            clock.restore()
         })
     })
 
@@ -825,10 +860,12 @@ suite('webview', () => {
         })
 
         test('Enter while editing does not bubble to re-enter edit mode', () => {
+            const clock = sinon.useFakeTimers()
             const valueInput = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            valueInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(valueInput, clock)
             valueInput.focus()
             expect(valueInput.readOnly).to.be.false
+            clock.restore()
 
             // Simulate the input's own keydown handler dispatching Enter with stopPropagation
             const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
@@ -869,25 +906,29 @@ suite('webview', () => {
         })
 
         test('F2 while editing a value input does not trigger rename', () => {
+            const clock = sinon.useFakeTimers()
             const valueInput = document.querySelector('tr[data-var="alpha"] .wsb-value-input') as HTMLInputElement
-            valueInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(valueInput, clock)
             valueInput.focus()
 
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }))
 
             const nameInput = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
             expect(nameInput.readOnly).to.be.true
+            clock.restore()
         })
 
         test('F2 while editing a name input does not re-trigger edit mode', () => {
+            const clock = sinon.useFakeTimers()
             const nameInput = document.querySelector('tr[data-var="alpha"] .wsb-name-input') as HTMLInputElement
-            nameInput.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+            enterEditViaClicks(nameInput, clock)
             nameInput.focus()
 
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true }))
 
             // Guard blocks; input remains in edit mode
             expect(nameInput.readOnly).to.be.false
+            clock.restore()
         })
     })
 })

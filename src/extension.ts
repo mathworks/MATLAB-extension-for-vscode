@@ -22,6 +22,8 @@ import TelemetryLogger, { TelemetryEvent } from './services/telemetry/TelemetryL
 import * as LicensingUtils from './utils/LicensingUtils'
 import BaseService from './services/BaseService'
 import WorkspaceBrowserProvider from './workspacebrowser/WorkspaceBrowserProvider'
+import VariableViewerService from './variableviewer/VariableViewerService'
+import VariableViewerPanelManager from './variableviewer/VariableViewerPanelManager'
 import MatlabProjectService from './services/projects/MatlabProjectService'
 import MatlabTestService from './services/testing/MatlabTestService'
 
@@ -167,6 +169,18 @@ class MatlabExtension extends BaseService {
         this.own(
             vscode.window.registerWebviewViewProvider('workspaceBrowserSidebarView', workspaceBrowserProvider),
             workspaceBrowserProvider
+        )
+
+        // Initialize Variable Viewer — service bridges LSP notifications, panel manager owns tabs
+        const variableViewerService = new VariableViewerService(multiclientNotifier)
+        const variableViewerPanelManager = new VariableViewerPanelManager(
+            context, variableViewerService, this.mvm, this.telemetryLogger,
+            workspaceBrowserProvider.onWorkspaceRefreshed,
+            workspaceBrowserProvider.onVariableRenamed
+        )
+        this.own(
+            variableViewerService,
+            variableViewerPanelManager
         )
     }
 

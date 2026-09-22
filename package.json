@@ -4,7 +4,7 @@
 	"description": "Edit MATLAB code with syntax highlighting, linting, navigation support, and more",
 	"icon": "public/L-Membrane_RGB_128x128.png",
 	"license": "MIT",
-	"version": "1.3.13",
+	"version": "1.3.14",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
@@ -114,6 +114,10 @@
 			{
 				"command": "matlab.wsb.sortDescending",
 				"title": "Sort Descending"
+			},
+			{
+				"command": "matlab.openVariableViewer",
+				"title": "Open Variable"
       },
       {
 				"command": "matlab.project.open",
@@ -156,6 +160,11 @@
 				"command": "matlab.testing.removeTestItem",
 				"title": "Remove Test",
 				"icon": "$(trash)"
+			},
+			{
+				"command": "matlab.testing.clearAllTestSources",
+				"title": "Clear All Tests",
+				"category": "MATLAB"
 			}
 		],
 		"keybindings": [
@@ -278,6 +287,11 @@
 					"command": "matlab.testing.addTestFile",
 					"when": "view == workbench.view.testing && matlab.testing.isActive",
 					"group": "navigation@2"
+				},
+				{
+					"command": "matlab.testing.clearAllTestSources",
+					"when": "view == workbench.view.testing && matlab.testing.isActive",
+					"group": "1_matlab@1"
 				}
 			],
 			"editor/title/run": [
@@ -348,6 +362,11 @@
 			],
 
 			"webview/context": [
+				{
+					"command": "matlab.openVariableViewer",
+					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'row'",
+					"group": "wsb_row@1"
+				},
 				{
 					"command": "matlab.wsb.deleteVariable",
 					"when": "webviewId == 'workspaceBrowserSidebarView' && webviewSection == 'row'",
@@ -477,6 +496,12 @@
 						"default": true,
 						"markdownDescription": "Use Visual Studio Code instead of the MATLAB Editor to open and edit files using the `open` and `edit` commands. Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).",
 						"scope": "window"
+					},
+					"MATLAB.discoverTestsAutomatically": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Automatically discover MATLAB tests in the Test Explorer when Visual Studio Code connects to MATLAB and when test files change.",
+						"scope": "window"
 					}
 				}
 			},
@@ -574,12 +599,13 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile && cd server && npm prune --production && cd ..",
-		"compile": "tsc -p ./ && npm run copy-wsb-resources && webpack && cd server && npm run compile && cd ..",
+		"compile": "tsc -p ./ && npm run copy-wsb-resources && npm run copy-vv-resources && webpack && cd server && npm run compile && cd ..",
 		"watch": "tsc -watch -p ./ && npm run copy-wsb-resources && cd server && npm run watch && webpack --watch && cd ..",
 		"test-setup": "npm run compile && npm run lint && npm run copy-test-files && npm run copy-config-files",
 		"copy-test-files": "cd src && copyfiles ./test/test-files/**/*.m ./../out/ && copyfiles ./test/test-files/**/*.toml ./../out/ && copyfiles ./test/test-files/**/*.json ./../out/ && cd ..",
 		"copy-config-files": "cd src && copyfiles ./test/tools/config/*.* ./../out/ -all && cd ..",
 		"copy-wsb-resources": "copyfiles \"src/workspacebrowser/resources/**/*\" out/workspacebrowser/resources/ -u 3",
+		"copy-vv-resources": "copyfiles \"src/variableviewer/resources/**/*\" out/variableviewer/resources/ -u 3",
 		"lint": "eslint src --ext ts",
 		"lint:fix": "eslint src --ext ts --fix",
 		"test-smoke": "npm run test-setup && node ./out/test/smoke/runTest.js",
@@ -590,8 +616,10 @@
 		"test-unit:fast": "node ./out/test/unit/runTest.js",
 		"test-wsb": "npm run test-setup && node out/test/workspacebrowser/runTest.js",
 		"test-wsb:fast": "node out/test/workspacebrowser/runTest.js",
+		"test-vv": "npm run test-setup && node out/test/variableviewer/runTest.js",
+		"test-vv:fast": "node out/test/variableviewer/runTest.js",
 		"test": "npm run test-setup && npm run test:fast",
-		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast && npm run test-unit:fast && npm run test-wsb:fast",
+		"test:fast": "npm run test-smoke:fast && npm run test-ui:fast && npm run test-unit:fast && npm run test-wsb:fast && npm run test-vv:fast",
 		"project-install": "node ./build/projectInstall.js",
 		"project-install-clean": "node ./build/projectInstall.js --clean",
 		"package": "vsce package"
@@ -608,7 +636,7 @@
 		"@types/vscode": "^1.67.0",
 		"@typescript-eslint/eslint-plugin": "^5.36.1",
 		"@typescript-eslint/parser": "^5.36.1",
-		"@vscode/test-electron": "^2.5.2",
+		"@vscode/test-electron": "3.1.0",
 		"@vscode/vsce": "^2.19.0",
 		"chai": "^5.2.1",
 		"copyfiles": "^2.4.1",

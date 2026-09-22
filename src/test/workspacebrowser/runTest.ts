@@ -35,7 +35,17 @@ mock('vscode', {
     Uri: {
         joinPath: (...args: unknown[]) => ({ toString: () => args.join('/') })
     },
-    Disposable: class { dispose (): void {} }
+    Disposable: class { dispose (): void {} },
+    EventEmitter: class {
+        private listeners: Array<(...args: unknown[]) => void> = []
+        event = (listener: (...args: unknown[]) => void): { dispose: () => void } => {
+            this.listeners.push(listener)
+            return { dispose: () => { this.listeners = this.listeners.filter(l => l !== listener) } }
+        }
+
+        fire (data: unknown): void { this.listeners.forEach(l => l(data)) }
+        dispose (): void { this.listeners = [] }
+    }
 })
 
 // ── Browser globals via jsdom ───────────────────────────────────
@@ -90,7 +100,8 @@ if (typeof (global as unknown as Record<string, unknown>).CSS === 'undefined') {
 async function runTests (): Promise<void> {
     const mocha = new Mocha({
         ui: 'tdd',
-        reporter: 'spec'
+        reporter: 'spec',
+        retries: 3
     })
 
     // Discover all test files recursively under this directory

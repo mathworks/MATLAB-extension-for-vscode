@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The MathWorks, Inc.
+// Copyright 2024-2026 The MathWorks, Inc.
 import { GlobSync } from 'glob'
 import * as path from 'path'
 import { ExTester, ReleaseQuality } from 'vscode-extension-tester'
@@ -36,7 +36,12 @@ export class TestSuite {
             'debug.toolBarLocation': 'docked',
             'workbench.startupEditor': 'none',
             'terminal.integrated.sendKeybindingsToShell': true,
-            'editor.action.toggleTabFocusMode': false
+            'editor.action.toggleTabFocusMode': false,
+            'git.openRepositoryInParentFolders': 'never',
+            'extensions.ignoreRecommendations': true,
+            'security.workspace.trust.enabled': false,
+            'update.mode': 'none',
+            'extensions.autoCheckUpdates': false
         })
 
         fs.writeFileSync(settingsjson, settings)
@@ -69,9 +74,10 @@ export class TestSuite {
         await exTester.downloadChromeDriver(this.vscodeVersion)
         await exTester.installVsix({ vsixFile: this.vsixPath })
         console.log(`Queueing tests:\n${tests.join('\n')}\n`)
-        for (const test of tests) {
+        for (const [index, test] of tests.entries()) {
             if (!firstRun) await PollingUtils.pause(30000); // wait for state to be reset before running next test
             const testPath = path.join(this.testsRoot, test)
+            const runId = `${index + 1}-${path.parse(test).name}`
             console.log(`Running test: ${test}`)
             try {
                 const exitCode = await exTester.runTests(testPath, {
@@ -88,6 +94,13 @@ export class TestSuite {
             } catch (err) {
                 failed = true;
                 console.error('\x1b[31m%s\x1b[0m', err)
+            } finally {
+                try {
+                    this.archiveScreenshots(runId)
+                } catch (err) {
+                    failed = true
+                    console.error('\x1b[31m%s\x1b[0m', `Failed to archive screenshots for ${test}: ${String(err)}`)
+                }
             }
             firstRun = false;
         }
@@ -95,5 +108,16 @@ export class TestSuite {
             console.error('\x1b[31m%s\x1b[0m', 'One or more tests failed.');
             process.exit(1);
         }
+    }
+
+    private archiveScreenshots (runId: string): void {
+        const screenshotsFolder = path.join(this.storageFolder, 'screenshots')
+        if (!fs.existsSync(screenshotsFolder)) return
+
+        const archiveFolder = path.join(this.storageFolder, 'screenshots-archive', runId, 'screenshots')
+        fs.rmSync(archiveFolder, { recursive: true, force: true })
+        fs.mkdirSync(path.dirname(archiveFolder), { recursive: true })
+        fs.renameSync(screenshotsFolder, archiveFolder)
+        console.log(`Archived screenshots to ${archiveFolder}`)
     }
 }

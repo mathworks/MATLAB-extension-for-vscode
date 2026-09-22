@@ -7,12 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.14] - 2026-09-22
+
+### Added
+- Inspect variable contents by opening them in a new tab. (Addresses [mathworks/MATLAB-extension-for-vscode#337](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/337))
+- Support for controlling automatic test discovery in the Test Explorer, including a new setting to turn off automatic discovery and a **Refresh Tests** button to update tests on demand (Addresses [mathworks/MATLAB-extension-for-vscode#343](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/343))
+- Support for using **Ctrl+C** to move to a new prompt without executing the current command in the MATLAB terminal (Addresses [mathworks/MATLAB-extension-for-vscode#278](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/278))
+- Support for using **Ctrl+U** to clear the command line in the MATLAB terminal
+- Support for block keyword matching that highlights corresponding keywords such as `function`, `end`, `if`, `for`, `while`, and `switch` (Addresses [mathworks/MATLAB-extension-for-vscode#6](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/6))
+
+### Fixed
+- Resolves an issue where tests in namespace (`+`) folders were not discovered or run correctly in the Test Explorer (Addresses [mathworks/MATLAB-extension-for-vscode#345](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/345))
+- Resolves an issue where pressing **Enter** to evaluate a command that spans multiple lines in the MATLAB terminal truncates the command
+- Resolves an issue when completing the "cd" command in the MATLAB terminal (Addresses [mathworks/MATLAB-extension-for-vscode#334](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/334))
+- Improved code suggestions when MATLAB is stopped in the debugger (Addresses [mathworks/MATLAB-extension-for-vscode#138](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/251))
+
 ## [1.3.13] - 2026-07-28
 
 ### Added
 - Support for discovering and running MATLAB unit tests (Addresses [mathworks/MATLAB-extension-for-vscode#138](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/138))
 - Support for syntax highlighting in the MATLAB terminal (Addresses [mathworks/MATLAB-extension-for-vscode#295](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/295))
- 
+
 ### Fixed
 - Resolves an issue that prevents MATLAB workspace data from updating when a `clear` command is followed by a long-running operation, such as `figure`. (Addresses [mathworks/MATLAB-extension-for-vscode#332](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/332))
 - Prevents starting the MATLAB language server in untrusted workspaces.

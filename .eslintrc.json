@@ -48,13 +48,19 @@
     ],
     "overrides": [
         {
-            "files": ["src/test/workspacebrowser/**/*.ts"],
+            "files": ["src/test/workspacebrowser/**/*.ts", "src/test/variableviewer/**/*.ts"],
             "rules": {
                 // Chai assertions (expect(x).to.be.true) are property accesses that
                 // trigger no-unused-expressions. This is a known Chai/ESLint conflict.
                 "@typescript-eslint/no-unused-expressions": "off",
                 // Mock stubs and disposables use empty function bodies as intentional no-ops.
-                "@typescript-eslint/no-empty-function": "off"
+                "@typescript-eslint/no-empty-function": "off",
+                // Truthy object checks are used in mock conditionals.
+                "@typescript-eslint/strict-boolean-expressions": "off",
+                // Mock registration requires require() before imports.
+                "@typescript-eslint/no-var-requires": "off",
+                // Mock properties don't need readonly annotations.
+                "@typescript-eslint/prefer-readonly": "off"
             }
         },
         {

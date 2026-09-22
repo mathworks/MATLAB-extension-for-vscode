@@ -25,6 +25,8 @@ function createMockMvm (state = 'connected'): any {
     const emitter = new EventEmitter()
     const mvm = Object.assign(emitter, {
         getMatlabState: sinon.stub().returns(state),
+        isDebugging: sinon.stub().returns(false),
+        isBusy: sinon.stub().returns(false),
         feval: sinon.stub().resolves({
             result: [{
                 names: ['TestA/testMethod1'],
@@ -71,29 +73,36 @@ function createMockController (): any {
         items,
         createTestItem: (id: string, label: string, uri?: any) => vscode.createMockTestItem(id, label, uri),
         resolveHandler: undefined as any,
+        refreshHandler: undefined as any,
         dispose: sinon.stub()
     }
 }
 
-// Track FileSystemWatcher callbacks
-interface WatcherCallbacks {
-    onCreate: Array<() => void>
-    onDelete: Array<() => void>
-    onChange: Array<() => void>
+// Records the callbacks registered on each created FileSystemWatcher, keyed by its pattern.
+interface WatcherRecord {
+    pattern: any
+    onCreate: Array<(uri: any) => void>
+    onChange: Array<(uri: any) => void>
+    onDelete: Array<(uri: any) => void>
 }
 
-function setupFileSystemWatcherMock (): WatcherCallbacks {
-    const callbacks: WatcherCallbacks = { onCreate: [], onDelete: [], onChange: [] }
-    const originalCreateFSW = vscode.workspace.createFileSystemWatcher
-    ;(vscode.workspace as any).createFileSystemWatcher = sinon.stub().callsFake((_pattern: string) => {
+function setupFileSystemWatcherMock (): WatcherRecord[] {
+    const records: WatcherRecord[] = []
+    ;(vscode.workspace as any).createFileSystemWatcher = sinon.stub().callsFake((pattern: any) => {
+        const rec: WatcherRecord = { pattern, onCreate: [], onChange: [], onDelete: [] }
+        records.push(rec)
         return {
-            onDidCreate: (cb: () => void) => { callbacks.onCreate.push(cb); return new vscode.Disposable(() => {}) },
-            onDidDelete: (cb: () => void) => { callbacks.onDelete.push(cb); return new vscode.Disposable(() => {}) },
-            onDidChange: (cb: () => void) => { callbacks.onChange.push(cb); return new vscode.Disposable(() => {}) },
+            onDidCreate: (cb: (uri: any) => void) => { rec.onCreate.push(cb); return new vscode.Disposable(() => {}) },
+            onDidDelete: (cb: (uri: any) => void) => { rec.onDelete.push(cb); return new vscode.Disposable(() => {}) },
+            onDidChange: (cb: (uri: any) => void) => { rec.onChange.push(cb); return new vscode.Disposable(() => {}) },
             dispose: () => {}
         }
     })
-    return callbacks
+    return records
+}
+
+function folderWatcher (records: WatcherRecord[]): WatcherRecord | undefined {
+    return records.find(r => r.pattern.pattern === '**/*.m')
 }
 
 /** Imports MatlabTestDiscovery with the mocked vscode module. */
@@ -110,7 +119,7 @@ describe('MatlabTestDiscovery', () => {
     let mockContext: any
     let mockTelemetry: any
     let controller: any
-    let watcherCallbacks: WatcherCallbacks
+    let watchers: WatcherRecord[]
     let clock: sinon.SinonFakeTimers
 
     before(async () => {
@@ -118,11 +127,13 @@ describe('MatlabTestDiscovery', () => {
     })
 
     beforeEach(() => {
+        vscode._resetConfigListeners()
+        vscode._state.autoDiscoverSetting = true
         mockMvm = createMockMvm('connected')
         mockContext = createMockContext()
         mockTelemetry = createMockTelemetryLogger()
         controller = createMockController()
-        watcherCallbacks = setupFileSystemWatcherMock()
+        watchers = setupFileSystemWatcherMock()
     })
 
     afterEach(() => {
@@ -132,43 +143,82 @@ describe('MatlabTestDiscovery', () => {
         }
     })
 
-    describe('FileSystemWatcher', () => {
-        it('should trigger re-discovery when .m file is modified', async () => {
-            // Pre-populate workspace state with a test folder so discovery has sources
+    function construct (): any {
+        return new MatlabTestDiscovery(controller, mockMvm, mockContext, mockTelemetry)
+    }
+
+    describe('FileSystemWatcher (W1)', () => {
+        it('should re-discover when a known test file changes', async () => {
             mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
 
-            const discovery = new MatlabTestDiscovery(controller, mockMvm, mockContext, mockTelemetry)
-
-            // Reset feval call count from constructor's initial discovery
+            const discovery = construct()
+            await discovery.discoverAll()
             mockMvm.feval.resetHistory()
 
-            // Install fake timers to control debounce
             clock = sinon.useFakeTimers()
 
-            // Simulate .m file change
-            assert.ok(watcherCallbacks.onChange.length > 0, 'onChange listener should be registered')
-            watcherCallbacks.onChange[0]()
+            const folder = folderWatcher(watchers)
+            assert.ok(folder != null && folder.onChange.length > 0, 'folder change listener should be registered')
+            folder!.onChange[0](vscode.Uri.file('/test/TestA.m'))
 
-            // Advance past the 500ms debounce
-            clock.tick(600)
-
-            // Allow async discoverAll to proceed
+            clock.tick(2100)
             await Promise.resolve()
 
             sinon.assert.called(mockMvm.feval)
+        })
+
+        it('should NOT re-discover when a non-test .m file changes', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            const discovery = construct()
+            await discovery.discoverAll()
+            mockMvm.feval.resetHistory()
+
+            clock = sinon.useFakeTimers()
+
+            const folder = folderWatcher(watchers)
+            folder!.onChange[0](vscode.Uri.file('/workspace/tests/helperFunction.m'))
+
+            clock.tick(2100)
+            await Promise.resolve()
+
+            sinon.assert.notCalled(mockMvm.feval)
+        })
+
+        it('should not wire onDidCreate for folder watchers', () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            construct()
+
+            const folder = folderWatcher(watchers)
+            assert.ok(folder != null, 'expected a folder watcher')
+            assert.strictEqual(folder!.onCreate.length, 0, 'folder watcher must ignore file creation')
+            assert.strictEqual(folder!.onChange.length, 1, 'folder watcher should watch changes')
+            assert.strictEqual(folder!.onDelete.length, 1, 'folder watcher should watch deletions')
+        })
+
+        it('should wire onDidCreate for individually-added file sources', () => {
+            mockContext._state['matlab.testing.files'] = ['/external/StandaloneTest.m']
+
+            construct()
+
+            const fileWatch = watchers.find(r => r.pattern.pattern === 'StandaloneTest.m')
+            assert.ok(fileWatch != null, 'expected a file-source watcher')
+            assert.strictEqual(fileWatch!.onCreate.length, 1, 'file source watches creation')
+            assert.strictEqual(fileWatch!.onChange.length, 1)
+            assert.strictEqual(fileWatch!.onDelete.length, 1)
         })
 
         it('should create a RelativePattern watcher for each registered test source', () => {
             mockContext._state['matlab.testing.folders'] = ['/workspace/tests', '/external/suite']
             mockContext._state['matlab.testing.files'] = ['/external/StandaloneTest.m']
 
-            new MatlabTestDiscovery(controller, mockMvm, mockContext, mockTelemetry)
+            construct()
 
             const createFSW = vscode.workspace.createFileSystemWatcher as sinon.SinonStub
-            // One watcher per registered source (2 folders + 1 file).
             sinon.assert.calledThrice(createFSW)
 
-            const patterns = createFSW.getCalls().map(c => c.args[0])
+            const patterns = watchers.map(r => r.pattern)
             patterns.forEach(p => assert.ok(p instanceof vscode.RelativePattern, 'expected a RelativePattern'))
 
             const folderWatch = patterns.find(p => p.base === '/workspace/tests')
@@ -180,49 +230,161 @@ describe('MatlabTestDiscovery', () => {
             assert.strictEqual(fileWatch.pattern, 'StandaloneTest.m', 'files are watched by exact name')
         })
 
-        it('should recreate watchers when a test source is added or removed', async () => {
-            const discovery = new MatlabTestDiscovery(controller, mockMvm, mockContext, mockTelemetry)
-            const createFSW = vscode.workspace.createFileSystemWatcher as sinon.SinonStub
-
-            // No sources registered at construction -> no watchers created.
-            sinon.assert.notCalled(createFSW)
-
-            sinon.stub(vscode.window, 'showOpenDialog').resolves([vscode.Uri.file('/external/suite')])
-            await discovery.addTestFolder()
-
-            // Adding a source spins up a watcher for it.
-            sinon.assert.calledOnce(createFSW)
-            assert.ok(createFSW.getCall(0).args[0] instanceof vscode.RelativePattern)
-        })
-
-        it('should debounce re-discovery (500ms) to avoid excessive calls', async () => {
+        it('should debounce re-discovery (2000ms) to avoid excessive calls', async () => {
             mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
 
-            const discovery = new MatlabTestDiscovery(controller, mockMvm, mockContext, mockTelemetry)
+            const discovery = construct()
+            await discovery.discoverAll()
             mockMvm.feval.resetHistory()
 
             clock = sinon.useFakeTimers()
 
-            // Rapid file changes (simulating save-all or formatter)
-            watcherCallbacks.onChange[0]()
-            clock.tick(100)
-            watcherCallbacks.onChange[0]()
-            clock.tick(100)
-            watcherCallbacks.onChange[0]()
-            clock.tick(100)
-            watcherCallbacks.onChange[0]()
-            clock.tick(100)
-            watcherCallbacks.onChange[0]()
+            const folder = folderWatcher(watchers)
+            const knownFile = vscode.Uri.file('/test/TestA.m')
 
-            // Only 400ms elapsed since last change — should NOT have discovered yet
+            folder!.onChange[0](knownFile)
+            clock.tick(500)
+            folder!.onChange[0](knownFile)
+            clock.tick(500)
+            folder!.onChange[0](knownFile)
+            clock.tick(500)
+
+            // Only 1000ms since the last change — below the 2000ms threshold.
             assert.strictEqual(mockMvm.feval.callCount, 0)
 
-            // Advance past debounce threshold (500ms from last change)
-            clock.tick(600)
+            clock.tick(2100)
             await Promise.resolve()
 
-            // Should trigger exactly one discovery
             sinon.assert.calledOnce(mockMvm.feval)
+        })
+    })
+
+    describe('autoDiscover setting', () => {
+        it('should not discover on connect when auto-discovery is off', () => {
+            vscode._state.autoDiscoverSetting = false
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            construct()
+            mockMvm.emit('stateChanged', 'disconnected', 'connected')
+
+            sinon.assert.notCalled(mockMvm.feval)
+        })
+
+        it('should not register file watchers when auto-discovery is off', () => {
+            vscode._state.autoDiscoverSetting = false
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            construct()
+
+            sinon.assert.notCalled(vscode.workspace.createFileSystemWatcher as sinon.SinonStub)
+        })
+
+        it('should still discover via the manual refresh path when auto-discovery is off', async () => {
+            vscode._state.autoDiscoverSetting = false
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            const discovery = construct()
+            await discovery.discoverAll()
+
+            sinon.assert.called(mockMvm.feval)
+        })
+
+        it('should re-register watchers when the setting is toggled back on', () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            construct()
+            const createFSW = vscode.workspace.createFileSystemWatcher as sinon.SinonStub
+            sinon.assert.calledOnce(createFSW)
+
+            vscode._state.autoDiscoverSetting = false
+            vscode._fireConfigChange('MATLAB.discoverTestsAutomatically')
+            createFSW.resetHistory()
+
+            vscode._state.autoDiscoverSetting = true
+            vscode._fireConfigChange('MATLAB.discoverTestsAutomatically')
+
+            sinon.assert.calledOnce(createFSW)
+        })
+    })
+
+    describe('cancellation', () => {
+        it('should interrupt MATLAB and skip the tree rebuild when cancelled', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            let resolveFeval: (value: any) => void = () => {}
+            mockMvm.feval = sinon.stub().returns(new Promise(resolve => { resolveFeval = resolve }))
+
+            const discovery = construct()
+
+            const source = new vscode.CancellationTokenSource()
+            const done = discovery.discoverAll(source.token)
+
+            source.cancel()
+            sinon.assert.called(mockMvm.interrupt)
+
+            resolveFeval({
+                result: [{ names: ['TestA/testMethod1'], filenames: ['/test/TestA.m'], procedureNames: ['testMethod1'], testParentNames: ['TestA'], parameterizations: [''], error: '' }]
+            })
+            await done
+
+            assert.strictEqual(controller.items.get('/test/TestA.m'), undefined, 'tree must not be rebuilt after cancel')
+        })
+    })
+
+    describe('busy/debug guard', () => {
+        it('should defer automatic discovery while MATLAB is busy, then run when idle', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+            mockMvm.isBusy.returns(true)
+
+            construct()
+            mockMvm.emit('stateChanged', 'disconnected', 'connected')
+
+            sinon.assert.notCalled(mockMvm.feval)
+
+            mockMvm.isBusy.returns(false)
+            mockMvm.emit('promptChange', '', true)
+            await Promise.resolve()
+
+            sinon.assert.called(mockMvm.feval)
+        })
+
+        it('should honor a manual refresh even while MATLAB is busy', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+            mockMvm.isBusy.returns(true)
+
+            const discovery = construct()
+            await discovery.discoverAll()
+
+            sinon.assert.called(mockMvm.feval)
+        })
+    })
+
+    describe('clearAllTestSources', () => {
+        it('should clear all sources, state keys, and the tree after confirmation', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+            mockContext._state['matlab.testing.files'] = ['/external/StandaloneTest.m']
+            mockContext._state['matlab.testing.excludedFiles'] = ['/workspace/tests/Ignored.m']
+
+            const discovery = construct()
+            await discovery.discoverAll()
+
+            sinon.stub(vscode.window, 'showWarningMessage').resolves('Clear All Tests')
+            await discovery.clearAllTestSources()
+
+            assert.deepStrictEqual(mockContext._state['matlab.testing.folders'], [])
+            assert.deepStrictEqual(mockContext._state['matlab.testing.files'], [])
+            assert.deepStrictEqual(mockContext._state['matlab.testing.excludedFiles'], [])
+            assert.strictEqual(controller.items.size, 0, 'tree should be empty')
+        })
+
+        it('should do nothing when the confirmation is dismissed', async () => {
+            mockContext._state['matlab.testing.folders'] = ['/workspace/tests']
+
+            const discovery = construct()
+            sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined)
+            await discovery.clearAllTestSources()
+
+            assert.deepStrictEqual(mockContext._state['matlab.testing.folders'], ['/workspace/tests'], 'sources should be untouched')
         })
     })
 })

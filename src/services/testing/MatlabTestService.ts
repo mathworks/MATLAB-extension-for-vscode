@@ -38,7 +38,8 @@ export default class MatlabTestService extends BaseService {
             vscode.commands.registerCommand('matlab.testing.discoverTests', () => this.discovery.discoverAll()),
             vscode.commands.registerCommand('matlab.testing.addTestFolder', () => this.discovery.addTestFolder()),
             vscode.commands.registerCommand('matlab.testing.addTestFile', () => this.discovery.addTestFile()),
-            vscode.commands.registerCommand('matlab.testing.removeTestItem', (item: vscode.TestItem) => this.discovery.removeTestItem(item))
+            vscode.commands.registerCommand('matlab.testing.removeTestItem', (item: vscode.TestItem) => this.discovery.removeTestItem(item)),
+            vscode.commands.registerCommand('matlab.testing.clearAllTestSources', () => this.discovery.clearAllTestSources())
         )
     }
 
