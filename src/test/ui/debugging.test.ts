@@ -78,4 +78,30 @@ suite('Debugging UI Tests', () => {
         await editor.type(Key.F5, 'F5 to resume')
         await editor.debugger.assertNotDebugging()
     })
+
+    test('WSB display and updates while debugging', async function (this: Mocha.Context) {
+        const editor = await vs.openEditor('hScript2.m')
+        if (await vs.isMatlabVersionLessThan('R2023a')) {
+            // Workspace browser only supported on R2023a and later - skip tests
+            this.skip()
+        }
+
+        await editor.debugger.setBreakpointOnLine(5)
+        await editor.type(Key.F5, 'F5 to run file')
+
+        await editor.debugger.assertStoppedAtLine(5)
+        await editor.type(Key.F10, 'F10 to step over')
+        await vs.openWorkspaceBrowser()
+        await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
+        await vs.workspaceBrowser.assertVariableValue('e', '5', 'value should be 5')
+
+        await editor.debugger.assertStoppedAtLine(6)
+        await editor.type(Key.F10, 'F10 to step over')
+        await vs.openWorkspaceBrowser()
+        await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
+        await vs.workspaceBrowser.assertVariableValue('e', '6', 'value should be updated to 6')
+
+        await editor.type(Key.F5, 'F5 to continue')
+        await editor.debugger.assertNotDebugging()
+    })
 });

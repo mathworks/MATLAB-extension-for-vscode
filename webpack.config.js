@@ -1,14 +1,9 @@
 'use strict';
 const path = require('path');
 
-module.exports = {
+const commonConfig = {
   target: 'web',
-  mode: 'development', // production or 'development' for non-minified output
-  entry: './src/workspacebrowser/webview-main.ts', // Workspace browser webview entry point
-  output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'out'),
-  },
+  mode: 'development',
   resolve: {
     extensions: ['.ts', '.js'],
   },
@@ -22,3 +17,22 @@ module.exports = {
     ],
   },
 };
+
+module.exports = [
+  {
+    ...commonConfig,
+    entry: './src/workspacebrowser/webview-main.ts',
+    output: {
+      filename: 'bundle.js',
+      path: path.resolve(__dirname, 'out'),
+    },
+  },
+  {
+    ...commonConfig,
+    entry: './src/variableviewer/webview-main.ts',
+    output: {
+      filename: 'vv-bundle.js',
+      path: path.resolve(__dirname, 'out'),
+    },
+  },
+];

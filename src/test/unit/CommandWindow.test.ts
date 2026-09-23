@@ -9,8 +9,10 @@ registerMockVscode();
 import * as assert from 'assert';
 import { suite, test, setup } from 'mocha';
 import CommandWindow from '../../commandwindow/CommandWindow';
+import { createResolvablePromise, ResolvablePromise } from '../../utils/ResolvablePromise';
 import { MVM, MatlabMVMConnectionState } from '../../commandwindow/MVM';
 import { PromptState } from '../../commandwindow/MVMInterface';
+import { CompletionItem, CompletionList } from 'vscode-languageclient';
 
 /**
  * Creates a CommandWindow with minimal mocks, initialized to READY state.
@@ -29,6 +31,8 @@ function createTestCommandWindow (): CommandWindow {
         return { dispose: () => {} };
     };
     mockMvm.getMatlabState = () => MatlabMVMConnectionState.CONNECTED;
+    mockMvm.getMatlabRelease = () => null;
+    mockMvm.eval = () => Promise.resolve();
     mockMvm.emit = () => {};
 
     const cw = new CommandWindow(mockMvm, mockNotifier as any, null as any);
@@ -63,6 +67,14 @@ function getAnchorIndex (cw: any): number | undefined {
     return cw._lastKnownAnchorIndex;
 }
 
+function captureWrites (cw: CommandWindow): string[] {
+    const writes: string[] = [];
+    cw.onDidWrite((data: string) => {
+        writes.push(data);
+    });
+    return writes;
+}
+
 const ESC = '\x1b';
 const KEYS = {
     CTRL_LEFT: ESC + '[1;5D',
@@ -71,9 +83,11 @@ const KEYS = {
     CTRL_SHIFT_RIGHT: ESC + '[1;6C',
     CTRL_BACKSPACE: '\x17',
     CTRL_DELETE: ESC + 'd',
+    CTRL_U: '\x15',
     LEFT: ESC + '[D',
     RIGHT: ESC + '[C',
-    HOME: ESC + '[H'
+    HOME: ESC + '[H',
+    TAB: '\t'
 };
 
 suite('CommandWindow Escape (clear line)', () => {
@@ -97,6 +111,50 @@ suite('CommandWindow Escape (clear line)', () => {
         assert.strictEqual(getEditableText(cw), '');
         assert.strictEqual(getAnchorIndex(cw), undefined);
     });
+});
+
+suite('CommandWindow Ctrl+U', () => {
+    let cw: CommandWindow;
+
+    setup(() => {
+        cw = createTestCommandWindow();
+    });
+
+    test('clears current input line without emitting a newline', () => {
+        cw.handleInput('hello world');
+        cw.handleInput(KEYS.CTRL_SHIFT_LEFT);
+        const writes = captureWrites(cw);
+
+        cw.handleInput(KEYS.CTRL_U);
+
+        assert.strictEqual(writes.includes('\r\n'), false);
+        assert.strictEqual(getEditableText(cw), '');
+        assert.strictEqual(getCursorIndex(cw), 0);
+        assert.strictEqual(getAnchorIndex(cw), undefined);
+    });
+});
+
+suite('CommandWindow Cancel Current Input', () => {
+    let cw: CommandWindow;
+
+    setup(() => {
+        cw = createTestCommandWindow();
+    });
+
+    test('leaves typed text on previous line and renders a fresh prompt', () => {
+        cw.handleInput('hello world');
+        cw.handleInput(KEYS.CTRL_SHIFT_LEFT);
+        const writes = captureWrites(cw);
+
+        cw.handleInterrupt();
+
+        assert.ok(writes.indexOf('\r\n') > 0);
+        assert.ok(writes.includes('>> '));
+        assert.strictEqual(getEditableText(cw), '');
+        assert.strictEqual(getCursorIndex(cw), 0);
+        assert.strictEqual(getAnchorIndex(cw), undefined);
+    });
+
 });
 
 suite('CommandWindow Word Navigation', () => {
@@ -327,6 +385,92 @@ suite('CommandWindow Word Navigation', () => {
             cw.handleInput(KEYS.CTRL_DELETE);
             assert.strictEqual(getEditableText(cw), 'world');
             assert.strictEqual(getAnchorIndex(cw), undefined);
+        });
+    });
+
+    interface TabCompletionMockCommandWindow extends CommandWindow {
+        _tabCompletionPromise?: ResolvablePromise<CompletionList>
+        resolveCompletions: (completions: CompletionList) => void
+    }
+
+    suite('CommandWindow Tab Completion', () => {
+        let cw: TabCompletionMockCommandWindow;
+
+        const pauser = async (time?: number): Promise<void> => { return await new Promise((resolve) => { setTimeout(resolve, time ?? 500); }) };
+
+        setup(() => {
+            const commandWindow: any = createTestCommandWindow();
+            commandWindow._requestCompletionData = function () {
+                const result = createResolvablePromise();
+                commandWindow._tabCompletionPromise = result;
+                return result;
+            };
+
+            commandWindow.resolveCompletions = function (completions: CompletionList) {
+                if (commandWindow._tabCompletionPromise) {
+                    commandWindow._tabCompletionPromise.resolve(completions);
+                    commandWindow._tabCompletionPromise = undefined;
+                }
+            };
+            cw = commandWindow;
+        });
+
+        test('Complete folders better', async () => {
+            cw.handleInput('cd foo/');
+            cw.handleInput(KEYS.TAB);
+            cw.resolveCompletions({
+                isIncomplete: false, items: [
+                    {
+                        label: 'bar/',
+                        extraData: {
+                            rawCompletion: 'foo/bar/',
+                            bounds: {
+                                left: 3,
+                                right: 7
+                            }
+                        },
+                        kind: 19
+                    } as any
+                ]
+            });
+            await pauser();
+            assert.strictEqual(getEditableText(cw), 'cd foo/bar');
+        });
+
+        test('Complete with non-standard and different bounds', async () => {
+            cw.handleInput('foop(');
+            cw.handleInput(KEYS.TAB);
+            cw.resolveCompletions({
+                isIncomplete: false, items: [
+                    {
+                        label: 'test1',
+                        extraData: {
+                            rawCompletion: 'BEEP',
+                            bounds: {
+                                left: 2,
+                                right: 4
+                            }
+                        },
+                        kind: 1
+                    } as any,
+                    {
+                        label: 'test2',
+                        extraData: {
+                            rawCompletion: 'ARG',
+                            bounds: {
+                                left: 5,
+                                right: 5
+                            }
+                        },
+                        kind: 1
+                    } as any
+                ]
+            });
+            await pauser();
+            assert.strictEqual(getEditableText(cw), 'foBEEP(');
+            cw.handleInput(KEYS.TAB);
+            await pauser();
+            assert.strictEqual(getEditableText(cw), 'foop(ARG');
         });
     });
 });

@@ -1,4 +1,4 @@
-# MATLAB extension for Visual Studio Code
+# MATLAB Extension for Visual Studio Code
 This extension provides support for editing, running, and debugging MATLAB&reg; code in Visual Studio&reg; Code and includes features such as syntax highlighting, code analysis, navigation support, and more. 
 
 You can use this extension with or without MATLAB installed on your system. However, to make use of the advanced features of the extension or run MATLAB code, you must have MATLAB R2021b or later installed. For more information, see the [Get Started](#get-started) section.
@@ -9,13 +9,14 @@ You can use this extension with or without MATLAB installed on your system. Howe
 1. [Installation](#installation)
 2. [Get Started](#get-started)
 3. [Run and Debug MATLAB Code](#run-and-debug-matlab-code)
-4. [View MATLAB Workspace Contents](#view-matlab-workspace-content)
+4. [View MATLAB Workspace Content](#view-matlab-workspace-content)
 5. [Work with MATLAB Projects](#work-with-matlab-projects)
-6. [Run MATLAB In Jupyter Notebooks](#run-matlab-in-jupyter-notebooks)
-7. [Configuration](#configuration)
-8. [Troubleshooting](#troubleshooting)
-9. [Contact Us](#contact-us)
-10. [Release Notes](#release-notes)
+6. [Run MATLAB Tests](#run-matlab-tests)
+7. [Run MATLAB in Jupyter Notebooks](#run-matlab-in-jupyter-notebooks)
+8. [Configuration](#configuration)
+9. [Troubleshooting](#troubleshooting)
+10. [Contact Us](#contact-us)
+11. [Release Notes](#release-notes)
 
 ## Installation
 You can install the extension from within Visual Studio Code or download it from [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MathWorks.language-matlab). After installing the extension, you might need to configure it to make full use of all the features. For more information, see the [Configuration](#configuration) section.
@@ -66,6 +67,9 @@ If you have MATLAB R2023a or later installed on your system, you can interactive
 In the Workspace section of the MATLAB view, you can:
 * View the name, value, size, and class of each variable in the MATLAB workspace.
 * Interactively rename, delete, and sort variables in the MATLAB workspace.
+* Open variables in a new tab to inspect their contents.
+
+To inspect a variable, right-click the variable in the Workspace section and select **Open Variable**. The variable opens in a new tab. Numeric variables that are scalars, vectors, or 2-D matrices, as well as tables, open in a scrollable data grid. Table data that cannot be displayed in the grid appears as plain text. Other variable types, such as structs, strings, categoricals, cell arrays, sparse matrices, and tall arrays, open as plain text previews.
 
 **Tip:** To access the MATLAB Workspace while debugging, drag the MATLAB icon from the Activity bar into the Run and Debug view. This adds the Workspace section of the MATLAB view to the Run and Debug view.
 
@@ -73,6 +77,7 @@ In the Workspace section of the MATLAB view, you can:
 
 ### Limitations
 * Interactively editing workspace variables in the Workspace section of the MATLAB view is limited to inline edits. Editing complex data types such as matrices, cells, and structs is not supported.
+* Variables opened from the workspace are read-only and cannot be edited.
 * Multi-row selection is not supported.
 * Refreshing the workspace is not supported.
 
@@ -88,9 +93,11 @@ When a project is open, Visual Studio Code shows the project name in the status 
 ## Run MATLAB Tests
 If you have MATLAB R2021b or later installed on your system, you can run MATLAB unit tests using the Test Explorer in Visual Studio Code. To add tests to the Test Explorer, open the Testing view by selecting the Testing icon in the Activity Bar on the left side of the Visual Studio Code window, and then click **Add Test Folder** or **Add Test File** in the Test Explorer. You also can add tests using the `MATLAB: Add Test Folder` and `MATLAB: Add Test File` commands in the Command Palette.
 
-When you add a test folder, the extension adds all tests in that folder and its subfolders. Tests appear in a hierarchical tree organized by file, test procedure, and parameterization. The test tree updates automatically when test files are modified or when files are added to or removed from your test folders. The extension supports class-based tests (including parameterized tests), function-based tests, and script-based tests.
+When you add a test folder, the extension adds all tests in that folder and its subfolders. Tests appear in a hierarchical tree organized by file, test procedure, and parameterization. The extension supports class-based tests (including parameterized tests), function-based tests, and script-based tests.
 
-To run tests, click **Run Test** to the right of a test or test file in the Test Explorer, or click **Run Tests** in the toolbar. Results appear in real time as each test completes, with icons indicating whether the test passed, failed, or remained incomplete. Additionally, as the tests run, test output appears in real time in the Test Results panel.
+By default, the test tree updates automatically when you modify or remove a discovered test file. To include newly added test files, click **Refresh Tests** on the Test Explorer toolbar. You also can refresh tests using the `MATLAB: Discover Tests` command in the Command Palette. To turn off automatic discovery, set the `MATLAB.discoverTestsAutomatically` setting to `false`. Then, to manually update the test tree, click **Refresh Tests**. To remove all tests from the Test Explorer, select **...** > **Clear All Tests** on the toolbar.
+
+To run tests, click **Run Test** to the right of a test or test file in the Test Explorer, or click **Run Tests** on the toolbar. You also can run all tests using the `MATLAB: Run All Tests` command in the Command Palette. Results appear in real time as each test completes, with icons indicating whether the test passed, failed, or remained incomplete. Additionally, as the tests run, test output appears in real time in the Test Results panel.
 
 If a test fails, click the failed test in the Test Explorer to navigate directly to the failing line in your test code and view test diagnostics. Alternatively, click the failed test in the Test Results panel to view diagnostic messages.
 
@@ -106,6 +113,9 @@ To configure the extension, go to the extension settings and select from the ava
 #### MATLAB Default Editor Setting
 By default, the extension uses the editor specified in the MATLAB Editor/Debugger settings to open files with the MATLAB `edit` and `open` commands. To make Visual Studio Code the default editor for these commands, set the `MATLAB.defaultEditor` setting to `true`. To revert to using the editor specified in the MATLAB Editor/Debugger settings, set `MATLAB.defaultEditor` to `false`.
 **Note:** Certain file types always open in MATLAB by default — for example, live scripts saved in the binary Live Code file format (.mlx) and MATLAB app files (.mlapp).
+
+#### MATLAB Discover Tests Automatically Setting
+By default, the extension automatically updates the test tree in the Test Explorer when test files change. To turn off automatic test discovery, set `MATLAB.discoverTestsAutomatically` to `false`. Then, to manually update the test tree, click **Refresh Tests** on the Test Explorer toolbar or use the `MATLAB: Discover Tests` command in the Command Palette.
 
 #### MATLAB Index Workspace Setting
 By default, the extension indexes all the MATLAB code files (`.m`) in your current Visual Studio Code workspace. Indexing allows the extension to find and navigate between your MATLAB code files. 

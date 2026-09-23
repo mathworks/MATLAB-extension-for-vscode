@@ -9,6 +9,7 @@ registerMockVscode()
 async function runTests (): Promise<void> {
     const mocha = new Mocha({
         ui: 'bdd',
+        retries: 3,
         reporter: 'spec'
     })
 

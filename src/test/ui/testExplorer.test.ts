@@ -16,7 +16,7 @@ suite('Test Explorer UI Tests', () => {
     });
 
     after(async () => {
-        await vs.disconnectFromMATLAB()
+        await vs.assertMATLABDisconnected()
     });
 
     test('Test Explorer view is available and shows welcome content', async () => {
@@ -37,6 +37,5 @@ suite('Test Explorer UI Tests', () => {
         await testExplorer.openTestExplorer()
         await vs.disconnectFromMATLAB()
         await testExplorer.assertWelcomeContentVisible()
-        await vs.connectToMATLAB()
     })
 });

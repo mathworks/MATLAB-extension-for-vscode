@@ -8,20 +8,28 @@ import { MatlabMVMConnectionState, MVM } from '../../commandwindow/MVM'
 import TelemetryLogger from '../telemetry/TelemetryLogger'
 import { MatlabTestInfo, TestDiscoveryRawResult } from './MatlabTestInterfaces'
 
-const DISCOVERY_DEBOUNCE_MS = 500
+const DISCOVERY_DEBOUNCE_MS = 2000
 const WORKSPACE_STATE_KEY = 'matlab.testing.folders'
 const WORKSPACE_STATE_FILES_KEY = 'matlab.testing.files'
 const WORKSPACE_STATE_EXCLUDED_KEY = 'matlab.testing.excludedFiles'
 
+const AUTO_DISCOVER_SETTING = 'MATLAB.discoverTestsAutomatically'
+
 const STATUS_ITEM_ID = 'matlab-status-placeholder'
+const PLACEHOLDER_CONNECT = 'Connect to MATLAB to discover tests'
+const PLACEHOLDER_REFRESH = 'Select the refresh button to discover tests'
+const PLACEHOLDER_DISCOVERING = 'Discovering tests...'
+const PLACEHOLDER_WAITING = 'Tests will be discovered when MATLAB is available...'
 
 export default class MatlabTestDiscovery extends BaseService {
     private readonly testFolders: Set<string> = new Set()
     private readonly testFiles: Set<string> = new Set()
     private readonly excludedFiles: Set<string> = new Set()
+    private readonly discoveredTestFiles: Set<string> = new Set()
     private debounceTimer: NodeJS.Timeout | undefined
-    private isDiscovering = false
-    private rediscoveryRequested = false
+    private cancelSource: vscode.CancellationTokenSource | undefined
+    private discoveryPending = false
+    private autoDiscoverEnabled: boolean
     private fileWatchers: vscode.Disposable[] = []
 
     constructor (
@@ -32,9 +40,14 @@ export default class MatlabTestDiscovery extends BaseService {
     ) {
         super()
 
+        this.autoDiscoverEnabled = MatlabTestDiscovery.isAutoDiscoverEnabled()
         this.restorePersistedState()
-        this.setupResolveHandler()
+        this.setupHandlers()
         this.registerEventListeners()
+    }
+
+    private static isAutoDiscoverEnabled (): boolean {
+        return vscode.workspace.getConfiguration('MATLAB').get<boolean>('discoverTestsAutomatically') ?? true
     }
 
     private restorePersistedState (): void {
@@ -43,7 +56,7 @@ export default class MatlabTestDiscovery extends BaseService {
         this.loadWorkspaceState(WORKSPACE_STATE_EXCLUDED_KEY, this.excludedFiles)
 
         if (this.mvm.getMatlabState() !== MatlabMVMConnectionState.CONNECTED && this.hasTestSources()) {
-            this.showStatusPlaceholder('Connect to MATLAB to discover tests')
+            this.showStatusPlaceholder(PLACEHOLDER_CONNECT)
         }
     }
 
@@ -52,11 +65,12 @@ export default class MatlabTestDiscovery extends BaseService {
         values.forEach(v => target.add(v))
     }
 
-    private setupResolveHandler (): void {
+    private setupHandlers (): void {
         this.controller.resolveHandler = async () => {
-            if (this.mvm.getMatlabState() === MatlabMVMConnectionState.CONNECTED) {
-                await this.discoverAll()
-            }
+            this.discoverAllAutomatic()
+        }
+        this.controller.refreshHandler = async (token: vscode.CancellationToken) => {
+            await this.discoverAll(token)
         }
     }
 
@@ -64,32 +78,84 @@ export default class MatlabTestDiscovery extends BaseService {
         this.own(this.mvm.on(MVM.Events.stateChanged, (oldState: MatlabMVMConnectionState, newState: MatlabMVMConnectionState) => {
             if (newState === MatlabMVMConnectionState.CONNECTED) {
                 this.removeStatusPlaceholder()
-                void this.discoverAll()
-            } else if (newState === MatlabMVMConnectionState.DISCONNECTED) {
-                this.controller.items.replace([])
-                if (this.hasTestSources()) {
-                    this.showStatusPlaceholder('Connect to MATLAB to discover tests')
+                if (this.autoDiscoverEnabled) {
+                    this.discoverAllAutomatic()
+                } else if (this.hasTestSources()) {
+                    this.showStatusPlaceholder(PLACEHOLDER_REFRESH)
                 }
+            } else if (newState === MatlabMVMConnectionState.DISCONNECTED) {
+                this.discoveryPending = false
+                this.controller.items.replace([])
+                this.discoveredTestFiles.clear()
+                if (this.hasTestSources()) {
+                    this.showStatusPlaceholder(PLACEHOLDER_CONNECT)
+                }
+            }
+        }))
+
+        // Re-run a deferred discovery once MATLAB is no longer busy with user work or debugging.
+        this.own(this.mvm.on(MVM.Events.promptChange, (_state: string, isIdle: boolean) => {
+            if (isIdle) {
+                this.runPendingDiscovery()
+            }
+        }))
+        this.own(this.mvm.on(MVM.Events.debuggingStateChanged, (isDebugging: boolean) => {
+            if (!isDebugging) {
+                this.runPendingDiscovery()
+            }
+        }))
+
+        this.own(vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration(AUTO_DISCOVER_SETTING)) {
+                this.handleAutoDiscoverSettingChanged()
             }
         }))
 
         this.refreshFileWatchers()
     }
 
+    private handleAutoDiscoverSettingChanged (): void {
+        const enabled = MatlabTestDiscovery.isAutoDiscoverEnabled()
+        if (enabled === this.autoDiscoverEnabled) {
+            return
+        }
+        this.autoDiscoverEnabled = enabled
+
+        if (enabled) {
+            this.refreshFileWatchers()
+        } else {
+            this.discoveryPending = false
+            this.disposeFileWatchers()
+        }
+    }
+
     private refreshFileWatchers (): void {
         this.disposeFileWatchers()
 
+        if (!this.autoDiscoverEnabled) {
+            return
+        }
+
         for (const folder of this.testFolders) {
-            this.addFileWatcher(new vscode.RelativePattern(vscode.Uri.file(folder), '**/*.m'))
+            this.addFolderWatcher(new vscode.RelativePattern(vscode.Uri.file(folder), '**/*.m'))
         }
 
         for (const file of this.testFiles) {
             const dir = vscode.Uri.file(path.dirname(file))
-            this.addFileWatcher(new vscode.RelativePattern(dir, path.basename(file)))
+            this.addFileSourceWatcher(new vscode.RelativePattern(dir, path.basename(file)))
         }
     }
 
-    private addFileWatcher (pattern: vscode.RelativePattern): void {
+    private addFolderWatcher (pattern: vscode.RelativePattern): void {
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern)
+        this.fileWatchers.push(
+            watcher,
+            watcher.onDidChange(uri => this.onKnownTestFileChanged(uri)),
+            watcher.onDidDelete(uri => this.onKnownTestFileChanged(uri))
+        )
+    }
+
+    private addFileSourceWatcher (pattern: vscode.RelativePattern): void {
         const watcher = vscode.workspace.createFileSystemWatcher(pattern)
         this.fileWatchers.push(
             watcher,
@@ -99,47 +165,102 @@ export default class MatlabTestDiscovery extends BaseService {
         )
     }
 
+    private onKnownTestFileChanged (uri: vscode.Uri): void {
+        if (this.discoveredTestFiles.has(uri.fsPath)) {
+            this.debouncedRediscover()
+        }
+    }
+
     private disposeFileWatchers (): void {
         this.fileWatchers.forEach(d => d.dispose())
         this.fileWatchers = []
     }
 
     override dispose (): void {
+        if (this.debounceTimer != null) {
+            clearTimeout(this.debounceTimer)
+            this.debounceTimer = undefined
+        }
+        this.cancelSource?.cancel()
+        this.cancelSource?.dispose()
+        this.cancelSource = undefined
         this.disposeFileWatchers()
         super.dispose()
     }
 
     /** Discovers tests from all registered folders and files, rebuilding the test tree. */
-    async discoverAll (): Promise<void> {
+    async discoverAll (token?: vscode.CancellationToken): Promise<void> {
+        await this.runDiscovery(token)
+    }
+
+    /** Runs discovery from an automatic trigger, honoring the setting and the busy/debug guard. */
+    private discoverAllAutomatic (): void {
+        if (!this.autoDiscoverEnabled) {
+            return
+        }
         if (this.mvm.getMatlabState() !== MatlabMVMConnectionState.CONNECTED) {
             return
         }
-        if (this.isDiscovering) {
-            this.rediscoveryRequested = true
+        if (this.mvm.isDebugging() || this.mvm.isBusy()) {
+            this.discoveryPending = true
+            if (this.controller.items.size === 0 && this.hasTestSources()) {
+                this.showStatusPlaceholder(PLACEHOLDER_WAITING)
+            }
+            return
+        }
+        void this.runDiscovery()
+    }
+
+    private runPendingDiscovery (): void {
+        if (!this.discoveryPending) {
+            return
+        }
+        if (this.mvm.getMatlabState() !== MatlabMVMConnectionState.CONNECTED) {
+            return
+        }
+        if (this.mvm.isDebugging() || this.mvm.isBusy()) {
+            return
+        }
+        this.discoveryPending = false
+        void this.runDiscovery()
+    }
+
+    private async runDiscovery (externalToken?: vscode.CancellationToken): Promise<void> {
+        if (this.mvm.getMatlabState() !== MatlabMVMConnectionState.CONNECTED) {
             return
         }
 
-        this.isDiscovering = true
+        this.cancelSource?.cancel()
+        this.cancelSource?.dispose()
+        const cancelSource = new vscode.CancellationTokenSource()
+        this.cancelSource = cancelSource
+        const token = cancelSource.token
+
+        const externalSub = externalToken?.onCancellationRequested(() => cancelSource.cancel())
+        const interruptSub = token.onCancellationRequested(() => this.mvm.interrupt())
+
         try {
             this.controller.items.replace([])
+            this.discoveredTestFiles.clear()
             if (this.hasTestSources()) {
-                this.showStatusPlaceholder('Discovering tests...')
+                this.showStatusPlaceholder(PLACEHOLDER_DISCOVERING)
             }
 
-            if (this.testFolders.size > 0) {
-                await this.discoverFromPaths([...this.testFolders], 'folder')
+            if (this.testFolders.size > 0 && !token.isCancellationRequested) {
+                await this.discoverFromPaths([...this.testFolders], 'folder', token)
             }
 
-            if (this.testFiles.size > 0) {
-                await this.discoverFromPaths([...this.testFiles], 'file')
+            if (this.testFiles.size > 0 && !token.isCancellationRequested) {
+                await this.discoverFromPaths([...this.testFiles], 'file', token)
             }
 
             this.removeStatusPlaceholder()
         } finally {
-            this.isDiscovering = false
-            if (this.rediscoveryRequested) {
-                this.rediscoveryRequested = false
-                void this.discoverAll()
+            externalSub?.dispose()
+            interruptSub.dispose()
+            cancelSource.dispose()
+            if (this.cancelSource === cancelSource) {
+                this.cancelSource = undefined
             }
         }
     }
@@ -208,6 +329,7 @@ export default class MatlabTestDiscovery extends BaseService {
         const filePath = target.uri?.fsPath ?? target.id
         this.excludedFiles.add(filePath)
         this.testFiles.delete(filePath)
+        this.discoveredTestFiles.delete(filePath)
 
         this.controller.items.delete(target.id)
 
@@ -216,13 +338,44 @@ export default class MatlabTestDiscovery extends BaseService {
         this.refreshFileWatchers()
     }
 
-    private async discoverFromPaths (paths: string[], mode: 'file' | 'folder'): Promise<void> {
+    /** Removes all registered test folders and files after user confirmation. */
+    async clearAllTestSources (): Promise<void> {
+        if (!this.hasTestSources()) return
+
+        const confirmAction = 'Clear All Tests'
+        const confirm = await vscode.window.showWarningMessage(
+            'Remove all test folders and files from the Test Explorer?',
+            { modal: true },
+            confirmAction
+        )
+        if (confirm !== confirmAction) return
+
+        this.cancelSource?.cancel()
+        this.discoveryPending = false
+        this.testFolders.clear()
+        this.testFiles.clear()
+        this.excludedFiles.clear()
+        this.discoveredTestFiles.clear()
+
+        await this.context.workspaceState.update(WORKSPACE_STATE_KEY, [])
+        await this.context.workspaceState.update(WORKSPACE_STATE_FILES_KEY, [])
+        await this.context.workspaceState.update(WORKSPACE_STATE_EXCLUDED_KEY, [])
+
+        this.disposeFileWatchers()
+        this.controller.items.replace([])
+    }
+
+    private async discoverFromPaths (paths: string[], mode: 'file' | 'folder', token?: vscode.CancellationToken): Promise<void> {
         try {
             const mdaPaths = { mwtype: 'string', mwsize: [1, paths.length], mwdata: paths }
 
             const response = await this.mvm.feval<TestDiscoveryRawResult>(
                 'matlabls.handlers.testing.discoverTests', 1, [mdaPaths, mode]
             )
+
+            if (token?.isCancellationRequested === true) {
+                return
+            }
 
             if ('error' in response) {
                 const error = (response as { error: Record<string, unknown> }).error
@@ -300,6 +453,7 @@ export default class MatlabTestDiscovery extends BaseService {
         const groupedByFile = this.groupBy(filtered, t => t.filename)
 
         for (const [filename, fileTests] of groupedByFile) {
+            this.discoveredTestFiles.add(filename)
             const fileItem = this.getOrCreateFileItem(filename)
             this.populateFileItem(fileItem, fileTests)
         }
@@ -362,7 +516,11 @@ export default class MatlabTestDiscovery extends BaseService {
     }
 
     private showStatusPlaceholder (label: string): void {
-        if (this.controller.items.get(STATUS_ITEM_ID) != null) return
+        const existing = this.controller.items.get(STATUS_ITEM_ID)
+        if (existing != null) {
+            existing.label = label
+            return
+        }
         const item = this.controller.createTestItem(STATUS_ITEM_ID, label)
         item.canResolveChildren = false
         this.controller.items.add(item)
@@ -376,6 +534,9 @@ export default class MatlabTestDiscovery extends BaseService {
         if (this.debounceTimer != null) {
             clearTimeout(this.debounceTimer)
         }
-        this.debounceTimer = setTimeout(() => { void this.discoverAll() }, DISCOVERY_DEBOUNCE_MS)
+        this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = undefined
+            this.discoverAllAutomatic()
+        }, DISCOVERY_DEBOUNCE_MS)
     }
 }

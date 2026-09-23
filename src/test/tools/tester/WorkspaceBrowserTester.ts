@@ -186,6 +186,21 @@ export class WorkspaceBrowserTester {
         await this.driver.actions({ async: true }).sendKeys(Key.ESCAPE).perform()
     }
 
+    // ── Variable Viewer ───────────────────────────────────────────
+
+    async openInVariableViewer (varName: string): Promise<void> {
+        await this.switchToFrame()
+        try {
+            const cell = await this.driver.findElement(
+                By.css(`tr[data-var="${varName}"] td[data-col="Size"]`)
+            )
+            const actions = this.driver.actions({ async: true })
+            await actions.doubleClick(cell).perform()
+        } finally {
+            await this.switchBack()
+        }
+    }
+
     // ── Sort Operations ─────────────────────────────────────────
 
     async clickColumnHeader (columnName: string): Promise<void> {
@@ -206,8 +221,9 @@ export class WorkspaceBrowserTester {
         await this.switchToFrame()
         try {
             const input = await this.driver.findElement(By.css(selector))
-            const actions = this.driver.actions({ async: true })
-            await actions.doubleClick(input).perform()
+            await input.click()
+            await this.driver.sleep(400) // must exceed EDIT_CLICK_DELAY_MS (300ms) in webview.ts
+            await input.click()
             await this.waitForEditMode(input)
             await input.sendKeys(text)
             await input.sendKeys(confirmKey)

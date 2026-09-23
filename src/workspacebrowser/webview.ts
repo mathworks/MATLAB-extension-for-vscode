@@ -25,6 +25,10 @@ let columnWidths: Record<string, number> = {}
 let selectedVarName: string | null = null
 let resizing: boolean = false
 
+// Minimum delay (ms) between first and second click to enter edit mode.
+// Prevents double-clicks from accidentally triggering inline editing.
+const EDIT_CLICK_DELAY_MS: number = 300
+
 // ── Keyboard Bindings ───────────────────────────────────────────
 
 type KeyAction = () => void
@@ -139,6 +143,7 @@ export function init (api: VsCodeApi): void {
     const table = document.querySelector('.wsb-table') as HTMLTableElement
     if (table != null) {
         table.addEventListener('click', handleTableClick)
+        table.addEventListener('mousedown', handleTableMouseDown)
         table.addEventListener('focusin', handleFocusIn)
         table.addEventListener('focusout', handleFocusOut)
     }
@@ -469,7 +474,7 @@ function createDataRow (row: WorkspaceVariable): HTMLTableRowElement {
     return tr
 }
 
-// Name column: type icon + editable input (readonly until double-click or context menu)
+// Name column: type icon + editable input (click-when-focused enters edit mode, double-click opens Variable Viewer)
 function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void {
     const iconLabel = document.createElement('div')
     iconLabel.className = 'wsb-icon-label'
@@ -490,13 +495,25 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
     input.dataset.varName = row.name
     input.dataset.originalValue = row.name
 
-    // Double-click enters edit mode
+    // First click records a timestamp; second click enters edit mode only after a delay
+    input.addEventListener('click', () => {
+        const readyTime = Number(input.dataset.editReady ?? '0')
+        if (readyTime > 0 && input.readOnly && Date.now() - readyTime >= EDIT_CLICK_DELAY_MS) {
+            enterEditMode(input)
+        } else if (readyTime === 0) {
+            input.dataset.editReady = String(Date.now())
+        }
+    })
+
+    // Double-click opens the Variable Viewer
     input.addEventListener('dblclick', () => {
-        enterEditMode(input)
+        delete input.dataset.editReady
+        vscodeApi.postMessage({ type: 'openVariable', variable: row.name })
     })
 
     // Commit rename on blur if the name changed, then return to readonly
     input.addEventListener('blur', () => {
+        delete input.dataset.editReady
         const newName = input.value.trim()
         const originalName = input.dataset.originalValue ?? ''
         input.classList.remove('wsb-value-error')
@@ -542,7 +559,7 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
     td.appendChild(iconLabel)
 }
 
-// Value column: editable input (readonly until double-click or context menu)
+// Value column: editable input (click-when-focused enters edit mode, double-click opens Variable Viewer)
 function createValueCell (td: HTMLTableCellElement, row: WorkspaceVariable): void {
     const input = document.createElement('input')
     input.type = 'text'
@@ -553,13 +570,25 @@ function createValueCell (td: HTMLTableCellElement, row: WorkspaceVariable): voi
     input.dataset.varName = row.name
     input.dataset.originalValue = row.fields.Value ?? ''
 
-    // Double-click enters edit mode
+    // First click records a timestamp; second click enters edit mode only after a delay
+    input.addEventListener('click', () => {
+        const readyTime = Number(input.dataset.editReady ?? '0')
+        if (readyTime > 0 && input.readOnly && Date.now() - readyTime >= EDIT_CLICK_DELAY_MS) {
+            enterEditMode(input)
+        } else if (readyTime === 0) {
+            input.dataset.editReady = String(Date.now())
+        }
+    })
+
+    // Double-click opens the Variable Viewer
     input.addEventListener('dblclick', () => {
-        enterEditMode(input)
+        delete input.dataset.editReady
+        vscodeApi.postMessage({ type: 'openVariable', variable: row.name })
     })
 
     // Commit edit on blur if the value changed, then return to readonly
     input.addEventListener('blur', () => {
+        delete input.dataset.editReady
         const newValue = input.value
         const originalValue = input.dataset.originalValue ?? ''
         input.readOnly = true
@@ -584,7 +613,8 @@ function createValueCell (td: HTMLTableCellElement, row: WorkspaceVariable): voi
     td.appendChild(input)
 }
 
-// Non-interactive columns (Class, Size): readonly input with size=1 for consistent table layout
+// Non-interactive columns (Class, Size): readonly input with size=1 for consistent table layout.
+// Double-click opens the Variable Viewer for the row's variable.
 function createTextCell (td: HTMLTableCellElement, row: WorkspaceVariable, colName: string): void {
     const input = document.createElement('input')
     input.type = 'text'
@@ -593,6 +623,11 @@ function createTextCell (td: HTMLTableCellElement, row: WorkspaceVariable, colNa
     input.readOnly = true
     input.tabIndex = -1
     input.value = row.fields[colName] ?? ''
+
+    input.addEventListener('dblclick', () => {
+        vscodeApi.postMessage({ type: 'openVariable', variable: row.name })
+    })
+
     td.appendChild(input)
 }
 
@@ -672,6 +707,17 @@ function patchRows (sortedRows: WorkspaceVariable[]): void {
 }
 
 // ── Event Handlers ───────────────────────────────────────────────
+
+// Suppress native text selection on multi-click (double-click) over readonly inputs.
+// Without this, the second mousedown of a double-click selects the input text,
+// causing a visible blue highlight flash before the dblclick handler fires.
+function handleTableMouseDown (e: MouseEvent): void {
+    if (e.detail < 2) return
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' && (target as HTMLInputElement).readOnly) {
+        e.preventDefault()
+    }
+}
 
 // Delegated click handler for the table element
 function handleTableClick (e: MouseEvent): void {

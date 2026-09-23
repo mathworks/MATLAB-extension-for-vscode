@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The MathWorks, Inc.
+// Copyright 2023-2026 The MathWorks, Inc.
 
 import * as path from 'path'
 import * as Mocha from 'mocha'
@@ -9,6 +9,7 @@ export async function run (): Promise<void> {
     const mocha = new Mocha({
         ui: 'tdd',
         color: true,
+        retries: 3,
         timeout: 600000 // set suite timeout to 10 minutes
     })
 

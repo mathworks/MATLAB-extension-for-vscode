@@ -1,0 +1,203 @@
+/* Copyright 2026 The MathWorks, Inc. */
+
+/* Grid renderer styles — loaded when GridRenderer is active */
+
+/* ── Grid Layout ───────────────────────────────────────────────── */
+
+.vv-grid-outer {
+    flex: 1;
+    display: grid;
+    grid-template-columns: var(--vv-row-header-width) 1fr;
+    grid-template-rows: var(--vv-col-header-height) 1fr;
+    overflow: hidden;
+    position: relative;
+}
+
+.vv-grid-outer * {
+    box-sizing: border-box;
+}
+
+.vv-corner {
+    grid-row: 1;
+    grid-column: 1;
+    z-index: 4;
+    background: var(--vscode-sideBarSectionHeader-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+}
+
+.vv-col-header-bar {
+    grid-row: 1;
+    grid-column: 2;
+    overflow: hidden;
+    z-index: 2;
+}
+
+.vv-row-header-col {
+    grid-row: 2;
+    grid-column: 1;
+    overflow: hidden;
+    z-index: 3;
+}
+
+.vv-grid-wrap {
+    grid-row: 2;
+    grid-column: 2;
+    overflow: auto;
+    position: relative;
+}
+
+.vv-spacer {
+    pointer-events: none;
+}
+
+.vv-viewport {
+    position: absolute;
+    pointer-events: auto;
+    overflow: hidden;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-editor-font-size, 13px);
+}
+
+.vv-col-header-container {
+    display: flex;
+}
+
+/* ── Pool Nodes ────────────────────────────────────────────────── */
+
+.vv-pool-row {
+    display: flex;
+    position: absolute;
+    height: var(--vv-row-height);
+}
+
+.vv-pool-cell {
+    height: var(--vv-row-height);
+    line-height: var(--vv-row-height-inner);
+}
+
+.vv-pool-col-header {
+    height: var(--vv-col-header-height);
+    line-height: var(--vv-col-header-height-inner);
+    text-align: center;
+    position: relative;
+}
+
+.vv-pool-row-header {
+    height: var(--vv-row-height);
+    line-height: var(--vv-row-height-inner);
+    width: var(--vv-row-header-width);
+    text-align: center;
+}
+
+/* ── Grid Headers ───────────────────────────────────────────────── */
+
+.vv-col-header {
+    background: var(--vscode-sideBarSectionHeader-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+    padding: 0 6px;
+    text-align: center;
+    white-space: nowrap;
+    font-weight: normal;
+    color: var(--vscode-descriptionForeground);
+    position: relative;
+}
+
+.vv-col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 1;
+}
+
+.vv-col-resize-handle:hover,
+.vv-col-resize-active .vv-col-resize-handle {
+    background: var(--vscode-focusBorder);
+    opacity: 0.6;
+}
+
+.vv-row-header {
+    background: var(--vscode-sideBarSectionHeader-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+    padding: 0 6px;
+    text-align: center;
+    white-space: nowrap;
+    font-weight: normal;
+    color: var(--vscode-descriptionForeground);
+}
+
+/* ── Grid Cells ─────────────────────────────────────────────────── */
+
+.vv-cell {
+    border: 1px solid var(--vscode-editorGroup-border);
+    padding: 0 6px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+}
+
+.vv-grid-outer[data-dtype="logical"] .vv-cell {
+    text-align: center;
+}
+
+.vv-cell-loading {
+    display: flex;
+    align-items: center;
+}
+
+.vv-cell-loading::after {
+    content: '';
+    display: block;
+    width: 60%;
+    height: 6px;
+    margin: 0 auto;
+    background: var(--vscode-editorWidget-border);
+    opacity: 0.4;
+    border-radius: 3px;
+}
+
+.vv-row:nth-child(even) {
+    background: var(--vscode-list-hoverBackground);
+}
+
+.vv-cell-selected {
+    background: var(--vscode-list-activeSelectionBackground) !important;
+    color: var(--vscode-list-activeSelectionForeground);
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+/* ── Status Bar ─────────────────────────────────────────────────── */
+
+.vv-status-bar {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-top: 1px solid var(--vscode-editorGroup-border);
+    background: var(--vscode-sideBarSectionHeader-background);
+    flex-shrink: 0;
+    min-height: 22px;
+}
+
+.vv-status-text {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-editor-font-size, 13px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vv-status-text.vv-error {
+    color: var(--vscode-errorForeground);
+}
+
+/* ── Focus ─────────────────────────────────────────────────────── */
+
+.vv-grid-outer:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}

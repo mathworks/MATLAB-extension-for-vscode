@@ -6,6 +6,7 @@ import { Notifier } from '../commandwindow/MultiClientNotifier'
 import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM'
 import Notification from '../notifications/Notifications'
 import { WorkspaceVariable, WorkspaceColumn, SavedState, ExtToWebview } from './types'
+import { WorkspaceVariableSummary } from '../variableviewer/types'
 import TelemetryLogger from '../services/telemetry/TelemetryLogger'
 import { WSB_MINIMUM_RELEASE, getUnsupportedHtml, getDisconnectedHtml, getWebviewHtml } from './templates'
 
@@ -37,6 +38,12 @@ const DEFAULT_COLUMNS: WorkspaceColumn[] = [
 ]
 
 export default class WorkspaceBrowserProvider extends BaseService implements vscode.WebviewViewProvider {
+    private readonly workspaceRefreshedEmitter = new vscode.EventEmitter<WorkspaceVariableSummary[]>()
+    readonly onWorkspaceRefreshed: vscode.Event<WorkspaceVariableSummary[]> = this.workspaceRefreshedEmitter.event
+
+    private readonly variableRenamedEmitter = new vscode.EventEmitter<{ oldName: string, newName: string }>()
+    readonly onVariableRenamed: vscode.Event<{ oldName: string, newName: string }> = this.variableRenamedEmitter.event
+
     private view: vscode.WebviewView | undefined
     private cachedRows: WorkspaceVariable[] | undefined
     private cachedColumns: WorkspaceColumn[] | undefined
@@ -341,6 +348,14 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         })
 
         this.sendDataToWebview()
+
+        this.workspaceRefreshedEmitter.fire(
+            this.cachedRows.map((row: WorkspaceVariable): WorkspaceVariableSummary => ({
+                name: row.name,
+                className: row.fields.Class ?? '',
+                size: row.fields.Size ?? ''
+            }))
+        )
     }
 
     private handleDataChangedMessage (msg: Record<string, unknown>): void {
@@ -389,6 +404,9 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
                     data: { action_type: 'wsbChangeLimitClicked', result: '' }
                 })
                 void vscode.commands.executeCommand('workbench.action.openSettings', MAX_VARS_SETTING_ID)
+                break
+            case 'openVariable':
+                void vscode.commands.executeCommand('matlab.openVariableViewer', msg.variable as string)
                 break
         }
     }
@@ -467,6 +485,8 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message: 'MATLAB is not ready' })
             return
         }
+
+        this.variableRenamedEmitter.fire({ oldName, newName })
 
         try {
             const response = await this.evalInWorkspace(`${newName} = ${oldName}; clear('${oldName}');`)
@@ -579,6 +599,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             this.cachedRows = []
             this.postToWebview({ type: 'setData', rows: [] })
             this.postToWebview({ type: 'setTruncationInfo', displayedCount: 0, totalCount: 0 })
+            this.workspaceRefreshedEmitter.fire([])
             return
         }
 

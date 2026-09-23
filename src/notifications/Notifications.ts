@@ -61,6 +61,10 @@ enum Notification {
     WSBServerMessage = 'WSBServerMessage',
     WSBClientMessage = 'WSBClientMessage',
 
+    // Variable Viewer
+    VVServerMessage = 'VVServerMessage',
+    VVClientMessage = 'VVClientMessage',
+
     // MATLAB projects
     ProjectOpened = 'matlab/project/opened',
     ProjectClosed = 'matlab/project/closed',

@@ -104,6 +104,14 @@ export class MVM extends EventedService {
         return this.getMatlabState() !== MatlabMVMConnectionState.DISCONNECTED && this._isCurrentlyDebugging;
     }
 
+    /**
+     * Whether MATLAB is currently handling user-initiated work.
+     * @returns True while one or more user evaluations are pending.
+     */
+    isBusy (): boolean {
+        return this._pendingUserEvals > 0;
+    }
+
     private _handleMatlabStateChange (newState: MatlabStateUpdate): void {
         const oldState = this._currentState;
         this._currentState = MatlabMVMConnectionState[newState.state.toUpperCase() as keyof typeof MatlabMVMConnectionState];

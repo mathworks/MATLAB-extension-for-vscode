@@ -368,6 +368,7 @@ export default class ExecutionCommandProvider extends BaseService {
             }
         });
         this._mvm.interrupt();
+        this._terminalService.getCommandWindow().handleInterrupt();
     }
 
     /**

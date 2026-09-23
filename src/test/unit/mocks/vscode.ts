@@ -122,7 +122,17 @@ export enum TestRunProfileKind {
 export const _state = {
     isTelemetryEnabled: true,
     sessionId: 'test-session-id',
-    telemetrySetting: true as boolean | undefined
+    telemetrySetting: true as boolean | undefined,
+    autoDiscoverSetting: true as boolean | undefined
+}
+
+const _configListeners: Array<(e: any) => void> = []
+export function _fireConfigChange (changedKey: string): void {
+    const e = { affectsConfiguration: (section: string) => changedKey === section || changedKey.startsWith(section + '.') }
+    _configListeners.forEach(l => l(e))
+}
+export function _resetConfigListeners (): void {
+    _configListeners.length = 0
 }
 
 export const env = {
@@ -157,9 +167,16 @@ export const workspace = {
         return watcher
     },
     getConfiguration: (_section?: string) => ({
-        get: (_key: string) => _state.telemetrySetting,
+        get: (key: string) => key === 'discoverTestsAutomatically' ? _state.autoDiscoverSetting : _state.telemetrySetting,
         update: () => Promise.resolve()
     }),
+    onDidChangeConfiguration: (listener: (e: any) => void) => {
+        _configListeners.push(listener)
+        return new Disposable(() => {
+            const i = _configListeners.indexOf(listener)
+            if (i >= 0) _configListeners.splice(i, 1)
+        })
+    },
     workspaceFolders: undefined as any
 }
 
