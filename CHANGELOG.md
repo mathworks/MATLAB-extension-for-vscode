@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.14] - 2026-09-22
+## [1.3.14] - 2026-09-23
 
 ### Added
 - Inspect variable contents by opening them in a new tab. (Addresses [mathworks/MATLAB-extension-for-vscode#337](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/337))
