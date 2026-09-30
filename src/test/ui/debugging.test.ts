@@ -86,7 +86,6 @@ suite('Debugging UI Tests', () => {
             this.skip()
         }
 
-        await editor.click()
         await editor.debugger.setBreakpointOnLine(5)
         await editor.type(Key.F5, 'F5 to run file')
 
