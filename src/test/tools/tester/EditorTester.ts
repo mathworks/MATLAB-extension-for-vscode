@@ -19,7 +19,8 @@ export class EditorTester extends vet.TextEditor {
 
     public async type (keys: string, message = ''): Promise<void> {
         console.log(`Sending keys to the editor. ${message}`);
-        await this.click();
+        const tab = await this.getTab();
+        await tab.select();
         return await this.findElement(vet.By.className('inputarea')).sendKeys(keys);
     }
 
