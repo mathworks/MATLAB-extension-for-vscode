@@ -2,7 +2,7 @@
 import { Key } from 'vscode-extension-tester';
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { EditorTester } from '../tools/tester/EditorTester'
-import { before, afterEach, after } from 'mocha';
+import { before, beforeEach, afterEach, after } from 'mocha';
 
 suite('Debugging UI Tests', () => {
     let vs: VSCodeTester
@@ -14,8 +14,12 @@ suite('Debugging UI Tests', () => {
         await vs.assertMATLABConnected()
         await vs.openMATLABTerminal()
         await vs.terminal.assertContains('>>', 'wait for ready prompt')
-        await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}'); clc`)
         await vs.closeActiveEditor()
+    });
+
+    beforeEach(async () => {
+        // Add the path before every test (and retry): on CI the test-files folder has been seen dropping off the MATLAB path after the first test
+        await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}'); clc`)
     });
 
     afterEach(async () => {
