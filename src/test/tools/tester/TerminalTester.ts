@@ -67,6 +67,18 @@ export class TerminalTester {
     }
 
     /**
+     * Assert MATLAB is idle at the '>>' prompt (not busy and not at the debug 'K>>' prompt)
+     */
+    public async assertIdlePrompt (message: string): Promise<void> {
+        return await this.vs.poll(this.isAtIdlePrompt.bind(this), true, `Assertion on terminal content: ${message}`)
+    }
+
+    private async isAtIdlePrompt (): Promise<boolean> {
+        const content = await this.getTerminalContent()
+        return content.endsWith('>>') && !content.endsWith('K>>')
+    }
+
+    /**
      * Checks if the MATLAB terminal contains some content (no polling)
      */
     private async doesTerminalContain (expected: string): Promise<boolean> {

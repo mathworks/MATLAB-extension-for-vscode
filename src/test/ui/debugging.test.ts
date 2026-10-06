@@ -23,7 +23,10 @@ suite('Debugging UI Tests', () => {
     });
 
     afterEach(async () => {
+        // Let the debug session end and MATLAB go idle before cleaning up, so the next test doesn't inherit a half-stopped state
         await editor.debugger.stopDebugSession()
+        await vs.terminal.assertIdlePrompt('MATLAB should be idle after debugging')
+        await editor.debugger.removeAllBreakpoints()
         await vs.terminal.executeCommand('dbclear all, clc')
         await vs.closeActiveEditor()
     });

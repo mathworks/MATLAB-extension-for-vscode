@@ -48,22 +48,61 @@ export class DebuggerTester {
     }
 
     /**
-     * Stops the VS Code debug session if one is still active.
+     * Stops the VS Code debug session if one is still active, and waits for it to end.
      * A stale session makes F5 continue that session instead of running the file.
      */
     public async stopDebugSession (): Promise<void> {
+        if (await this.selectCommandIfAvailable('Debug: Stop')) {
+            console.log('Stopping stale debug session')
+        }
+        // 'Debug: Stop' is only listed in the command palette while a session is active
+        return await this.vs.poll(async () => !(await this.isCommandAvailable('Debug: Stop')), true, 'Expected no active debug session')
+    }
+
+    /**
+     * Removes all breakpoints through VS Code so they stay in sync with MATLAB.
+     * 'dbclear all' alone clears MATLAB's breakpoints but leaves VS Code's in place.
+     */
+    public async removeAllBreakpoints (): Promise<void> {
+        if (!(await this.selectCommandIfAvailable('Debug: Remove All Breakpoints'))) {
+            console.log('Command "Debug: Remove All Breakpoints" not found')
+        }
+        return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
+    }
+
+    /**
+     * Returns true if the command palette lists a command with the given label.
+     */
+    private async isCommandAvailable (label: string): Promise<boolean> {
         const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
-        await prompt.setText('>Debug: Stop')
+        await prompt.setText(`>${label}`)
         await this.vs.pause(1000)
-        const picks = await prompt.getQuickPicks()
-        for (const pick of picks) {
-            if (await pick.getLabel() === 'Debug: Stop') {
-                console.log('Stopping stale debug session')
-                await pick.select()
-                return await this.vs.pause(2000) // wait for session to end
+        for (const pick of await prompt.getQuickPicks()) {
+            if (await pick.getLabel() === label) {
+                await prompt.cancel()
+                return true
             }
         }
-        return await prompt.cancel()
+        await prompt.cancel()
+        return false
+    }
+
+    /**
+     * Selects the command with the given label from the command palette.
+     * Returns false without running anything if the command is not listed.
+     */
+    private async selectCommandIfAvailable (label: string): Promise<boolean> {
+        const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
+        await prompt.setText(`>${label}`)
+        await this.vs.pause(1000)
+        for (const pick of await prompt.getQuickPicks()) {
+            if (await pick.getLabel() === label) {
+                await pick.select()
+                return true
+            }
+        }
+        await prompt.cancel()
+        return false
     }
 
     /**
