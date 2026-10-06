@@ -37,11 +37,45 @@ export class DebuggerTester {
     }
 
     public async assertDebugging (): Promise<void> {
-        return await this.vs.poll(async () => (await this.getCurrentExecutionLine()) !== -1, true, 'Expected debugger to be stopped at some line');
+        return await this.vs.poll(async () => {
+            const line = await this.getCurrentExecutionLine()
+            return line != null && line !== -1
+        }, true, 'Expected debugger to be stopped at some line');
     }
 
     public async assertNotDebugging (): Promise<void> {
-        return await this.vs.poll(this.getCurrentExecutionLine.bind(this), -1, 'Expected debugger to not be stopped at any line')
+        return await this.vs.poll(this.isNotDebuggingStable.bind(this), true, 'Expected debugger to not be stopped at any line')
+    }
+
+    /**
+     * Stops the VS Code debug session if one is still active.
+     * A stale session makes F5 continue that session instead of running the file.
+     */
+    public async stopDebugSession (): Promise<void> {
+        const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
+        await prompt.setText('>Debug: Stop')
+        await this.vs.pause(1000)
+        const picks = await prompt.getQuickPicks()
+        for (const pick of picks) {
+            if (await pick.getLabel() === 'Debug: Stop') {
+                console.log('Stopping stale debug session')
+                await pick.select()
+                return await this.vs.pause(2000) // wait for session to end
+            }
+        }
+        return await prompt.cancel()
+    }
+
+    /**
+     * Returns true if no execution line is found on several consecutive reads.
+     * A single read can miss the highlight while the editor re-renders after a key press.
+     */
+    private async isNotDebuggingStable (): Promise<boolean> {
+        for (let i = 0; i < 3; i++) {
+            if (await this.getCurrentExecutionLine() !== -1) return false
+            await this.vs.pause(300)
+        }
+        return true
     }
 
     /**
@@ -87,9 +121,10 @@ export class DebuggerTester {
     }
 
     /**
-     * Returns the line number where the debugger is currently paused, or -1 if not found.
+     * Returns the line number where the debugger is currently paused, -1 if not found,
+     * or null if the editor DOM changed mid-read and the state is unknown.
      */
-    private async getCurrentExecutionLine (): Promise<number> {
+    private async getCurrentExecutionLine (): Promise<number | null> {
         try {
             const debugHighlights = await this.editor.findElements(vet.By.css(`.${this.DEBUG_HIGHLIGHT_CLASS}`));
             if (debugHighlights.length === 0) return -1;
@@ -100,7 +135,7 @@ export class DebuggerTester {
             return await this.getLineNumberByTopPixels(topPixels);
         } catch (e) {
             console.log('Error getting current execution line:\n', e, '\nRetrying...')
-            return -1;
+            return null;
         }
     }
 }

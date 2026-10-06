@@ -204,8 +204,9 @@ jobs:
         if: always()
         with:
           name: screenshots-linux-${{ matrix.version }}
-          path: ${{ github.workspace }}/.s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots-archive
           if-no-files-found: ignore
+          include-hidden-files: true
 
   test-ui-windows:
     name: UI Test ${{ matrix.version }}-windows
@@ -228,8 +229,9 @@ jobs:
         if: always()
         with:
           name: screenshots-windows-${{ matrix.version }}
-          path: ${{ github.workspace }}/.s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots-archive
           if-no-files-found: ignore
+          include-hidden-files: true
 
   test-ui-macos:
     name: UI Test ${{ matrix.version }}-macos
@@ -252,8 +254,9 @@ jobs:
         if: always()
         with:
           name: screenshots-macos-${{ matrix.version }}
-          path: ${{ github.workspace }}/.s/screenshots
+          path: ${{ github.workspace }}/.s/screenshots-archive
           if-no-files-found: ignore
+          include-hidden-files: true
 
   # UNIT TESTS
   test-unit-linux:
