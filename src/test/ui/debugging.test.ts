@@ -99,14 +99,19 @@ suite('Debugging UI Tests', () => {
         await editor.type(Key.F5, 'F5 to run file')
 
         await editor.debugger.assertStoppedAtLine(5)
-        // Starting a debug session switches the sidebar to Run and Debug, so open the WSB after
+        // VS Code switches the sidebar to Run and Debug each time the debugger pauses, so reopen the WSB after every pause
         await vs.openWorkspaceBrowser()
         await editor.type(Key.F10, 'F10 to step over')
+        await editor.debugger.assertStoppedAtLine(6)
+        await editor.debugger.assertDebugViewOpen()
+        await vs.openWorkspaceBrowser()
         await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
         await vs.workspaceBrowser.assertVariableValue('e', '5', 'value should be 5')
 
-        await editor.debugger.assertStoppedAtLine(6)
+        // The current line stays on 6 after this step, so wait for the sidebar switch instead
         await editor.type(Key.F10, 'F10 to step over')
+        await editor.debugger.assertDebugViewOpen()
+        await vs.openWorkspaceBrowser()
         await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
         await vs.workspaceBrowser.assertVariableValue('e', '6', 'value should be updated to 6')
 

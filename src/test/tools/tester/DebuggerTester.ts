@@ -48,6 +48,15 @@ export class DebuggerTester {
     }
 
     /**
+     * Waits for VS Code to switch the sidebar to Run and Debug.
+     * With the default 'debug.openDebug' (openOnDebugBreak) this happens every time the debugger pauses,
+     * which hides other sidebar views such as the Workspace Browser.
+     */
+    public async assertDebugViewOpen (): Promise<void> {
+        return await this.vs.poll(this.isDebugViewOpen.bind(this), true, 'Expected Run and Debug view to open')
+    }
+
+    /**
      * Stops the VS Code debug session if one is still active, and waits for it to end.
      * A stale session makes F5 continue that session instead of running the file.
      */
@@ -69,6 +78,17 @@ export class DebuggerTester {
             console.log('Command "Remove All Breakpoints" not found')
         }
         return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
+    }
+
+    private async isDebugViewOpen (): Promise<boolean> {
+        try {
+            const control = await new vet.ActivityBar().getViewControl('Run and Debug')
+            if (control == null) return false
+            const klass = await control.getAttribute('class')
+            return klass.includes('checked') // the selected activity bar item has the 'checked' class
+        } catch {
+            return false
+        }
     }
 
     /**

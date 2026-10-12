@@ -9,6 +9,7 @@ export class WorkspaceBrowserTester {
     private readonly driver: WebDriver
     private inFrame: boolean = false
     private handle: string | undefined
+    private readonly POLLED_FRAME_TIMEOUT = 1000
 
     constructor (vs: VSCodeTester) {
         this.vs = vs
@@ -267,8 +268,9 @@ export class WorkspaceBrowserTester {
 
     private async hasVariable (varName: string): Promise<boolean> {
         try {
-            // Inside the try so a webview that isn't ready yet is retried by the poll instead of failing the test
-            await this.switchToFrame()
+            // Inside the try so a webview that isn't ready yet is retried by the poll instead of failing the test.
+            // Short timeout because the poll does the waiting; the default 10s per read stretches a 30s poll to minutes.
+            await this.switchToFrame(this.POLLED_FRAME_TIMEOUT)
             const elements = await this.driver.findElements(By.css(`tr[data-var="${varName}"]`))
             return elements.length > 0
         } catch {
@@ -280,7 +282,7 @@ export class WorkspaceBrowserTester {
 
     private async getVariableField (varName: string, field: 'value' | 'class' | 'size'): Promise<string> {
         try {
-            await this.switchToFrame()
+            await this.switchToFrame(this.POLLED_FRAME_TIMEOUT)
             let selector: string
             switch (field) {
                 case 'value':
