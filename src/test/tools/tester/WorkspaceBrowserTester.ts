@@ -23,22 +23,29 @@ export class WorkspaceBrowserTester {
         this.handle = await this.driver.getWindowHandle()
         await this.driver.switchTo().defaultContent()
 
-        const outerIframe = await this.driver.wait(
-            until.elementLocated(By.css('iframe.webview.ready')), timeout,
-            'Timed out waiting for outer webview iframe'
-        )
-        await this.driver.switchTo().frame(outerIframe)
+        try {
+            const outerIframe = await this.driver.wait(
+                until.elementLocated(By.css('iframe.webview.ready')), timeout,
+                'Timed out waiting for outer webview iframe'
+            )
+            await this.driver.switchTo().frame(outerIframe)
 
-        const innerIframe = await this.driver.wait(
-            until.elementLocated(By.id('active-frame')), timeout,
-            'Timed out waiting for active-frame iframe'
-        )
-        await this.driver.switchTo().frame(innerIframe)
+            const innerIframe = await this.driver.wait(
+                until.elementLocated(By.id('active-frame')), timeout,
+                'Timed out waiting for active-frame iframe'
+            )
+            await this.driver.switchTo().frame(innerIframe)
 
-        await this.driver.wait(
-            until.elementLocated(By.css('.wsb-container')), timeout,
-            'Timed out waiting for .wsb-container inside webview'
-        )
+            await this.driver.wait(
+                until.elementLocated(By.css('.wsb-container')), timeout,
+                'Timed out waiting for .wsb-container inside webview'
+            )
+        } catch (e) {
+            // Return to the top-level document so a partial switch doesn't strand later lookups inside the webview
+            console.log('Failed to switch to WSB webview:', (e as Error).message)
+            await this.driver.switchTo().defaultContent()
+            throw e
+        }
 
         this.inFrame = true
     }
@@ -259,8 +266,9 @@ export class WorkspaceBrowserTester {
     }
 
     private async hasVariable (varName: string): Promise<boolean> {
-        await this.switchToFrame()
         try {
+            // Inside the try so a webview that isn't ready yet is retried by the poll instead of failing the test
+            await this.switchToFrame()
             const elements = await this.driver.findElements(By.css(`tr[data-var="${varName}"]`))
             return elements.length > 0
         } catch {
@@ -271,8 +279,8 @@ export class WorkspaceBrowserTester {
     }
 
     private async getVariableField (varName: string, field: 'value' | 'class' | 'size'): Promise<string> {
-        await this.switchToFrame()
         try {
+            await this.switchToFrame()
             let selector: string
             switch (field) {
                 case 'value':

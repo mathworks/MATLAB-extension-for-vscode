@@ -64,8 +64,9 @@ export class DebuggerTester {
      * 'dbclear all' alone clears MATLAB's breakpoints but leaves VS Code's in place.
      */
     public async removeAllBreakpoints (): Promise<void> {
-        if (!(await this.selectCommandIfAvailable('Debug: Remove All Breakpoints'))) {
-            console.log('Command "Debug: Remove All Breakpoints" not found')
+        // VS Code lists this command without a 'Debug:' category prefix
+        if (!(await this.selectCommandIfAvailable('Remove All Breakpoints'))) {
+            console.log('Command "Remove All Breakpoints" not found')
         }
         return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
     }
