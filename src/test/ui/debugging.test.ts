@@ -40,7 +40,7 @@ suite('Debugging UI Tests', () => {
         await editor.debugger.setBreakpointOnLine(1)
         await editor.debugger.setBreakpointOnLine(3)
         await editor.type(Key.F5, 'F5 to run file');
-        await editor.debugger.assertStoppedAtLine(1)
+        await editor.debugger.assertRunFileStoppedAtLine(1)
         await editor.type(Key.F5, 'F5 to continue');
         await editor.debugger.assertStoppedAtLine(3)
         await editor.type(Key.F10, 'F10 to step over');
@@ -56,7 +56,7 @@ suite('Debugging UI Tests', () => {
         await vs.terminal.executeCommand('dbstop in hScript2 at 1')
         await vs.terminal.executeCommand('dbstop in hScript2 at 3')
         await editor.type(Key.F5, 'F5 to run file');
-        await editor.debugger.assertStoppedAtLine(1)
+        await editor.debugger.assertRunFileStoppedAtLine(1)
         await vs.terminal.assertContains('K>>', 'terminal should have K prompt')
         await vs.terminal.executeCommand('dbcont')
         await editor.debugger.assertStoppedAtLine(3)
@@ -69,7 +69,7 @@ suite('Debugging UI Tests', () => {
     test('Executing commands while debugging', async () => {
         editor = await vs.openEditor('hScript3.m')
         await editor.type(Key.F5, 'F5 to run file');
-        await editor.debugger.assertStoppedAtLine(2) // hScript3.m has keyboard on line 2
+        await editor.debugger.assertRunFileStoppedAtLine(2) // hScript3.m has keyboard on line 2
         await vs.terminal.executeCommand('12+17')
         await vs.terminal.assertContains('29', 'output should appear in terminal')
         await editor.type(Key.chord(Key.SHIFT, Key.F5), 'Shift+F5 to stop');
@@ -79,7 +79,7 @@ suite('Debugging UI Tests', () => {
     test('Test pause and resume while debugging', async () => {
         editor = await vs.openEditor('hScript3.m')
         await editor.type(Key.F5, 'F5 to run file');
-        await editor.debugger.assertStoppedAtLine(2) // Ensure we are stopped in a debug session
+        await editor.debugger.assertRunFileStoppedAtLine(2) // Ensure we are stopped in a debug session
         await editor.type(Key.F5, 'F5 to resume')
         await editor.debugger.assertNotDebugging()
         await vs.pause(500) // Allow execution briefly; hScript3.m finishes after ~5s, so F6 must come before then
@@ -98,7 +98,7 @@ suite('Debugging UI Tests', () => {
         await editor.debugger.setBreakpointOnLine(5)
         await editor.type(Key.F5, 'F5 to run file')
 
-        await editor.debugger.assertStoppedAtLine(5)
+        await editor.debugger.assertRunFileStoppedAtLine(5)
         // VS Code switches the sidebar to Run and Debug each time the debugger pauses, so reopen the WSB after every pause
         await vs.openWorkspaceBrowser()
         await editor.type(Key.F10, 'F10 to step over')

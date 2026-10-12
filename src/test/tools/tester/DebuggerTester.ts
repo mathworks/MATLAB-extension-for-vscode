@@ -36,6 +36,20 @@ export class DebuggerTester {
         return await this.vs.poll(() => this.getCurrentExecutionLine(), lineNumber, `Expected debugger to be stopped at ${lineNumber}`)
     }
 
+    /**
+     * Asserts the debugger stopped at the given line after pressing F5 to run the file.
+     * If it did not, runs the file from the command palette to tell whether F5 reached 'matlab.runFile' at all,
+     * then still fails with the original error.
+     */
+    public async assertRunFileStoppedAtLine (lineNumber: number): Promise<void> {
+        try {
+            return await this.assertStoppedAtLine(lineNumber)
+        } catch (e) {
+            await this.diagnoseRunFile(lineNumber)
+            throw e
+        }
+    }
+
     public async assertDebugging (): Promise<void> {
         return await this.vs.poll(async () => {
             const line = await this.getCurrentExecutionLine()
@@ -78,6 +92,22 @@ export class DebuggerTester {
             console.log('Command "Remove All Breakpoints" not found')
         }
         return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
+    }
+
+    /**
+     * F5 only runs 'matlab.runFile' while 'matlab.isDebugging' is false; otherwise it starts an empty VS Code debug session.
+     * The command palette entry has no such condition, so if it works where F5 did not, 'matlab.isDebugging' is stuck.
+     */
+    private async diagnoseRunFile (lineNumber: number): Promise<void> {
+        console.log('F5 did not run the file. Trying "MATLAB: Run File" from the command palette')
+        await this.stopDebugSession() // end the empty session F5 started
+        await this.vs.executeCommand('MATLAB: Run File')
+        try {
+            await this.assertStoppedAtLine(lineNumber)
+            console.log('"MATLAB: Run File" worked where F5 did not: F5 was not routed to matlab.runFile, so matlab.isDebugging is likely stuck')
+        } catch {
+            console.log('"MATLAB: Run File" also failed: the problem is not the F5 keybinding')
+        }
     }
 
     private async isDebugViewOpen (): Promise<boolean> {
