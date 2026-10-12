@@ -75,11 +75,11 @@ export class DebuggerTester {
      * A stale session makes F5 continue that session instead of running the file.
      */
     public async stopDebugSession (): Promise<void> {
-        if (await this.selectCommandIfAvailable('Debug: Stop')) {
+        if (await this.findCommand('Debug: Stop', true)) {
             console.log('Stopping stale debug session')
         }
         // 'Debug: Stop' is only listed in the command palette while a session is active
-        return await this.vs.poll(async () => !(await this.isCommandAvailable('Debug: Stop')), true, 'Expected no active debug session')
+        return await this.vs.poll(async () => !(await this.findCommand('Debug: Stop', false)), true, 'Expected no active debug session')
     }
 
     /**
@@ -88,7 +88,7 @@ export class DebuggerTester {
      */
     public async removeAllBreakpoints (): Promise<void> {
         // VS Code lists this command without a 'Debug:' category prefix
-        if (!(await this.selectCommandIfAvailable('Remove All Breakpoints'))) {
+        if (!(await this.findCommand('Remove All Breakpoints', true))) {
             console.log('Command "Remove All Breakpoints" not found')
         }
         return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
@@ -122,35 +122,42 @@ export class DebuggerTester {
     }
 
     /**
-     * Returns true if the command palette lists a command with the given label.
+     * Returns true if the command palette lists a command with the given label, selecting it if requested.
+     * The palette closes when something else takes focus (e.g. a terminal read), so a read from a closed palette is retried.
      */
-    private async isCommandAvailable (label: string): Promise<boolean> {
-        const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
-        await prompt.setText(`>${label}`)
-        await this.vs.pause(1000)
-        for (const pick of await prompt.getQuickPicks()) {
-            if (await pick.getLabel() === label) {
-                await prompt.cancel()
-                return true
+    private async findCommand (label: string, select: boolean): Promise<boolean> {
+        const attempts = 3
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return await this.tryFindCommand(label, select)
+            } catch (e) {
+                console.log(`Command palette closed while looking for "${label}" (attempt ${attempt} of ${attempts}): ${(e as Error).message}`)
+                await this.vs.pause(500)
             }
         }
-        await prompt.cancel()
-        return false
+        throw new Error(`Command palette kept closing while looking for "${label}"`)
     }
 
     /**
-     * Selects the command with the given label from the command palette.
-     * Returns false without running anything if the command is not listed.
+     * Single attempt for findCommand. Throws if the palette closed before its results could be trusted.
      */
-    private async selectCommandIfAvailable (label: string): Promise<boolean> {
+    private async tryFindCommand (label: string, select: boolean): Promise<boolean> {
         const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
         await prompt.setText(`>${label}`)
         await this.vs.pause(1000)
         for (const pick of await prompt.getQuickPicks()) {
             if (await pick.getLabel() === label) {
-                await pick.select()
+                if (select) {
+                    await pick.select()
+                } else {
+                    await prompt.cancel()
+                }
                 return true
             }
+        }
+        // An empty result only means "not found" if the palette was still open when it was read
+        if (!(await prompt.isDisplayed())) {
+            throw new Error('palette was not open when its results were read')
         }
         await prompt.cancel()
         return false
@@ -223,8 +230,8 @@ export class DebuggerTester {
             const topPixels = this.extractTopPixel(style);
             if (topPixels == null) return -1;
             return await this.getLineNumberByTopPixels(topPixels);
-        } catch (e) {
-            console.log('Error getting current execution line:\n', e, '\nRetrying...')
+        } catch {
+            // Expected right after a key press while the editor re-renders; the caller's poll retries
             return null;
         }
     }

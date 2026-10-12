@@ -10,6 +10,7 @@ export class WorkspaceBrowserTester {
     private inFrame: boolean = false
     private handle: string | undefined
     private readonly POLLED_FRAME_TIMEOUT = 1000
+    private lastFrameError: string | undefined
 
     constructor (vs: VSCodeTester) {
         this.vs = vs
@@ -43,11 +44,12 @@ export class WorkspaceBrowserTester {
             )
         } catch (e) {
             // Return to the top-level document so a partial switch doesn't strand later lookups inside the webview
-            console.log('Failed to switch to WSB webview:', (e as Error).message)
+            this.lastFrameError = (e as Error).message
             await this.driver.switchTo().defaultContent()
             throw e
         }
 
+        this.lastFrameError = undefined
         this.inFrame = true
     }
 
@@ -88,36 +90,53 @@ export class WorkspaceBrowserTester {
 
     // ── Assertions ──────────────────────────────────────────────
 
+    /**
+     * Polls a WSB read. On failure, logs once why the last attempt couldn't reach the webview, rather than on every attempt.
+     */
+    private async pollWsb (fn: () => Promise<unknown>, value: unknown, message: string, timeout: number): Promise<void> {
+        this.lastFrameError = undefined
+        try {
+            return await this.vs.poll(fn, value, message, timeout)
+        } catch (e) {
+            // Typed local: TypeScript can't see that the poll's reads set lastFrameError after the reset above
+            const reason = this.lastFrameError as string | undefined
+            if (reason !== undefined) {
+                console.log(`Last attempt could not reach the WSB webview: ${reason}`)
+            }
+            throw e
+        }
+    }
+
     async assertVariableExists (varName: string, message = '', timeout = 30000): Promise<void> {
-        return await this.vs.poll(
+        return await this.pollWsb(
             this.hasVariable.bind(this, varName), true,
             message !== '' ? message : `Expected variable "${varName}" to exist in WSB`, timeout
         )
     }
 
     async assertVariableNotExists (varName: string, message = '', timeout = 30000): Promise<void> {
-        return await this.vs.poll(
+        return await this.pollWsb(
             this.hasVariable.bind(this, varName), false,
             message !== '' ? message : `Expected variable "${varName}" to not exist in WSB`, timeout
         )
     }
 
     async assertVariableValue (varName: string, expected: string, message = '', timeout = 30000): Promise<void> {
-        return await this.vs.poll(
+        return await this.pollWsb(
             this.getVariableField.bind(this, varName, 'value'), expected,
             message !== '' ? message : `Expected variable "${varName}" to have value "${expected}"`, timeout
         )
     }
 
     async assertVariableClass (varName: string, expected: string, message = '', timeout = 30000): Promise<void> {
-        return await this.vs.poll(
+        return await this.pollWsb(
             this.getVariableField.bind(this, varName, 'class'), expected,
             message !== '' ? message : `Expected variable "${varName}" to have class "${expected}"`, timeout
         )
     }
 
     async assertVariableSize (varName: string, expected: string, message = '', timeout = 30000): Promise<void> {
-        return await this.vs.poll(
+        return await this.pollWsb(
             this.getVariableField.bind(this, varName, 'size'), expected,
             message !== '' ? message : `Expected variable "${varName}" to have size "${expected}"`, timeout
         )
