@@ -3,6 +3,7 @@
 import * as vscode from 'vscode'
 
 import BreakpointSynchronizer from './BreakpointSynchronizer';
+import { logDebugState } from './DebugStateLog';
 import MatlabDebugAdaptor from './MatlabDebugAdaptor';
 import { Notifier } from '../commandwindow/MultiClientNotifier';
 import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM';
@@ -72,6 +73,7 @@ export default class MatlabDebugger extends BaseService {
                 if (session.type !== 'matlab') {
                     return;
                 }
+                logDebugState(`Debug session started: ${session.id}`); // TEMPORARY
 
                 if (this._activeSession != null) {
                     void vscode.debug.stopDebugging(session);
@@ -90,6 +92,7 @@ export default class MatlabDebugger extends BaseService {
             }),
 
             vscode.debug.onDidTerminateDebugSession(async (session: vscode.DebugSession) => {
+                if (session.type === 'matlab') logDebugState(`Debug session ended: ${session.id}`); // TEMPORARY
                 if (this._activeSession === session) {
                     this._activeSession = undefined;
                 }

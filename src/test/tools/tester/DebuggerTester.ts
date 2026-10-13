@@ -1,5 +1,6 @@
 // Copyright 2024-2025 The MathWorks, Inc.
 import * as vet from 'vscode-extension-tester'
+import * as fs from 'fs'
 import { VSCodeTester } from './VSCodeTester'
 import { EditorTester } from './EditorTester'
 
@@ -108,6 +109,22 @@ export class DebuggerTester {
         } catch {
             console.log('"MATLAB: Run File" also failed: the problem is not the F5 keybinding')
         }
+        this.printDebugStateLog()
+    }
+
+    /**
+     * TEMPORARY: prints the extension's recent debugging-state changes (see src/debug/DebugStateLog.ts),
+     * to show whether MATLAB reported that debugging ended before F5 stopped running the file.
+     */
+    private printDebugStateLog (): void {
+        const logPath = process.env.MATLAB_DEBUG_STATE_LOG
+        if (logPath === undefined || !fs.existsSync(logPath)) {
+            console.log('No debugging-state log found')
+            return
+        }
+        const entries = fs.readFileSync(logPath, 'utf8').trim().split('\n')
+        const recent = entries.slice(-15)
+        console.log(`Extension debugging-state log (last ${recent.length} of ${entries.length} entries):\n${recent.join('\n')}`)
     }
 
     private async isDebugViewOpen (): Promise<boolean> {

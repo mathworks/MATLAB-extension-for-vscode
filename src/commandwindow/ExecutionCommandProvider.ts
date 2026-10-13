@@ -9,6 +9,7 @@ import TerminalService from './TerminalService'
 import BaseService from '../services/BaseService'
 import { SectionModel } from '../services/sections/model/SectionModel'
 import TelemetryLogger from '../services/telemetry/TelemetryLogger'
+import { logDebugState } from '../debug/DebugStateLog'
 
 // These values must match the results returned by mdbfileonpath.m in FilePathState.m
 enum FILE_PATH_STATE {
@@ -44,6 +45,7 @@ export default class ExecutionCommandProvider extends BaseService {
      * @returns
      */
     async handleRunFile (): Promise<void> {
+        logDebugState('matlab.runFile invoked'); // TEMPORARY
         const editor = vscode.window.activeTextEditor
 
         this._telemetryLogger.logEvent({

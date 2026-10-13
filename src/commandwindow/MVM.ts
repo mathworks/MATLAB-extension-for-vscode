@@ -5,6 +5,7 @@ import { TextEvent, FEvalResponse, EvalResponse, MVMError, BreakpointResponse, C
 import Notification from '../notifications/Notifications'
 import EventedService from '../services/EventedService'
 import { createResolvablePromise, ResolvablePromise } from '../utils/ResolvablePromise'
+import { logDebugState } from '../debug/DebugStateLog'
 
 /**
  * The current state of MATLAB
@@ -62,6 +63,7 @@ export class MVM extends EventedService {
             this._notifier.onNotification(Notification.MVMPromptChange, (data) => this.emit(Events.promptChange, data.state, data.isIdle)),
             this._notifier.onNotification(Notification.MVMInputPrompt, (promptString: string) => this.emit(Events.inputPrompt, promptString)),
             this._notifier.onNotification(Notification.DebuggingStateChange, (isDebugging) => {
+                logDebugState(`DebuggingStateChange received: isDebugging=${String(isDebugging)}`); // TEMPORARY
                 this._isCurrentlyDebugging = isDebugging;
                 this.emit(Events.debuggingStateChanged, isDebugging);
             })

@@ -21,6 +21,9 @@ export class TestSuite {
         this.vsixPath = path.resolve(`${pjson.name}-${pjson.version}.vsix`) // eslint-disable-line
         this.testsRoot = path.resolve(__dirname, '..', '..', 'ui')
 
+        // TEMPORARY: VS Code inherits this, so the extension records debugging-state changes (see src/debug/DebugStateLog.ts)
+        process.env.MATLAB_DEBUG_STATE_LOG = path.join(this.storageFolder, 'debug-state.log')
+
         // fetch MATLAB_Path from env variable and write vscode settings file
         const MATLAB_PATH = process.env.MATLAB_PATH as string
 
@@ -79,6 +82,7 @@ export class TestSuite {
             const testPath = path.join(this.testsRoot, test)
             const runId = `${index + 1}-${path.parse(test).name}`
             console.log(`Running test: ${test}`)
+            fs.rmSync(process.env.MATLAB_DEBUG_STATE_LOG as string, { force: true }) // TEMPORARY: start each suite with an empty log
             try {
                 const exitCode = await exTester.runTests(testPath, {
                     resources: [this.storageFolder],
