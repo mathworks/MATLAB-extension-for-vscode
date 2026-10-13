@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.15] - 2026-10-13
+
+### Fixed
+- Resolves issue with connecting to MATLAB R2026b on Apple Silicon. (Addresses [mathworks/MATLAB-extension-for-vscode#354](https://github.com/mathworks/MATLAB-extension-for-vscode/issues/354))
+
 ## [1.3.14] - 2026-09-23
 
 ### Added
