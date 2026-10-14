@@ -109,22 +109,29 @@ export class DebuggerTester {
         } catch {
             console.log('"MATLAB: Run File" also failed: the problem is not the F5 keybinding')
         }
-        this.printDebugStateLog()
     }
 
+    // TEMPORARY: number of debugging-state log entries already printed, shared across tests so nothing is printed twice
+    private static printedLogEntries = 0
+
     /**
-     * TEMPORARY: prints the extension's recent debugging-state changes (see src/debug/DebugStateLog.ts),
-     * to show whether MATLAB reported that debugging ended before F5 stopped running the file.
+     * TEMPORARY: prints the extension's debugging-state changes (see src/debug/DebugStateLog.ts) recorded since the last print,
+     * so every test shows whether MATLAB reported that debugging ended, including the tests that pass.
      */
-    private printDebugStateLog (): void {
+    public printNewDebugStateLog (label: string): void {
         const logPath = process.env.MATLAB_DEBUG_STATE_LOG
         if (logPath === undefined || !fs.existsSync(logPath)) {
-            console.log('No debugging-state log found')
+            console.log(`Debugging-state log for ${label}: no log found`)
             return
         }
-        const entries = fs.readFileSync(logPath, 'utf8').trim().split('\n')
-        const recent = entries.slice(-15)
-        console.log(`Extension debugging-state log (last ${recent.length} of ${entries.length} entries):\n${recent.join('\n')}`)
+        const entries = fs.readFileSync(logPath, 'utf8').split('\n').filter(entry => entry !== '')
+        if (entries.length < DebuggerTester.printedLogEntries) {
+            DebuggerTester.printedLogEntries = 0 // the runner clears the log at the start of each suite
+        }
+        const newEntries = entries.slice(DebuggerTester.printedLogEntries)
+        DebuggerTester.printedLogEntries = entries.length
+        const body = newEntries.length > 0 ? newEntries.map(entry => `  ${entry}`).join('\n') : '  (no entries)'
+        console.log(`Debugging-state log for ${label}:\n${body}`)
     }
 
     private async isDebugViewOpen (): Promise<boolean> {

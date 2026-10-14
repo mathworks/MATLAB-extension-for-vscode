@@ -7,6 +7,7 @@ import { before, beforeEach, afterEach, after } from 'mocha';
 suite('Debugging UI Tests', () => {
     let vs: VSCodeTester
     let editor: EditorTester
+    const attempts = new Map<string, number>() // TEMPORARY: attempt count per test, for the debugging-state log
 
     before(async () => {
         vs = new VSCodeTester();
@@ -22,13 +23,21 @@ suite('Debugging UI Tests', () => {
         await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}'); clc`)
     });
 
-    afterEach(async () => {
-        // Let the debug session end and MATLAB go idle before cleaning up, so the next test doesn't inherit a half-stopped state
-        await editor.debugger.stopDebugSession()
-        await vs.terminal.assertIdlePrompt('MATLAB should be idle after debugging')
-        await editor.debugger.removeAllBreakpoints()
-        await vs.terminal.executeCommand('dbclear all, clc')
-        await vs.closeActiveEditor()
+    afterEach(async function (this: Mocha.Context) {
+        try {
+            // Let the debug session end and MATLAB go idle before cleaning up, so the next test doesn't inherit a half-stopped state
+            await editor.debugger.stopDebugSession()
+            await vs.terminal.assertIdlePrompt('MATLAB should be idle after debugging')
+            await editor.debugger.removeAllBreakpoints()
+            await vs.terminal.executeCommand('dbclear all, clc')
+            await vs.closeActiveEditor()
+        } finally {
+            // TEMPORARY: print even if cleanup fails, so the log covers both the test and its cleanup
+            const title = this.currentTest?.title ?? 'unknown test'
+            const attempt = (attempts.get(title) ?? 0) + 1
+            attempts.set(title, attempt)
+            editor.debugger.printNewDebugStateLog(`"${title}" (attempt ${attempt}, test and cleanup)`)
+        }
     });
 
     after(async () => {
