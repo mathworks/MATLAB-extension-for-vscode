@@ -7,6 +7,7 @@ import { DebugProtocol } from '@vscode/debugprotocol'
 import { Notifier } from '../commandwindow/MultiClientNotifier'
 import { MVM, MatlabMVMConnectionState } from '../commandwindow/MVM'
 import Notification from '../notifications/Notifications'
+import { logDebugState } from './DebugStateLog'
 
 class PackagedRequest {
     debugRequest: DebugProtocol.Request;
@@ -124,6 +125,11 @@ export default class MatlabDebugAdaptor extends debug.DebugSession {
     }
 
     dispatchRequest (request: DebugProtocol.Request): void {
+        // TEMPORARY: record how a stop reaches MATLAB. Debug: Stop sends 'terminate' then 'disconnect'; Debug: Disconnect sends only 'disconnect'
+        if (request.command === 'terminate' || request.command === 'disconnect') {
+            logDebugState(`DAP request from VS Code: ${request.command} ${JSON.stringify(request.arguments ?? {})}`);
+        }
+
         if (request.command === 'initialize') {
             this._isStarted = true;
         }
