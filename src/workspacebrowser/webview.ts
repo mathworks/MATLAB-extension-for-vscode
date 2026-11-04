@@ -14,7 +14,7 @@ function getIconsBaseUri (): string {
     return document.body.dataset.iconsBaseUri ?? ''
 }
 
-// ── Module-Level State ───────────────────────────────────────────
+// #region Module-Level State
 
 let vscodeApi: VsCodeApi
 let columns: WorkspaceColumn[] = []
@@ -23,19 +23,26 @@ let sortColumn: string = ''
 let sortDirection: 'asc' | 'desc' = 'asc'
 let columnWidths: Record<string, number> = {}
 let selectedVarName: string | null = null
+let focusedColName: string | null = null
 let resizing: boolean = false
+let mousedownInProgress: boolean = false
+let pendingFocusRestore: boolean = false
+let pendingDelete: boolean = false
 
 // Minimum delay (ms) between first and second click to enter edit mode.
 // Prevents double-clicks from accidentally triggering inline editing.
 const EDIT_CLICK_DELAY_MS: number = 300
 
-// ── Keyboard Bindings ───────────────────────────────────────────
+// #endregion
+
+// #region Keyboard Bindings
 
 type KeyAction = () => void
 type KeyGuard = () => boolean
 
 interface KeyBinding {
     key: string
+    ctrlKey?: boolean
     action: KeyAction
     guard?: KeyGuard
 }
@@ -45,8 +52,24 @@ function noInputEditing (): boolean {
     return !(active != null && active.tagName === 'INPUT' && !active.readOnly)
 }
 
+function firstColName (): string {
+    return columns[0]?.name ?? 'Name'
+}
+
+function defaultColName (): string {
+    return focusedColName ?? firstColName()
+}
+
+function announce (message: string): void {
+    const el = document.getElementById('wsb-announcer')
+    if (el == null) return
+    el.textContent = ''
+    requestAnimationFrame(() => { el.textContent = message })
+}
+
 function deleteSelectedVariable (): void {
     if (selectedVarName == null) return
+    pendingDelete = true
     vscodeApi.postMessage({ type: 'deleteVariable', variable: selectedVarName })
 }
 
@@ -60,12 +83,23 @@ function getFocusedCellInfo (): { tr: HTMLTableRowElement, colName: string } | n
 }
 
 function focusCell (tr: Element, colName: string): void {
-    const td = tr.querySelector(`td[data-col="${CSS.escape(colName)}"]`)
-    const input = td?.querySelector('input') as HTMLInputElement | null
-    if (input != null) {
+    const td = tr.querySelector<HTMLElement>(`td[data-col="${CSS.escape(colName)}"]`)
+    if (td != null) {
         selectRow(tr.getAttribute('data-var')!)
-        input.focus()
-        tr.scrollIntoView?.({ block: 'nearest' })
+        focusedColName = colName
+        td.focus()
+        const tableWrap = tr.closest('.wsb-table-wrap')
+        if (tableWrap != null) {
+            const thead = tableWrap.querySelector('thead') as HTMLElement | null
+            const headerHeight = thead?.offsetHeight ?? 0
+            const wrapRect = tableWrap.getBoundingClientRect()
+            const rowRect = (tr as HTMLElement).getBoundingClientRect()
+            if (rowRect.top < wrapRect.top + headerHeight) {
+                tableWrap.scrollTop += rowRect.top - wrapRect.top - headerHeight
+            } else if (rowRect.bottom > wrapRect.bottom) {
+                tableWrap.scrollTop += rowRect.bottom - wrapRect.bottom
+            }
+        }
     }
 }
 
@@ -76,7 +110,7 @@ function moveDown (): void {
         if (next != null) focusCell(next, info.colName)
     } else {
         const first = document.querySelector('.wsb-table tbody tr')
-        if (first != null) focusCell(first, columns[0]?.name ?? 'Name')
+        if (first != null) focusCell(first, firstColName())
     }
 }
 
@@ -87,7 +121,7 @@ function moveUp (): void {
         if (prev != null) focusCell(prev, info.colName)
     } else {
         const first = document.querySelector('.wsb-table tbody tr')
-        if (first != null) focusCell(first, columns[0]?.name ?? 'Name')
+        if (first != null) focusCell(first, firstColName())
     }
 }
 
@@ -110,11 +144,11 @@ function moveLeft (): void {
 }
 
 function editFocusedCell (): void {
-    const active = document.activeElement as HTMLInputElement | null
+    const active = document.activeElement as HTMLElement | null
     if (active == null) return
-    if (active.classList.contains('wsb-name-input') || active.classList.contains('wsb-value-input')) {
-        if (active.readOnly) enterEditMode(active)
-    }
+    const td = active.closest('td[data-col]') ?? (active.matches('td[data-col]') ? active : null)
+    const input = td?.querySelector<HTMLInputElement>('.wsb-name-input, .wsb-value-input')
+    if (input?.readOnly === true) enterEditMode(input)
 }
 
 function renameSelectedVariable (): void {
@@ -123,17 +157,97 @@ function renameSelectedVariable (): void {
     if (input != null) enterEditMode(input)
 }
 
+function openSelectedVariable (): void {
+    if (selectedVarName == null) return
+    vscodeApi.postMessage({ type: 'openVariable', variable: selectedVarName })
+}
+
+function copySelectedVariableName (): void {
+    if (selectedVarName == null) return
+    void navigator.clipboard.writeText(selectedVarName)
+    announce('Copied to clipboard')
+}
+
+function moveToFirstCellInRow (): void {
+    const info = getFocusedCellInfo()
+    if (info == null) return
+    focusCell(info.tr, firstColName())
+}
+
+function moveToLastCellInRow (): void {
+    const info = getFocusedCellInfo()
+    if (info == null) return
+    focusCell(info.tr, columns[columns.length - 1]?.name ?? 'Name')
+}
+
+function moveToFirstCell (): void {
+    const first = document.querySelector('.wsb-table tbody tr')
+    if (first != null) focusCell(first, firstColName())
+}
+
+function moveToLastCell (): void {
+    const last = document.querySelector('.wsb-table tbody tr:last-child')
+    if (last != null) focusCell(last, columns[columns.length - 1]?.name ?? 'Name')
+}
+
+function pageDown (): void {
+    const info = getFocusedCellInfo()
+    if (info == null) return
+    const tableWrap = document.querySelector('.wsb-table-wrap') as HTMLElement
+    if (tableWrap == null) return
+    const rowHeight = info.tr.offsetHeight !== 0 ? info.tr.offsetHeight : 24
+    const pageSize = Math.max(1, Math.floor(tableWrap.clientHeight / rowHeight) - 1)
+    let target: Element = info.tr
+    for (let i = 0; i < pageSize; i++) {
+        const next = target.nextElementSibling
+        if (next == null) break
+        target = next
+    }
+    focusCell(target, info.colName)
+}
+
+function pageUp (): void {
+    const info = getFocusedCellInfo()
+    if (info == null) return
+    const tableWrap = document.querySelector('.wsb-table-wrap') as HTMLElement
+    if (tableWrap == null) return
+    const rowHeight = info.tr.offsetHeight !== 0 ? info.tr.offsetHeight : 24
+    const pageSize = Math.max(1, Math.floor(tableWrap.clientHeight / rowHeight) - 1)
+    let target: Element = info.tr
+    for (let i = 0; i < pageSize; i++) {
+        const prev = target.previousElementSibling
+        if (prev == null) break
+        target = prev
+    }
+    focusCell(target, info.colName)
+}
+
 const KEY_BINDINGS: KeyBinding[] = [
+    { key: 'c', ctrlKey: true, action: copySelectedVariableName, guard: noInputEditing },
+    { key: 'd', ctrlKey: true, action: openSelectedVariable, guard: noInputEditing },
+    { key: 'Home', ctrlKey: true, action: moveToFirstCell, guard: noInputEditing },
+    { key: 'End', ctrlKey: true, action: moveToLastCell, guard: noInputEditing },
     { key: 'Delete', action: deleteSelectedVariable, guard: noInputEditing },
+    { key: 'ArrowDown', ctrlKey: true, action: moveDown, guard: noInputEditing },
+    { key: 'ArrowUp', ctrlKey: true, action: moveUp, guard: noInputEditing },
+    { key: 'ArrowLeft', ctrlKey: true, action: moveLeft, guard: noInputEditing },
+    { key: 'ArrowRight', ctrlKey: true, action: moveRight, guard: noInputEditing },
     { key: 'ArrowDown', action: moveDown, guard: noInputEditing },
     { key: 'ArrowUp', action: moveUp, guard: noInputEditing },
     { key: 'ArrowLeft', action: moveLeft, guard: noInputEditing },
     { key: 'ArrowRight', action: moveRight, guard: noInputEditing },
+    { key: 'Home', action: moveToFirstCellInRow, guard: noInputEditing },
+    { key: 'End', action: moveToLastCellInRow, guard: noInputEditing },
+    { key: 'PageDown', action: pageDown, guard: noInputEditing },
+    { key: 'PageUp', action: pageUp, guard: noInputEditing },
     { key: 'Enter', action: editFocusedCell, guard: noInputEditing },
+    { key: ' ', action: editFocusedCell, guard: noInputEditing },
     { key: 'F2', action: renameSelectedVariable, guard: noInputEditing }
 ]
 
-// ── Exported Functions ───────────────────────────────────────────
+// #endregion
+
+// #region Exported Functions
 
 // Called once by webview-main.ts to bind event listeners and signal readiness
 export function init (api: VsCodeApi): void {
@@ -143,13 +257,48 @@ export function init (api: VsCodeApi): void {
     const table = document.querySelector('.wsb-table') as HTMLTableElement
     if (table != null) {
         table.addEventListener('click', handleTableClick)
+        table.addEventListener('dblclick', handleTableDblClick)
         table.addEventListener('mousedown', handleTableMouseDown)
         table.addEventListener('focusin', handleFocusIn)
         table.addEventListener('focusout', handleFocusOut)
+
+        // WAI-ARIA grid pattern: tbody is the single Tab stop for the data area.
+        // Individual cell inputs use tabIndex=-1 so Tab skips them; arrow keys
+        // handle all intra-grid navigation. When tbody receives focus (via Tab),
+        // we delegate to the last-focused cell, the selected row, or the first cell.
+        const tbody = table.querySelector('tbody')
+        if (tbody != null) {
+            tbody.setAttribute('tabindex', '0')
+            tbody.addEventListener('focus', () => {
+                if (mousedownInProgress) return
+                const info = getFocusedCellInfo()
+                if (info != null) {
+                    focusCell(info.tr, info.colName)
+                } else if (selectedVarName != null) {
+                    const row = tbody.querySelector(`tr[data-var="${CSS.escape(selectedVarName)}"]`)
+                    if (row != null) focusCell(row, defaultColName())
+                } else {
+                    const first = tbody.querySelector('tr')
+                    if (first != null) focusCell(first, defaultColName())
+                }
+            })
+        }
     }
+
+    document.addEventListener('mousedown', () => { mousedownInProgress = true }, true)
+    document.addEventListener('mouseup', () => { mousedownInProgress = false }, true)
 
     // Handle keyboard shortcuts via the dispatch table
     document.addEventListener('keydown', handleDocumentKeydown)
+
+    // When VS Code activates this webview (e.g. Ctrl+0), focus lands on <body>.
+    // Redirect to the grid so the user starts on the data, not a secondary element.
+    window.addEventListener('focus', () => {
+        if (document.activeElement === document.body || document.activeElement === document.documentElement) {
+            const tbody = document.querySelector<HTMLElement>('.wsb-table tbody')
+            tbody?.focus()
+        }
+    })
 
     // Listen for messages from the extension host
     window.addEventListener('message', (e: MessageEvent) => {
@@ -192,10 +341,16 @@ export function renderTable (): void {
 
     if (columns.length === 0) return
 
+    table.setAttribute('aria-rowcount', String(rows.length))
+    table.setAttribute('aria-colcount', String(columns.length))
+
     // ── Build Header Row ─────────────────────────────────────────
     const headerRow = document.createElement('tr')
-    for (const col of columns) {
-        headerRow.appendChild(createHeaderCell(col))
+    headerRow.setAttribute('role', 'row')
+    for (let i = 0; i < columns.length; i++) {
+        const th = createHeaderCell(columns[i])
+        th.setAttribute('aria-colindex', String(i + 1))
+        headerRow.appendChild(th)
     }
     thead.appendChild(headerRow)
 
@@ -203,6 +358,10 @@ export function renderTable (): void {
     for (const row of rows) {
         const tr = createDataRow(row)
         tbody.appendChild(tr)
+    }
+
+    if (rows.length === 0) {
+        announce('No variables in workspace')
     }
 
     // Restore scroll position after rebuild (clamped to the new scroll range)
@@ -219,6 +378,7 @@ export function resetState (): void {
     sortDirection = 'asc'
     columnWidths = {}
     selectedVarName = null
+    focusedColName = null
     resizing = false
 }
 
@@ -230,20 +390,55 @@ export function getState (): {
     sortDirection: 'asc' | 'desc'
     columnWidths: Record<string, number>
     selectedVarName: string | null
+    focusedColName: string | null
 } {
-    return { columns, rows, sortColumn, sortDirection, columnWidths, selectedVarName }
+    return { columns, rows, sortColumn, sortDirection, columnWidths, selectedVarName, focusedColName }
 }
 
-// ── Message Handlers ─────────────────────────────────────────────
+// #endregion
+
+// #region Message Handlers
 
 function onSetData (newRows: WorkspaceVariable[]): void {
     const oldRows = rows
     rows = newRows
 
+    const selectedMissing = selectedVarName != null && !newRows.some(r => r.name === selectedVarName)
+    const deletedSelected = pendingDelete && selectedMissing
+    let deletedIndex: number = -1
+    if (selectedMissing) {
+        deletedIndex = oldRows.findIndex(r => r.name === selectedVarName)
+        if (deletedSelected) {
+            pendingDelete = false
+            announce(`Variable ${selectedVarName ?? ''} deleted`)
+        }
+        selectedVarName = null
+    }
+
+    const activeHeader = (document.activeElement as HTMLElement | null)?.closest('th[data-col]') as HTMLElement | null
+    const activeHeaderCol = activeHeader?.getAttribute('data-col') ?? null
+
     if (canPatchInPlace(oldRows, newRows)) {
         patchRows(newRows)
     } else {
         renderTable()
+    }
+
+    if (activeHeaderCol != null) {
+        const newTh = document.querySelector<HTMLElement>(`.wsb-table thead th[data-col="${CSS.escape(activeHeaderCol)}"]`)
+        if (newTh != null) newTh.focus()
+    } else if (deletedSelected && newRows.length > 0) {
+        const tbody = document.querySelector('.wsb-table tbody')
+        if (tbody != null) {
+            const targetIndex = Math.min(deletedIndex, newRows.length - 1)
+            const targetRow = tbody.children[targetIndex]
+            if (targetRow != null) focusCell(targetRow, defaultColName())
+        }
+    } else if (pendingFocusRestore && selectedVarName != null) {
+        pendingFocusRestore = false
+        const tbody = document.querySelector('.wsb-table tbody')
+        const targetRow = tbody?.querySelector(`tr[data-var="${CSS.escape(selectedVarName)}"]`)
+        if (targetRow != null) focusCell(targetRow, defaultColName())
     }
 }
 
@@ -292,6 +487,7 @@ function onOperationError (msg: { operation: string, variable: string, message: 
     } else if (msg.operation === 'rename') {
         revertRenameWithErrorFlash(msg.variable)
     }
+    announce(`${msg.operation} failed: ${msg.message}`)
 }
 
 // Reverts a failed rename: finds the input by its stashed original name,
@@ -307,6 +503,7 @@ function revertRenameWithErrorFlash (originalName: string): void {
         context.varName = originalName
         tr.setAttribute('data-vscode-context', JSON.stringify(context))
     }
+    input.setAttribute('aria-label', `Name of variable ${originalName}`)
     revertWithErrorFlash(input)
 }
 
@@ -334,15 +531,72 @@ function onSortFromContextMenu (column: string, direction: 'asc' | 'desc'): void
     sortDirection = direction
     updateSortIndicators()
     notifyStateChanged()
+    const col = columns.find((c: WorkspaceColumn) => c.name === column)
+    announce(`Sorted by ${col?.label ?? column}, ${direction === 'asc' ? 'ascending' : 'descending'}`)
+}
+
+function setInputReadonly (input: HTMLInputElement): void {
+    input.readOnly = true
+    input.setAttribute('aria-hidden', 'true')
+    input.setAttribute('role', 'none')
+}
+
+function clearInputReadonly (input: HTMLInputElement): void {
+    input.readOnly = false
+    input.removeAttribute('aria-hidden')
+    input.removeAttribute('role')
+}
+
+// First click records a timestamp; second click enters edit mode only after a delay
+function addEditClickHandler (input: HTMLInputElement): void {
+    input.addEventListener('click', () => {
+        const readyTime = Number(input.dataset.editReady ?? '0')
+        if (readyTime > 0 && input.readOnly && Date.now() - readyTime >= EDIT_CLICK_DELAY_MS) {
+            enterEditMode(input)
+        } else if (readyTime === 0) {
+            input.dataset.editReady = String(Date.now())
+        }
+    })
+}
+
+// Double-click opens the Variable Viewer
+function addOpenOnDblClick (input: HTMLInputElement, varName: string): void {
+    input.addEventListener('dblclick', () => {
+        delete input.dataset.editReady
+        vscodeApi.postMessage({ type: 'openVariable', variable: varName })
+    })
+}
+
+// Only handle Enter/Escape when actively editing — let readonly state bubble to the document handler
+function addEditKeyHandler (input: HTMLInputElement): void {
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (input.readOnly) return
+        if (e.key === 'Enter') {
+            e.stopPropagation()
+            input.setSelectionRange(0, 0)
+            input.blur();
+            (input.closest('td') as HTMLElement)?.focus()
+        } else if (e.key === 'Escape') {
+            e.stopPropagation()
+            announce('Edit cancelled')
+            input.value = input.dataset.originalValue ?? ''
+            input.setSelectionRange(0, 0)
+            input.blur();
+            (input.closest('td') as HTMLElement)?.focus()
+        }
+    })
 }
 
 // Transitions an input from readonly display to active edit mode.
 // Stashes the current value for revert-on-Escape and selects all text.
 function enterEditMode (input: HTMLInputElement): void {
-    input.readOnly = false
+    clearInputReadonly(input)
     input.dataset.originalValue = input.value
     input.focus()
     input.select()
+    const label = input.classList.contains('wsb-name-input') ? 'name' : 'value'
+    const varName = input.dataset.varName ?? ''
+    announce(`Editing ${label} of ${varName}`)
 }
 
 // Focuses the Value input for a variable, entering edit mode
@@ -361,7 +615,9 @@ function onFocusNameInput (variable: string): void {
     }
 }
 
-// ── Header Sort Indicator Update ─────────────────────────────────
+// #endregion
+
+// #region Table Construction
 
 function updateSortIndicators (): void {
     const headers = document.querySelectorAll('.wsb-table thead th')
@@ -373,19 +629,60 @@ function updateSortIndicators (): void {
         if (colName === sortColumn) {
             th.classList.add('wsb-sorted')
             icon.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼'
+            th.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending')
         } else {
             th.classList.remove('wsb-sorted')
             icon.textContent = ' ▲'
+            th.removeAttribute('aria-sort')
         }
     }
 }
 
-// ── Header Cell Creation ─────────────────────────────────────────
+// #region Header Cell Creation
 
 // Builds a single header cell: label, sort indicator, resizer handle, and persisted width
 function createHeaderCell (col: WorkspaceColumn): HTMLTableCellElement {
     const th = document.createElement('th')
+    th.setAttribute('role', 'columnheader')
     th.setAttribute('data-col', col.name)
+
+    th.setAttribute('tabindex', '-1')
+
+    if (col.sortable) {
+        th.style.cursor = 'pointer'
+        if (sortColumn === col.name) {
+            th.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending')
+        }
+    }
+
+    th.addEventListener('keydown', (e: KeyboardEvent) => {
+        if ((e.key === 'Enter' || e.key === ' ') && col.sortable) {
+            e.preventDefault()
+            if (sortColumn === col.name) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'
+            } else {
+                sortColumn = col.name
+                sortDirection = 'asc'
+            }
+            updateSortIndicators()
+            notifyStateChanged()
+            announce(`Sorted by ${col.label}, ${sortDirection === 'asc' ? 'ascending' : 'descending'}`)
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            const next = th.nextElementSibling as HTMLElement | null
+            if (next != null) {
+                focusedColName = next.getAttribute('data-col')
+                next.focus()
+            }
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const prev = th.previousElementSibling as HTMLElement | null
+            if (prev != null) {
+                focusedColName = prev.getAttribute('data-col')
+                prev.focus()
+            }
+        }
+    })
 
     // VS Code reads this attribute for context menu when clauses
     th.setAttribute('data-vscode-context', JSON.stringify({
@@ -401,6 +698,7 @@ function createHeaderCell (col: WorkspaceColumn): HTMLTableCellElement {
     if (col.sortable) {
         const sortIcon = document.createElement('span')
         sortIcon.className = 'wsb-sort-icon'
+        sortIcon.setAttribute('aria-hidden', 'true')
         if (sortColumn === col.name) {
             th.classList.add('wsb-sorted')
             sortIcon.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼'
@@ -431,10 +729,13 @@ function createHeaderCell (col: WorkspaceColumn): HTMLTableCellElement {
     return th
 }
 
-// ── Data Row Creation ────────────────────────────────────────────
+// #endregion
+
+// #region Data Row Creation
 
 function createDataRow (row: WorkspaceVariable): HTMLTableRowElement {
     const tr = document.createElement('tr')
+    tr.setAttribute('role', 'row')
     tr.setAttribute('data-var', row.name)
 
     // VS Code reads this attribute for context menu when clauses
@@ -446,11 +747,19 @@ function createDataRow (row: WorkspaceVariable): HTMLTableRowElement {
 
     if (row.name === selectedVarName) {
         tr.classList.add('wsb-selected')
+        tr.setAttribute('aria-selected', 'true')
+    } else {
+        tr.setAttribute('aria-selected', 'false')
     }
 
-    for (const col of columns) {
+    for (let i = 0; i < columns.length; i++) {
+        const col = columns[i]
         const td = document.createElement('td')
         td.setAttribute('data-col', col.name)
+        td.setAttribute('tabindex', '-1')
+        td.setAttribute('aria-colindex', String(i + 1))
+
+        td.setAttribute('role', 'gridcell')
 
         if (col.name === 'Name') {
             createNameCell(td, row)
@@ -476,6 +785,9 @@ function createDataRow (row: WorkspaceVariable): HTMLTableRowElement {
 
 // Name column: type icon + editable input (click-when-focused enters edit mode, double-click opens Variable Viewer)
 function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void {
+    td.setAttribute('aria-label', row.name)
+    td.setAttribute('aria-roledescription', 'editable cell')
+
     const iconLabel = document.createElement('div')
     iconLabel.className = 'wsb-icon-label'
 
@@ -484,32 +796,20 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
     const iconFile = getIconFilename(row.fields.Class ?? '')
     const isDark = document.body.classList.contains('vscode-dark')
     img.src = `${getIconsBaseUri()}/icons/${isDark ? 'dark' : 'light'}/${iconFile}`
-    img.alt = row.fields.Class ?? ''
+    img.alt = ''
 
     const input = document.createElement('input')
     input.type = 'text'
     input.size = 1
     input.className = 'wsb-name-input'
+    input.tabIndex = -1
     input.value = row.name
-    input.readOnly = true
+    setInputReadonly(input)
     input.dataset.varName = row.name
     input.dataset.originalValue = row.name
 
-    // First click records a timestamp; second click enters edit mode only after a delay
-    input.addEventListener('click', () => {
-        const readyTime = Number(input.dataset.editReady ?? '0')
-        if (readyTime > 0 && input.readOnly && Date.now() - readyTime >= EDIT_CLICK_DELAY_MS) {
-            enterEditMode(input)
-        } else if (readyTime === 0) {
-            input.dataset.editReady = String(Date.now())
-        }
-    })
-
-    // Double-click opens the Variable Viewer
-    input.addEventListener('dblclick', () => {
-        delete input.dataset.editReady
-        vscodeApi.postMessage({ type: 'openVariable', variable: row.name })
-    })
+    addEditClickHandler(input)
+    addOpenOnDblClick(input, row.name)
 
     // Commit rename on blur if the name changed, then return to readonly
     input.addEventListener('blur', () => {
@@ -517,7 +817,7 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
         const newName = input.value.trim()
         const originalName = input.dataset.originalValue ?? ''
         input.classList.remove('wsb-value-error')
-        input.readOnly = true
+        setInputReadonly(input)
 
         // Reject empty names — revert without a server round-trip
         if (newName === '') {
@@ -536,23 +836,16 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
                 tr.setAttribute('data-vscode-context', JSON.stringify(context))
             }
             input.dataset.varName = newName
+            td.setAttribute('aria-label', newName)
+            selectedVarName = newName
+            pendingFocusRestore = true
 
             vscodeApi.postMessage({ type: 'renameVariable', variable: originalName, newName })
+            announce(`Renamed to ${newName}`)
         }
     })
 
-    // Only handle Enter/Escape when actively editing — let readonly state bubble to the document handler
-    input.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (input.readOnly) return
-        if (e.key === 'Enter') {
-            e.stopPropagation()
-            input.blur()
-        } else if (e.key === 'Escape') {
-            e.stopPropagation()
-            input.value = input.dataset.originalValue ?? ''
-            input.blur()
-        }
-    })
+    addEditKeyHandler(input)
 
     iconLabel.appendChild(img)
     iconLabel.appendChild(input)
@@ -561,54 +854,36 @@ function createNameCell (td: HTMLTableCellElement, row: WorkspaceVariable): void
 
 // Value column: editable input (click-when-focused enters edit mode, double-click opens Variable Viewer)
 function createValueCell (td: HTMLTableCellElement, row: WorkspaceVariable): void {
+    td.setAttribute('aria-label', row.fields.Value ?? '')
+    td.setAttribute('aria-roledescription', 'editable cell')
+
     const input = document.createElement('input')
     input.type = 'text'
     input.size = 1
     input.className = 'wsb-value-input'
+    input.tabIndex = -1
     input.value = row.fields.Value ?? ''
-    input.readOnly = true
+    setInputReadonly(input)
     input.dataset.varName = row.name
     input.dataset.originalValue = row.fields.Value ?? ''
 
-    // First click records a timestamp; second click enters edit mode only after a delay
-    input.addEventListener('click', () => {
-        const readyTime = Number(input.dataset.editReady ?? '0')
-        if (readyTime > 0 && input.readOnly && Date.now() - readyTime >= EDIT_CLICK_DELAY_MS) {
-            enterEditMode(input)
-        } else if (readyTime === 0) {
-            input.dataset.editReady = String(Date.now())
-        }
-    })
-
-    // Double-click opens the Variable Viewer
-    input.addEventListener('dblclick', () => {
-        delete input.dataset.editReady
-        vscodeApi.postMessage({ type: 'openVariable', variable: row.name })
-    })
+    addEditClickHandler(input)
+    addOpenOnDblClick(input, row.name)
 
     // Commit edit on blur if the value changed, then return to readonly
     input.addEventListener('blur', () => {
         delete input.dataset.editReady
         const newValue = input.value
         const originalValue = input.dataset.originalValue ?? ''
-        input.readOnly = true
+        setInputReadonly(input)
         if (newValue !== originalValue) {
+            td.setAttribute('aria-label', newValue)
             vscodeApi.postMessage({ type: 'editValue', variable: row.name, newValue })
+            announce('Value changed')
         }
     })
 
-    // Only handle Enter/Escape when actively editing — let readonly state bubble to the document handler
-    input.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (input.readOnly) return
-        if (e.key === 'Enter') {
-            e.stopPropagation()
-            input.blur()
-        } else if (e.key === 'Escape') {
-            e.stopPropagation()
-            input.value = input.dataset.originalValue ?? ''
-            input.blur()
-        }
-    })
+    addEditKeyHandler(input)
 
     td.appendChild(input)
 }
@@ -616,11 +891,13 @@ function createValueCell (td: HTMLTableCellElement, row: WorkspaceVariable): voi
 // Non-interactive columns (Class, Size): readonly input with size=1 for consistent table layout.
 // Double-click opens the Variable Viewer for the row's variable.
 function createTextCell (td: HTMLTableCellElement, row: WorkspaceVariable, colName: string): void {
+    td.setAttribute('aria-label', row.fields[colName] ?? '')
+
     const input = document.createElement('input')
     input.type = 'text'
     input.size = 1
     input.className = 'wsb-text-input'
-    input.readOnly = true
+    setInputReadonly(input)
     input.tabIndex = -1
     input.value = row.fields[colName] ?? ''
 
@@ -631,7 +908,9 @@ function createTextCell (td: HTMLTableCellElement, row: WorkspaceVariable, colNa
     td.appendChild(input)
 }
 
-// ── Incremental DOM Patching ─────────────────────────────────────
+// #endregion
+
+// #region Incremental DOM Patching
 
 // Checks whether the incoming data can be patched in-place without a full rebuild.
 // Data arrives pre-sorted from the extension host, so we compare row identity directly.
@@ -673,7 +952,7 @@ function patchRows (sortedRows: WorkspaceVariable[]): void {
                     const newSrc = `${getIconsBaseUri()}/icons/${isDark ? 'dark' : 'light'}/${iconFile}`
                     if (img.src !== newSrc) {
                         img.src = newSrc
-                        img.alt = row.fields.Class ?? ''
+                        img.alt = ''
                     }
                 }
                 // Skip patching name input if the user is actively editing
@@ -683,6 +962,7 @@ function patchRows (sortedRows: WorkspaceVariable[]): void {
                         nameInput.value = row.name
                         nameInput.dataset.originalValue = row.name
                         nameInput.dataset.varName = row.name
+                        td.setAttribute('aria-label', row.name)
                     }
                 }
             } else if (col.name === 'Value') {
@@ -693,6 +973,7 @@ function patchRows (sortedRows: WorkspaceVariable[]): void {
                     if (input.value !== newValue) {
                         input.value = newValue
                         input.dataset.originalValue = newValue
+                        td.setAttribute('aria-label', newValue)
                     }
                 }
             } else {
@@ -700,13 +981,17 @@ function patchRows (sortedRows: WorkspaceVariable[]): void {
                 const input = td.querySelector<HTMLInputElement>('.wsb-text-input')
                 if (input != null && input.value !== newText) {
                     input.value = newText
+                    td.setAttribute('aria-label', newText)
                 }
             }
         }
     }
 }
 
-// ── Event Handlers ───────────────────────────────────────────────
+// #endregion
+// #endregion
+
+// #region Event Handlers
 
 // Suppress native text selection on multi-click (double-click) over readonly inputs.
 // Without this, the second mousedown of a double-click selects the input text,
@@ -716,6 +1001,18 @@ function handleTableMouseDown (e: MouseEvent): void {
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' && (target as HTMLInputElement).readOnly) {
         e.preventDefault()
+    }
+}
+
+function handleTableDblClick (e: MouseEvent): void {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT') return
+    const tr = target.closest('tr[data-var]')
+    if (tr != null) {
+        const varName = tr.getAttribute('data-var')
+        if (varName != null) {
+            vscodeApi.postMessage({ type: 'openVariable', variable: varName })
+        }
     }
 }
 
@@ -741,15 +1038,21 @@ function handleTableClick (e: MouseEvent): void {
         }
         updateSortIndicators()
         notifyStateChanged()
+        announce(`Sorted by ${col.label}, ${sortDirection === 'asc' ? 'ascending' : 'descending'}`)
         return
     }
 
-    // Row click: select the row
+    // Row click: select the row and focus the clicked cell
     const tr = target.closest('tr[data-var]')
     if (tr != null) {
         const varName = tr.getAttribute('data-var')
         if (varName != null) {
             selectRow(varName)
+            if (target.tagName !== 'INPUT') {
+                const td = target.closest('td[data-col]')
+                const colName = td?.getAttribute('data-col') ?? firstColName()
+                focusCell(tr, colName)
+            }
         }
     }
 }
@@ -779,8 +1082,64 @@ function handleFocusOut (e: FocusEvent): void {
 
 // Dispatches keyboard shortcuts via the KEY_BINDINGS table
 function handleDocumentKeydown (e: KeyboardEvent): void {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement as HTMLElement | null
+        const inTbody = active?.closest('tbody') != null
+        const inThead = active?.closest('thead') != null
+        const inStatusBar = active?.closest('.wsb-status-bar') != null
+
+        const focusTbody = (): void => {
+            const tbody = document.querySelector<HTMLElement>('.wsb-table tbody')
+            tbody?.focus()
+        }
+        const focusHeader = (): void => {
+            const targetCol = defaultColName()
+            const th = document.querySelector<HTMLElement>(`.wsb-table thead th[data-col="${CSS.escape(targetCol)}"]`)
+            if (th != null) {
+                focusedColName = targetCol
+                th.focus()
+            }
+        }
+        const focusStatusLinkOrFallback = (fallback: () => void): void => {
+            const statusLink = document.querySelector<HTMLElement>('.wsb-status-bar:not([style*="display: none"]) .wsb-status-link')
+            if (statusLink != null) {
+                statusLink.focus()
+            } else {
+                fallback()
+            }
+        }
+
+        if (e.shiftKey) {
+            if (inTbody) {
+                e.preventDefault()
+                focusStatusLinkOrFallback(focusHeader)
+            } else if (inStatusBar) {
+                e.preventDefault()
+                focusHeader()
+            } else if (inThead) {
+                e.preventDefault()
+                focusTbody()
+            }
+        } else {
+            if (inTbody) {
+                e.preventDefault()
+                focusHeader()
+            } else if (inThead) {
+                e.preventDefault()
+                focusStatusLinkOrFallback(focusTbody)
+            } else if (inStatusBar) {
+                e.preventDefault()
+                focusTbody()
+            }
+        }
+        return
+    }
+
+    const ctrl = e.ctrlKey || e.metaKey
     const binding = KEY_BINDINGS.find(
-        b => b.key === e.key && (b.guard == null || b.guard())
+        b => b.key === e.key &&
+            (b.ctrlKey === true ? ctrl : !ctrl) &&
+            (b.guard == null || b.guard())
     )
     if (binding != null) {
         e.preventDefault()
@@ -788,13 +1147,16 @@ function handleDocumentKeydown (e: KeyboardEvent): void {
     }
 }
 
-// ── Row Selection ────────────────────────────────────────────────
+// #endregion
+
+// #region Row Selection
 
 function selectRow (varName: string): void {
     // Remove selection from the previously selected row
     const prev = document.querySelector('.wsb-table tbody tr.wsb-selected')
     if (prev != null) {
         prev.classList.remove('wsb-selected')
+        prev.setAttribute('aria-selected', 'false')
     }
 
     // Apply selection to the clicked row
@@ -802,10 +1164,13 @@ function selectRow (varName: string): void {
     const tr = document.querySelector(`.wsb-table tbody tr[data-var="${CSS.escape(varName)}"]`)
     if (tr != null) {
         tr.classList.add('wsb-selected')
+        tr.setAttribute('aria-selected', 'true')
     }
 }
 
-// ── Column Resizing ──────────────────────────────────────────────
+// #endregion
+
+// #region Column Resizing
 
 function startColumnResize (e: MouseEvent, th: HTMLTableCellElement, colName: string): void {
     e.preventDefault()
@@ -853,7 +1218,9 @@ function startColumnResize (e: MouseEvent, th: HTMLTableCellElement, colName: st
     document.addEventListener('mouseup', onMouseUp)
 }
 
-// ── Helpers ──────────────────────────────────────────────────────
+// #endregion
+
+// #region Helpers
 
 // Finds the value input element for a given variable name
 function findValueInput (varName: string): HTMLInputElement | null {
@@ -872,3 +1239,5 @@ function notifyStateChanged (): void {
         state: { columnWidths, sortColumn, sortDirection }
     })
 }
+
+// #endregion

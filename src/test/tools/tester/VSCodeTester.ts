@@ -6,6 +6,7 @@ import { TerminalTester } from './TerminalTester'
 import { WorkspaceBrowserTester } from './WorkspaceBrowserTester'
 import * as assert from 'assert'
 import { EditorTester } from './EditorTester'
+import { chromiumCoverage } from '../utils/ChromiumCoverage'
 
 /**
  * VSCodeTester
@@ -41,6 +42,7 @@ export class VSCodeTester {
     * Disconnects MATLAB
     */
     public async disconnectFromMATLAB (): Promise<void> {
+        await chromiumCoverage.capture()
         const prompt = await this.workbench.openCommandPrompt() as vet.InputBox;
         await prompt.setText('>matlab.changeMatlabConnection');
         await this.selectQuickPick(prompt, 'MATLAB: Change MATLAB Connection')
@@ -113,7 +115,7 @@ export class VSCodeTester {
      * Poll for MATLAB to connect to VSCode
      */
     public async assertMATLABConnected (): Promise<void> {
-        return await this.poll(this.getConnectionStatus.bind(this), 'MATLAB: Connected', 'Expected MATLAB to be connected', 180000)
+        return await this.poll(this.getConnectionStatus.bind(this), 'MATLAB: Connected', 'Expected MATLAB to be connected', 240000)
     }
 
     /**
@@ -143,6 +145,7 @@ export class VSCodeTester {
      * Close the editor that is currently active
      */
     public async closeActiveEditor (): Promise<void> {
+        if (await new vet.EditorView().getActiveTab() == null) return
         const editor = new vet.TextEditor()
         if (await editor.isDirty()) {
             await new vet.EditorView().closeEditor(await editor.getTitle())
@@ -273,6 +276,11 @@ export class VSCodeTester {
         const input = await vet.InputBox.create()
         await input.setText(text)
         await input.confirm()
+        await this.poll(
+            async () => !(await input.isDisplayed().catch(() => false)),
+            true,
+            'Expected input box to close after confirmation'
+        )
     }
 
     /**

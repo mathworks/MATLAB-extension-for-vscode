@@ -35,14 +35,14 @@ export function getVariableViewerHtml (webview: vscode.Webview, extensionUri: vs
   <link rel="stylesheet" href="${gridCssUri.toString()}">
   <link rel="stylesheet" href="${unsupportedCssUri.toString()}">
 </head>
-<body data-var-name="${escapeHtml(varName)}" data-vscode-context='{"preventDefaultContextMenuItems":true}'>
-  <main class="vv-container">
+<body role="application" data-var-name="${escapeHtml(varName)}" data-vscode-context='{"preventDefaultContextMenuItems":true}'>
+  <div class="vv-container">
     <div class="vv-banner">
       <span class="vv-banner-name"></span>
       <span class="vv-banner-meta"></span>
     </div>
-    <div class="vv-content-root"></div>
-  </main>
+    <div id="vv-content" class="vv-content-root"></div>
+  </div>
   <script src="${bundleUri.toString()}"></script>
 </body>
 </html>`

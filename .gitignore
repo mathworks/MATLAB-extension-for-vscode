@@ -2,4 +2,6 @@ out
 dist
 node_modules
 .vscode-test/
+.s
 *.vsix
+.scannerwork

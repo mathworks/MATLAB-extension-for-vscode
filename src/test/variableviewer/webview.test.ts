@@ -13,6 +13,8 @@ import { ExtToVVWebview, VariableMetadata, LabelInfo } from '../../variableviewe
 
 interface MockApi {
     postMessage: sinon.SinonStub
+    getState: sinon.SinonStub
+    setState: sinon.SinonStub
 }
 
 /**
@@ -39,7 +41,7 @@ function setupWebview (): { api: MockApi, host: PanelHost } {
 
     document.body.appendChild(container)
 
-    const api: MockApi = { postMessage: sinon.stub() }
+    const api: MockApi = { postMessage: sinon.stub(), getState: sinon.stub().returns(null), setState: sinon.stub() }
     const host = new PanelHost(api)
     host.init()
 

@@ -1,6 +1,6 @@
 // Copyright 2026 The MathWorks, Inc.
 
-import { ContentRenderer, VariableMetadata, VariableColumns, VariableRows, ExtToVVWebview, VVWebviewToExt } from './types'
+import { ContentRenderer, VariableMetadata, VariableColumns, VariableRows, ExtToVVWebview, VVWebviewToExt, GridViewState, GridViewportState, RestoredGridViewState, ColumnWidthAdjustment } from './types'
 import { DEFAULT_CONFIG } from './grid/GridConfig'
 import { ColumnLayout } from './grid/ColumnLayout'
 import { ViewportModel } from './grid/ViewportModel'
@@ -10,8 +10,13 @@ import { SelectionModel } from './grid/SelectionModel'
 import { NavigationModel } from './grid/NavigationModel'
 import { ColumnResizeModel } from './grid/ColumnResizeModel'
 import { GridDomPool, GridScaffold, CellPool } from './grid/GridDomPool'
+import { ViewStateManager } from './grid/ViewStateManager'
 
-interface VsCodeApi { postMessage: (msg: VVWebviewToExt) => void }
+interface VsCodeApi {
+    postMessage: (msg: VVWebviewToExt) => void
+    getState: () => GridViewState | null
+    setState: (state: GridViewState | null) => void
+}
 
 const config = DEFAULT_CONFIG
 
@@ -50,6 +55,7 @@ export class GridRenderer implements ContentRenderer {
     private readonly navigationModel = new NavigationModel()
     private readonly resizeModel = new ColumnResizeModel()
     private readonly domPool = new GridDomPool(config)
+    private viewStateManager: ViewStateManager | null = null
     private lastScrollTop: number = 0
     private lastScrollLeft: number = 0
     private scrollTelemetryTimer: ReturnType<typeof setTimeout> | undefined
@@ -63,6 +69,7 @@ export class GridRenderer implements ContentRenderer {
         private varName: string
     ) {
         this.scrollEngine.onSettle(() => this.requestVisibleChunks())
+        this.scrollEngine.onThrottledScroll(() => this.requestVisibleChunks(), 250)
     }
 
     /**
@@ -76,7 +83,7 @@ export class GridRenderer implements ContentRenderer {
                 <div class="vv-corner"></div>
                 <div class="vv-col-header-bar"></div>
                 <div class="vv-row-header-col"></div>
-                <div class="vv-grid-wrap"></div>
+                <div class="vv-grid-wrap" tabindex="-1"></div>
             </div>
             <div class="vv-status-bar">
                 <span class="vv-status-text"></span>
@@ -89,11 +96,21 @@ export class GridRenderer implements ContentRenderer {
         this.corner = container.querySelector('.vv-corner') as HTMLElement
         this.statusBar = container.querySelector('.vv-status-bar') as HTMLElement
         this.statusText = container.querySelector('.vv-status-text') as HTMLElement
+        this.statusBar.setAttribute('role', 'status')
 
         this.gridWrap.addEventListener('scroll', this.handleGridScroll)
+        this.gridWrap.addEventListener('focus', () => { this.gridOuter?.focus() })
         this.gridOuter.addEventListener('focus', this.handleGridFocus)
+        this.gridOuter.addEventListener('blur', this.handleGridBlur)
         document.addEventListener('keydown', this.handleKeydown)
 
+        window.addEventListener('focus', () => {
+            if (document.activeElement === document.body || document.activeElement === document.documentElement) {
+                this.gridOuter?.focus()
+            }
+        })
+
+        this.viewStateManager = new ViewStateManager(this.api, this.selectionModel, this.columnLayout, this.gridWrap)
         this.reportViewportSize()
 
         if (typeof ResizeObserver !== 'undefined') {
@@ -136,7 +153,7 @@ export class GridRenderer implements ContentRenderer {
     setVarName (newName: string): void {
         this.varName = newName
         if (this.gridOuter != null) {
-            this.gridOuter.setAttribute('aria-label', `${newName} data grid`)
+            this.gridOuter.setAttribute('aria-label', `${newName}`)
         }
         this.updateStatusBar()
     }
@@ -157,6 +174,7 @@ export class GridRenderer implements ContentRenderer {
         }
         if (this.gridOuter != null) {
             this.gridOuter.removeEventListener('focus', this.handleGridFocus)
+            this.gridOuter.removeEventListener('blur', this.handleGridBlur)
         }
         document.removeEventListener('keydown', this.handleKeydown)
         document.removeEventListener('mousemove', this.handleResizeMouseMove)
@@ -174,6 +192,8 @@ export class GridRenderer implements ContentRenderer {
             this.scrollTelemetryTimer = undefined
         }
         this.scrollEngine.dispose()
+        this.viewStateManager?.dispose()
+        this.viewStateManager = null
         this.chunkCache.clear()
         if (this.container != null) {
             this.container.innerHTML = ''
@@ -210,30 +230,83 @@ export class GridRenderer implements ContentRenderer {
             this.gridWrap == null ||
             !this.gridWrap.contains(this.scaffold.spacer)
 
+        if (structureChanged || gridMissing) {
+            const fallbackScrollTop = structureChanged ? 0 : this.cachedScrollTop
+            const fallbackScrollLeft = structureChanged ? 0 : this.cachedScrollLeft
+            this.rebuildGrid(prevMetadata, msg.metadata, fallbackScrollTop, fallbackScrollLeft)
+        }
+
         if (msg.cells != null) {
-            if (structureChanged || gridMissing) {
-                const restoreTop = structureChanged ? 0 : this.cachedScrollTop
-                const restoreLeft = structureChanged ? 0 : this.cachedScrollLeft
-                this.clearLoadedData()
-                this.setupVirtualGrid()
-                if (this.gridWrap != null) {
-                    this.gridWrap.scrollTop = restoreTop
-                    this.gridWrap.scrollLeft = restoreLeft
-                }
-            }
             this.chunkCache.store(msg.cells)
             this.updateStatusBar()
             this.renderVisibleCells()
             this.requestVisibleChunks()
+            if (prevMetadata == null) this.gridOuter?.focus()
+        } else if (structureChanged || gridMissing) {
+            this.renderVisibleCells()
+            if (prevMetadata == null) this.gridOuter?.focus()
         } else {
-            if (structureChanged || gridMissing) {
-                this.clearLoadedData()
-                this.setupVirtualGrid()
-                this.renderVisibleCells()
-            } else {
-                this.renderVisibleCells()
-                this.requestVisibleChunks()
-            }
+            this.renderVisibleCells()
+            this.requestVisibleChunks()
+        }
+    }
+
+    /**
+     * Rebuilds the grid scaffold and carries column widths and viewport across the rebuild.
+     * On the first response the carried state comes from the persisted webview state; on later
+     * structure changes of the same class it comes from the live layout, so widths survive row
+     * and column count changes while their positions still exist.
+     * @param prevMetadata - Metadata from before this response, or null on the first response.
+     * @param metadata - The variable metadata from this response.
+     * @param fallbackScrollTop - Scroll offset to use when no saved viewport applies.
+     * @param fallbackScrollLeft - Scroll offset to use when no saved viewport applies.
+     */
+    private rebuildGrid (prevMetadata: VariableMetadata | null, metadata: VariableMetadata, fallbackScrollTop: number, fallbackScrollLeft: number): void {
+        const restored: RestoredGridViewState | null = prevMetadata == null
+            ? (this.viewStateManager?.restore(metadata) ?? null)
+            : null
+
+        // Must be read before setupVirtualGrid, which resets the layout to default widths
+        let carriedWidths: readonly ColumnWidthAdjustment[] = []
+        if (restored != null) {
+            carriedWidths = restored.columnWidths
+        } else if (prevMetadata != null && prevMetadata.dataType === metadata.dataType) {
+            carriedWidths = this.columnLayout.getAdjustments()
+        }
+
+        this.clearLoadedData()
+        this.setupVirtualGrid()
+
+        // Widen the spacer before scrolling, otherwise the browser clamps scrollLeft to the default-width grid
+        this.columnLayout.applyAdjustments(carriedWidths)
+        if (this.scaffold != null) {
+            this.domPool.updateSpacerWidth(this.scaffold, this.columnLayout)
+        }
+
+        if (restored?.viewport != null) {
+            this.restoreViewport(restored.viewport)
+        } else if (this.gridWrap != null) {
+            this.gridWrap.scrollTop = fallbackScrollTop
+            this.gridWrap.scrollLeft = fallbackScrollLeft
+        }
+
+        // Save immediately so widths for positions that no longer exist are purged from the persisted state
+        this.viewStateManager?.save(metadata)
+    }
+
+    /**
+     * Restores a saved scroll position and selection.
+     * The browser clamps scroll values to valid range; scrollCellIntoView corrects
+     * framing if the clamped position leaves the selected cell outside the viewport.
+     * @param viewport - The validated viewport state to restore.
+     */
+    private restoreViewport (viewport: GridViewportState): void {
+        if (this.gridWrap == null) return
+        this.gridWrap.scrollTop = viewport.scroll.scrollTop
+        this.gridWrap.scrollLeft = viewport.scroll.scrollLeft
+        if (viewport.selection != null) {
+            this.selectCell(viewport.selection.row, viewport.selection.col)
+            this.scrollCellIntoView(viewport.selection.row, viewport.selection.col)
         }
     }
 
@@ -267,7 +340,7 @@ export class GridRenderer implements ContentRenderer {
         this.viewportModel.setDimensions(numRows, numCols)
 
         this.scaffold = this.domPool.createScaffold(this.gridOuter, this.gridWrap, this.colHeaderBar, this.rowHeaderCol, this.corner, numRows, numCols, this.columnLayout, this.metadata.dataType)
-        this.gridOuter.setAttribute('aria-label', `${this.varName} data grid`)
+        this.gridOuter.setAttribute('aria-label', `${this.varName}`)
         this.gridOuter.setAttribute('tabindex', '0')
         this.scaffold.viewport.addEventListener('mousedown', this.handleGridClick)
 
@@ -276,6 +349,9 @@ export class GridRenderer implements ContentRenderer {
 
         this.pool = this.domPool.allocate(this.scaffold, this.gridWrap.clientHeight, this.gridWrap.clientWidth)
         this.attachPoolListeners()
+
+        const visibleRows = Math.max(1, Math.floor(this.gridWrap.clientHeight / config.rowHeight) - 1)
+        this.navigationModel.setPageSize(visibleRows)
     }
 
     /** Attaches column resize event listeners to the current pool's header container. */
@@ -323,7 +399,8 @@ export class GridRenderer implements ContentRenderer {
             this.pool, range, this.columnLayout,
             this.columns, this.rows,
             this.chunkCache, this.selectionModel,
-            scrollTop, scrollLeft, this.scaffold
+            scrollTop, scrollLeft, this.scaffold,
+            this.varName
         )
     }
 
@@ -341,6 +418,7 @@ export class GridRenderer implements ContentRenderer {
         }
         this.scrollEngine.handleScroll(newTop, newLeft)
         this.markDirty()
+        if (this.metadata != null) this.viewStateManager?.scheduleSave(this.metadata)
 
         const verticalDelta = Math.abs(newTop - this.lastScrollTop)
         const horizontalDelta = Math.abs(newLeft - this.lastScrollLeft)
@@ -405,7 +483,12 @@ export class GridRenderer implements ContentRenderer {
     // ── Grid Interaction ────────────────────────────────────────────
 
     /** Focus handler that selects cell (1,1) when no cell is selected, enabling keyboard-only entry. */
+    private readonly handleGridBlur = (): void => {
+        this.gridOuter?.classList.remove('vv-grid-focused')
+    }
+
     private readonly handleGridFocus = (): void => {
+        this.gridOuter?.classList.add('vv-grid-focused')
         if (this.selectionModel.getSelected() != null) return
         if (this.metadata == null) return
         const [numRows, numCols] = this.getGridDimensions()
@@ -431,7 +514,25 @@ export class GridRenderer implements ContentRenderer {
         if (currentCell == null) return
         if (this.metadata == null) return
 
-        const newCell = this.navigationModel.computeMove(e.key, currentCell, this.getGridDimensions())
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            const value = this.chunkCache.get(currentCell.row - 1, currentCell.col - 1) ?? ''
+            void navigator.clipboard.writeText(value)
+            if (this.statusText != null) {
+                this.statusText.textContent = ''
+                requestAnimationFrame(() => {
+                    if (this.statusText != null) this.statusText.textContent = 'Copied to clipboard'
+                })
+            }
+            e.preventDefault()
+            return
+        }
+
+        if (e.key === 'Tab') {
+            e.preventDefault()
+            return
+        }
+
+        const newCell = this.navigationModel.computeMove(e.key, currentCell, this.getGridDimensions(), e.ctrlKey || e.metaKey)
         if (newCell == null) return
 
         e.preventDefault()
@@ -451,6 +552,7 @@ export class GridRenderer implements ContentRenderer {
         }
         this.renderVisibleCells()
         this.updateStatusBar()
+        if (this.metadata != null) this.viewStateManager?.scheduleSave(this.metadata)
     }
 
     /**
@@ -554,6 +656,7 @@ export class GridRenderer implements ContentRenderer {
     /** Mouseup handler that ends the column resize drag and removes document listeners. */
     private readonly handleResizeMouseUp = (): void => {
         this.resizeModel.endDrag()
+        if (this.metadata != null) this.viewStateManager?.scheduleSave(this.metadata)
         this.gridOuter?.classList.remove('vv-col-resize-active')
         document.removeEventListener('mousemove', this.handleResizeMouseMove)
         document.removeEventListener('mouseup', this.handleResizeMouseUp)
@@ -577,6 +680,7 @@ export class GridRenderer implements ContentRenderer {
         if (this.scaffold != null) {
             this.domPool.updateSpacerWidth(this.scaffold, this.columnLayout)
         }
+        if (this.metadata != null) this.viewStateManager?.scheduleSave(this.metadata)
         this.markDirty()
     }
 

@@ -486,8 +486,6 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
             return
         }
 
-        this.variableRenamedEmitter.fire({ oldName, newName })
-
         try {
             const response = await this.evalInWorkspace(`${newName} = ${oldName}; clear('${oldName}');`)
             if ('error' in response) {
@@ -496,6 +494,7 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
                 this.postToWebview({ type: 'operationError', operation: 'rename', variable: oldName, message })
                 this.showMatlabError('rename', message)
             } else {
+                this.variableRenamedEmitter.fire({ oldName, newName })
                 this.telemetryLogger.logEvent({ eventKey: 'ML_VS_CODE_ACTIONS', data: { action_type: 'wsbRenameVariable', result: 'success' } })
             }
         } catch (e: unknown) {
@@ -650,7 +649,10 @@ export default class WorkspaceBrowserProvider extends BaseService implements vsc
         sorted.sort((a: WorkspaceVariable, b: WorkspaceVariable): number => {
             const aVal = a.fields[column] ?? ''
             const bVal = b.fields[column] ?? ''
-            const cmp = aVal.localeCompare(bVal, undefined, { numeric, sensitivity: 'base' })
+            let cmp = aVal.localeCompare(bVal, undefined, { numeric, sensitivity: 'base' })
+            if (cmp === 0) {
+                cmp = a.name.localeCompare(b.name, undefined, { numeric, sensitivity: 'base' })
+            }
             return direction === 'asc' ? cmp : -cmp
         })
         return sorted

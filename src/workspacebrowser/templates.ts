@@ -66,15 +66,16 @@ export function getWebviewHtml (webview: vscode.Webview, extensionUri: vscode.Ur
   <title>Workspace</title>
   <link rel="stylesheet" href="${stylesUri.toString()}">
 </head>
-<body data-icons-base-uri="${iconsBaseUri.toString()}" data-vscode-context='{"preventDefaultContextMenuItems":true}'>
+<body role="application" data-icons-base-uri="${iconsBaseUri.toString()}" data-vscode-context='{"preventDefaultContextMenuItems":true}'>
   <div class="wsb-container">
-    <div class="wsb-table-wrap">
-      <table class="wsb-table">
+    <div class="wsb-table-wrap" tabindex="-1">
+      <table id="wsb-grid" class="wsb-table" role="grid" aria-label="Workspace">
         <thead></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div class="wsb-status-bar" style="display:none"></div>
+    <div class="wsb-status-bar" style="display:none" role="status" aria-live="polite"></div>
+    <div class="sr-only" aria-live="assertive" aria-atomic="true" id="wsb-announcer"></div>
   </div>
   <script src="${bundleUri.toString()}"></script>
 </body>

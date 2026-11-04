@@ -85,6 +85,36 @@ export interface WorkspaceVariableSummary {
 /** Determines which content renderer is used to display a variable in the webview. */
 export type RendererType = 'grid' | 'unsupported'
 
+// ── Grid View State ────────────────────────────────────────────
+
+/** A user-applied width for the column at a 0-based position. */
+export interface ColumnWidthAdjustment {
+    readonly index: number
+    readonly width: number
+}
+
+/** Scroll position and selected cell (1-based) of the grid viewport. */
+export interface GridViewportState {
+    readonly scroll: { readonly scrollTop: number, readonly scrollLeft: number }
+    readonly selection: { readonly row: number, readonly col: number } | null
+}
+
+/** Serializable snapshot of the grid renderer's view state, persisted via the VS Code webview state API. */
+export interface GridViewState {
+    readonly matlabClass: string
+    readonly viewport: GridViewportState
+    readonly columnWidths: readonly ColumnWidthAdjustment[]
+}
+
+/**
+ * Saved view state that passed validation against the current variable.
+ * The viewport is null when the saved selection no longer fits, while column widths still apply.
+ */
+export interface RestoredGridViewState {
+    readonly viewport: GridViewportState | null
+    readonly columnWidths: readonly ColumnWidthAdjustment[]
+}
+
 // ── Content Renderer Contract ──────────────────────────────────
 
 /**

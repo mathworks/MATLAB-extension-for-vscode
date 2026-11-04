@@ -1,6 +1,7 @@
 // Copyright 2026 The MathWorks, Inc.
 import * as vet from 'vscode-extension-tester'
 import { WebDriver, By, WebElement } from 'selenium-webdriver'
+import { chromiumCoverage } from '../utils/ChromiumCoverage'
 import { VSCodeTester } from './VSCodeTester'
 import * as assert from 'assert'
 
@@ -81,8 +82,31 @@ export class VariableViewerTester {
     }
 
     async assertCellsPopulated (timeout = 30000): Promise<void> {
-        return await this.vs.poll(() => this.hasElement('.vv-cell-loading'), false,
+        return await this.vs.poll(this.hasVisibleLoadingCells.bind(this), false,
             'Expected all visible cells to be populated', timeout)
+    }
+
+    /**
+     * Tests whether a loading cell intersects the scrollable grid viewport. The grid
+     * deliberately keeps offscreen overscan cells in the DOM, so they must not cause
+     * a visible-cell assertion to fail.
+     */
+    private async hasVisibleLoadingCells (): Promise<boolean> {
+        await this.switchToFrame()
+        try {
+            return await this.driver.executeScript(`
+                const viewport = document.querySelector('.vv-grid-wrap');
+                if (viewport == null) return true;
+                const viewportRect = viewport.getBoundingClientRect();
+                return Array.from(document.querySelectorAll('.vv-cell-loading')).some((cell) => {
+                    const rect = cell.getBoundingClientRect();
+                    return rect.bottom > viewportRect.top &&
+                        rect.top < viewportRect.bottom &&
+                        rect.right > viewportRect.left &&
+                        rect.left < viewportRect.right;
+                });
+            `)
+        } finally { await this.switchBack() }
     }
 
     // ── Headers ─────────────────────────────────────────────────
@@ -238,6 +262,7 @@ export class VariableViewerTester {
     }
 
     async closeAllEditorTabs (): Promise<void> {
+        await chromiumCoverage.capture()
         await new vet.EditorView().closeAllEditors()
     }
 }

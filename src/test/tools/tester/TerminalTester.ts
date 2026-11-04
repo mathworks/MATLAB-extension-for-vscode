@@ -177,24 +177,29 @@ export class TerminalTester {
 
     public async assertMATLABTerminalNotVisible (timeout = 5000): Promise<void> {
         await this.vs.poll(
-            async () => !(await this.isPanelDisplayed()),
+            async () => !(await this.isTerminalPanelVisible()),
             true,
-            'Expected terminal panel to not be visible',
+            'Expected MATLAB terminal to not be visible',
             timeout
         )
     }
 
     public async assertMATLABTerminalVisible (timeout = 30000): Promise<void> {
         await this.vs.poll(
-            async () => await this.isPanelDisplayed(),
+            this.isTerminalPanelVisible.bind(this),
             true,
-            'Expected terminal panel to be visible',
+            'Expected MATLAB terminal to be visible',
             timeout
         )
     }
 
-    private async isPanelDisplayed (): Promise<boolean> {
-        const panel = new vet.BottomBarPanel()
-        return await panel.isDisplayed().catch(() => false)
+    private async isTerminalPanelVisible (): Promise<boolean> {
+        try {
+            const panel = new vet.BottomBarPanel()
+            return (await panel.getRect()).height > 0
+        } catch {
+            // The panel element may be missing or stale while the DOM is transitioning.
+            return false
+        }
     }
 }

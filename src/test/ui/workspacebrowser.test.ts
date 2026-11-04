@@ -1,11 +1,13 @@
 // Copyright 2026 The MathWorks, Inc.
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
 import { before, afterEach, after } from 'mocha';
+import { chromiumCoverage } from '../tools/utils/ChromiumCoverage'
 
 suite('Workspace Browser UI Tests', function () {
     let vs: VSCodeTester
 
     before(async function () {
+        await chromiumCoverage.start()
         vs = new VSCodeTester();
         await vs.openEditor('hScript1.m')
         await vs.assertMATLABConnected()
@@ -22,12 +24,17 @@ suite('Workspace Browser UI Tests', function () {
     });
 
     afterEach(async function () {
+        await chromiumCoverage.capture()
         await vs.terminal.executeCommand('clear; clc')
         await vs.workspaceBrowser.assertRowCount(0, 'workspace should be empty after clear')
     });
 
     after(async function () {
-        await vs.disconnectFromMATLAB()
+        try {
+            await vs.disconnectFromMATLAB()
+        } finally {
+            await chromiumCoverage.stop()
+        }
     });
 
     // ── Variable Display ────────────────────────────────────────

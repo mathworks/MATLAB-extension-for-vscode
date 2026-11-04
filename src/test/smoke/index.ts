@@ -2,6 +2,7 @@
 
 import * as path from 'path'
 import * as Mocha from 'mocha'
+import * as vscode from 'vscode'
 import * as utils from './../tools/utils/VSCodeUtils'
 
 export async function run (): Promise<void> {
@@ -17,6 +18,10 @@ export async function run (): Promise<void> {
         const MATLAB_PATH = process.env.MATLAB_PATH as string
         if (MATLAB_PATH !== undefined) {
             await utils.setInstallPath(MATLAB_PATH)
+        }
+
+        if (process.env.MATLAB_DISABLE_PREWARM_GRAPHICS !== undefined) {
+            await vscode.workspace.getConfiguration('MATLAB').update('prewarmGraphics', false, vscode.ConfigurationTarget.Global)
         }
     })
 

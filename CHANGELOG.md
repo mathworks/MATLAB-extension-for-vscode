@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.16] - 2026-11-12
+
+### Fixed
+- Applied patches for CVE-2026-34043, CVE-2026-48801, CVE-2026-48988, CVE-2026-59887, CVE-2026-102276, CVE-2026-102277, CVE-2026-102278, and CVE-2026-111759
+
 ## [1.3.15] - 2026-10-13
 
 ### Fixed
