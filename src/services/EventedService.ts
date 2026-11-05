@@ -2,7 +2,7 @@
 import EventEmitter = require('events');
 
 import BaseService from './BaseService';
-import { Disposable } from 'vscode';
+import { Disposable } from '../utils/Disposable';
 
 /**
  * Base class for services which also wish to expose EventEmitter APIs.

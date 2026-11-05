@@ -4,12 +4,14 @@ import { VariableViewerTester } from '../tools/tester/VariableViewerTester'
 import { Key } from 'selenium-webdriver'
 import { before, afterEach, after } from 'mocha'
 import * as assert from 'assert'
+import { chromiumCoverage } from '../tools/utils/ChromiumCoverage'
 
 suite('Variable Viewer UI Tests', function () {
     let vs: VSCodeTester
     let vv: VariableViewerTester
 
     before(async function () {
+        await chromiumCoverage.start()
         vs = new VSCodeTester()
         vv = new VariableViewerTester(vs)
         await vs.openEditor('hScript1.m')
@@ -28,6 +30,10 @@ suite('Variable Viewer UI Tests', function () {
     afterEach(async function () {
         await vv.closeAllEditorTabs()
         await vs.terminal.executeCommand('clear; clc')
+    })
+
+    after(async function () {
+        await chromiumCoverage.stop()
     })
 
     // ── 1. Grid rendering, cell selection, and keyboard navigation ──

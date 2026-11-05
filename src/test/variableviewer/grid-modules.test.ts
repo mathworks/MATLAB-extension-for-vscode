@@ -614,6 +614,129 @@ suite('ColumnLayout — edge cases', () => {
     })
 })
 
+// ── ColumnLayout — width adjustments ────────────────────────────
+// Resized widths are keyed by position and survive a rebuild only while that position exists.
+
+suite('ColumnLayout — width adjustments', () => {
+    // Only user-resized columns are persisted; untouched ones use default sizing
+    test('getAdjustments is empty when no column was resized', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(10)
+
+        // Exercise
+        const adjustments = layout.getAdjustments()
+
+        // Verify
+        expect(adjustments).to.deep.equal([])
+    })
+
+    // setWidth is the single path for drag resize and auto-fit, so it must record the clamped width
+    test('setWidth records the clamped width', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(10)
+
+        // Exercise
+        layout.setWidth(5, 150)
+        layout.setWidth(2, 10)
+
+        // Verify
+        expect(layout.getAdjustments()).to.deep.equal([
+            { index: 2, width: 80 },
+            { index: 5, width: 150 }
+        ])
+    })
+
+    // Resizing the same column again must replace its entry, not accumulate stale ones
+    test('repeated setWidth on one column keeps only the latest width', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(10)
+
+        // Exercise
+        layout.setWidth(5, 150)
+        layout.setWidth(5, 220)
+
+        // Verify
+        expect(layout.getAdjustments()).to.deep.equal([{ index: 5, width: 220 }])
+    })
+
+    // An out-of-range setWidth must not create a phantom entry that could reappear later
+    test('setWidth on a nonexistent column records nothing', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(10)
+
+        // Exercise
+        layout.setWidth(10, 150)
+
+        // Verify
+        expect(layout.getAdjustments()).to.deep.equal([])
+    })
+
+    // computeWidths resets to defaults; carried widths are re-applied explicitly by the caller
+    test('computeWidths clears recorded adjustments', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(10)
+        layout.setWidth(5, 150)
+
+        // Exercise
+        layout.computeWidths(10)
+
+        // Verify
+        expect(layout.getAdjustments()).to.deep.equal([])
+        expect(layout.getWidth(5)).to.equal(80)
+    })
+
+    // Unchanged or grown column count (e.g. rows or columns added): the resized column keeps its width
+    test('applyAdjustments restores widths whose position still exists', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(11)
+
+        // Exercise
+        layout.applyAdjustments([{ index: 5, width: 150 }])
+
+        // Verify
+        expect(layout.getWidth(5)).to.equal(150)
+        expect(layout.getOffset(6)).to.equal(5 * 80 + 150)
+        expect(layout.getAdjustments()).to.deep.equal([{ index: 5, width: 150 }])
+    })
+
+    // Column count shrank below the resized position: the entry is dropped, not just ignored
+    test('applyAdjustments drops widths whose position no longer exists', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(5)
+
+        // Exercise
+        layout.applyAdjustments([{ index: 2, width: 200 }, { index: 5, width: 150 }])
+
+        // Verify
+        expect(layout.getWidth(2)).to.equal(200)
+        expect(layout.getAdjustments()).to.deep.equal([{ index: 2, width: 200 }])
+    })
+
+    // A dropped width must stay gone if the variable later grows back past that position
+    test('dropped width does not return when the column count grows back', () => {
+        // Setup
+        const layout = new ColumnLayout()
+        layout.computeWidths(5)
+        layout.applyAdjustments([{ index: 5, width: 150 }])
+        const carried = layout.getAdjustments()
+
+        // Exercise
+        layout.computeWidths(10)
+        layout.applyAdjustments(carried)
+
+        // Verify
+        expect(layout.getWidth(5)).to.equal(80)
+        expect(layout.getAdjustments()).to.deep.equal([])
+    })
+})
+
 // ── ScrollEngine ────────────────────────────────────────────────
 
 suite('ScrollEngine', () => {
@@ -795,7 +918,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowDown', position, dims)
+        const result = nav.computeMove('ArrowDown', position, dims, false)
 
         // Verify
         expect(result).to.deep.equal({ row: 4, col: 2 })
@@ -806,7 +929,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowUp', position, dims)
+        const result = nav.computeMove('ArrowUp', position, dims, false)
 
         // Verify
         expect(result).to.deep.equal({ row: 2, col: 2 })
@@ -817,7 +940,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowRight', position, dims)
+        const result = nav.computeMove('ArrowRight', position, dims, false)
 
         // Verify
         expect(result).to.deep.equal({ row: 3, col: 3 })
@@ -828,7 +951,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowLeft', position, dims)
+        const result = nav.computeMove('ArrowLeft', position, dims, false)
 
         // Verify
         expect(result).to.deep.equal({ row: 3, col: 1 })
@@ -839,7 +962,7 @@ suite('NavigationModel', () => {
         const position = { row: 10, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowDown', position, dims)
+        const result = nav.computeMove('ArrowDown', position, dims, false)
 
         // Verify
         expect(result).to.be.null
@@ -850,7 +973,7 @@ suite('NavigationModel', () => {
         const position = { row: 1, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('ArrowUp', position, dims)
+        const result = nav.computeMove('ArrowUp', position, dims, false)
 
         // Verify
         expect(result).to.be.null
@@ -861,7 +984,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 5 }
 
         // Exercise
-        const result = nav.computeMove('ArrowRight', position, dims)
+        const result = nav.computeMove('ArrowRight', position, dims, false)
 
         // Verify
         expect(result).to.be.null
@@ -872,7 +995,7 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 1 }
 
         // Exercise
-        const result = nav.computeMove('ArrowLeft', position, dims)
+        const result = nav.computeMove('ArrowLeft', position, dims, false)
 
         // Verify
         expect(result).to.be.null
@@ -883,9 +1006,97 @@ suite('NavigationModel', () => {
         const position = { row: 3, col: 2 }
 
         // Exercise
-        const result = nav.computeMove('Enter', position, dims)
+        const result = nav.computeMove('Enter', position, dims, false)
 
         // Verify
         expect(result).to.be.null
+    })
+
+    // Ctrl+Arrow jumps to the grid boundary in the pressed direction
+    test('Ctrl+ArrowDown jumps to last row', () => {
+        const position = { row: 3, col: 2 }
+        const result = nav.computeMove('ArrowDown', position, dims, true)
+        expect(result).to.deep.equal({ row: 10, col: 2 })
+    })
+
+    test('Ctrl+ArrowUp jumps to first row', () => {
+        const position = { row: 3, col: 2 }
+        const result = nav.computeMove('ArrowUp', position, dims, true)
+        expect(result).to.deep.equal({ row: 1, col: 2 })
+    })
+
+    test('Ctrl+ArrowRight jumps to last column', () => {
+        const position = { row: 3, col: 2 }
+        const result = nav.computeMove('ArrowRight', position, dims, true)
+        expect(result).to.deep.equal({ row: 3, col: 5 })
+    })
+
+    test('Ctrl+ArrowLeft jumps to first column', () => {
+        const position = { row: 3, col: 2 }
+        const result = nav.computeMove('ArrowLeft', position, dims, true)
+        expect(result).to.deep.equal({ row: 3, col: 1 })
+    })
+
+    // Ctrl+Arrow at the boundary it would jump to returns null
+    test('Ctrl+ArrowDown at last row returns null', () => {
+        const position = { row: 10, col: 2 }
+        const result = nav.computeMove('ArrowDown', position, dims, true)
+        expect(result).to.be.null
+    })
+
+    test('Ctrl+ArrowUp at first row returns null', () => {
+        const position = { row: 1, col: 2 }
+        const result = nav.computeMove('ArrowUp', position, dims, true)
+        expect(result).to.be.null
+    })
+
+    test('Ctrl+ArrowRight at last column returns null', () => {
+        const position = { row: 3, col: 5 }
+        const result = nav.computeMove('ArrowRight', position, dims, true)
+        expect(result).to.be.null
+    })
+
+    test('Ctrl+ArrowLeft at first column returns null', () => {
+        const position = { row: 3, col: 1 }
+        const result = nav.computeMove('ArrowLeft', position, dims, true)
+        expect(result).to.be.null
+    })
+
+    // Home/End navigates within the current row
+    test('Home jumps to first column', () => {
+        const position = { row: 3, col: 3 }
+        const result = nav.computeMove('Home', position, dims, false)
+        expect(result).to.deep.equal({ row: 3, col: 1 })
+    })
+
+    test('End jumps to last column', () => {
+        const position = { row: 3, col: 3 }
+        const result = nav.computeMove('End', position, dims, false)
+        expect(result).to.deep.equal({ row: 3, col: 5 })
+    })
+
+    test('Home at first column returns null', () => {
+        const position = { row: 3, col: 1 }
+        const result = nav.computeMove('Home', position, dims, false)
+        expect(result).to.be.null
+    })
+
+    test('End at last column returns null', () => {
+        const position = { row: 3, col: 5 }
+        const result = nav.computeMove('End', position, dims, false)
+        expect(result).to.be.null
+    })
+
+    // Ctrl+Home/End jumps to the grid corner
+    test('Ctrl+Home jumps to top-left corner', () => {
+        const position = { row: 3, col: 3 }
+        const result = nav.computeMove('Home', position, dims, true)
+        expect(result).to.deep.equal({ row: 1, col: 1 })
+    })
+
+    test('Ctrl+End jumps to bottom-right corner', () => {
+        const position = { row: 3, col: 3 }
+        const result = nav.computeMove('End', position, dims, true)
+        expect(result).to.deep.equal({ row: 10, col: 5 })
     })
 })

@@ -9,6 +9,7 @@ registerMockVscode();
 import * as assert from 'assert';
 import { suite, test, setup } from 'mocha';
 import CommandWindow from '../../commandwindow/CommandWindow';
+import { CommandWindowHost, LineTokenizer } from '../../commandwindow/CommandWindowHost';
 import { createResolvablePromise, ResolvablePromise } from '../../utils/ResolvablePromise';
 import { MVM, MatlabMVMConnectionState } from '../../commandwindow/MVM';
 import { PromptState } from '../../commandwindow/MVMInterface';
@@ -17,7 +18,15 @@ import { CompletionItem, CompletionList } from 'vscode-languageclient';
 /**
  * Creates a CommandWindow with minimal mocks, initialized to READY state.
  */
-function createTestCommandWindow (): CommandWindow {
+function createTestCommandWindow (overrides: Partial<CommandWindowHost> = {}): CommandWindow {
+    const host: CommandWindowHost = {
+        writeClipboard: () => {},
+        readClipboard: async () => '',
+        setHasSelection: () => {},
+        revealCommandWindow: () => {},
+        ...overrides
+    };
+
     const mockNotifier = {
         onNotification: () => ({ dispose: () => {} }),
         sendNotification: () => {}
@@ -35,7 +44,7 @@ function createTestCommandWindow (): CommandWindow {
     mockMvm.eval = () => Promise.resolve();
     mockMvm.emit = () => {};
 
-    const cw = new CommandWindow(mockMvm, mockNotifier as any, null as any);
+    const cw = new CommandWindow(mockMvm, mockNotifier as any, host);
     cw.open({ rows: 30, columns: 100 });
 
     // Simulate MATLAB becoming ready — sets prompt to '>> ' and state to READY
@@ -472,5 +481,81 @@ suite('CommandWindow Word Navigation', () => {
             await pauser();
             assert.strictEqual(getEditableText(cw), 'foop(ARG');
         });
+    });
+});
+
+suite('CommandWindow host services', () => {
+    test('colors the command line with the tokenizer the host provides', async () => {
+        const cw = createTestCommandWindow({
+            createTokenizer: async () => ({
+                tokenizeLine: () => [{ startIndex: 0, color: '#ff0000' }, { startIndex: 2 }]
+            })
+        });
+        cw.initialize();
+        await new Promise(resolve => setImmediate(resolve));
+        const writes = captureWrites(cw);
+        cw.handleInput('ab cd');
+        const output = writes.join('');
+        assert.ok(output.includes(ESC + '[38;2;255;0;0mab'), 'the first token is red');
+        assert.ok(output.includes(ESC + '[39m cd'), 'the second token has the default color');
+    });
+
+    test('disposes a tokenizer that is created after the command window is disposed', async () => {
+        let disposed = false;
+        const tokenizerCreated = createResolvablePromise<LineTokenizer>();
+        const cw = createTestCommandWindow({ createTokenizer: async () => await tokenizerCreated });
+        cw.initialize();
+        cw.dispose();
+        tokenizerCreated.resolve({ tokenizeLine: () => [], dispose: () => { disposed = true; } });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.strictEqual(disposed, true);
+    });
+
+    test('reports command line selection changes to the host', () => {
+        const selections: boolean[] = [];
+        const cw = createTestCommandWindow({ setHasSelection: (hasSelection) => selections.push(hasSelection) });
+        cw.handleInput('abc');
+        cw.handleInput(KEYS.CTRL_SHIFT_LEFT);
+        assert.strictEqual(selections[selections.length - 1], true);
+    });
+});
+
+suite('CommandWindow terminal size', () => {
+    let sizeEvals: string[];
+
+    /**
+     * Creates a CommandWindow connected to R2025a that records the evals which set the terminal size.
+     */
+    function createSizeRecordingCommandWindow (overrides: Partial<CommandWindowHost> = {}): CommandWindow {
+        const cw = createTestCommandWindow(overrides);
+        const mvm = (cw as any)._mvm;
+        mvm.getMatlabRelease = () => 'R2025a';
+        mvm.eval = (command: string) => {
+            if (command.includes('WindowSize')) {
+                sizeEvals.push(command);
+            }
+            return Promise.resolve();
+        };
+        return cw;
+    }
+
+    setup(() => {
+        sizeEvals = [];
+    });
+
+    test('sends the terminal size only when it changes', () => {
+        const cw = createSizeRecordingCommandWindow();
+        cw.insertCommandForEval('a = 1');
+        cw.insertCommandForEval('b = 2');
+        assert.strictEqual(sizeEvals.length, 1);
+        assert.ok(sizeEvals[0].includes('[100, 30]'));
+    });
+
+    test('sends the terminal size before every command when the host asks for it', () => {
+        const cw = createSizeRecordingCommandWindow({ alwaysSendDimensions: true });
+        cw.insertCommandForEval('a = 1');
+        cw.insertCommandForEval('b = 2');
+        assert.strictEqual(sizeEvals.length, 2);
+        assert.ok(sizeEvals[1].includes('[100, 30]'));
     });
 });

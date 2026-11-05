@@ -162,7 +162,22 @@ th.wsb-sorted .wsb-sort-icon {
 
 .wsb-table tbody tr.wsb-selected {
     background: var(--vscode-list-activeSelectionBackground);
-    outline-color: var(--vscode-list-focusOutline);
+}
+
+.wsb-table :focus-visible {
+    outline: 2px solid var(--vscode-focusBorder);
+    outline-offset: -2px;
+}
+
+.wsb-table td:focus-within {
+    outline: 2px solid var(--vscode-focusBorder);
+    outline-offset: -2px;
+}
+
+.wsb-name-input:focus,
+.wsb-value-input:focus,
+.wsb-text-input:focus {
+    outline: none;
 }
 
 /* ── Error Flash ────────────────────────────────────────────────── */
@@ -194,4 +209,16 @@ th.wsb-sorted .wsb-sort-icon {
 
 .wsb-status-link:hover {
     text-decoration: underline;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }

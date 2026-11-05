@@ -1,13 +1,12 @@
 // Copyright 2026 The MathWorks, Inc.
-import { Disposable } from 'vscode';
-
 import BaseService from '../services/BaseService';
+import { Disposable } from '../utils/Disposable';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CallbackFcn = (data: any) => void;
 
 /**
- * Represents an object that can send and recieve data on specific channels.
+ * Represents an object that can send and receive data on specific channels.
  */
 export interface Notifier {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

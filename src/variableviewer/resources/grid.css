@@ -44,6 +44,7 @@
     grid-column: 2;
     overflow: auto;
     position: relative;
+    outline: none;
 }
 
 .vv-spacer {
@@ -167,8 +168,16 @@
 .vv-cell-selected {
     background: var(--vscode-list-activeSelectionBackground) !important;
     color: var(--vscode-list-activeSelectionForeground);
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
+}
+
+.vv-grid-focused .vv-cell-selected {
+    outline: 2px solid var(--vscode-focusBorder);
+    outline-offset: -2px;
+}
+
+.vv-header-active {
+    background: var(--vscode-list-inactiveSelectionBackground);
+    font-weight: 600;
 }
 
 /* ── Status Bar ─────────────────────────────────────────────────── */
@@ -197,7 +206,7 @@
 
 /* ── Focus ─────────────────────────────────────────────────────── */
 
+.vv-grid-outer:focus,
 .vv-grid-outer:focus-visible {
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
+    outline: none;
 }

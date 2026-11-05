@@ -7,6 +7,7 @@ import * as fs from 'fs';
 
 export class TestSuite {
     private readonly storageFolder: string
+    private readonly extensionsFolder: string
     private readonly mochaConfig: string
     private readonly vscodeSettings: string
     private readonly vsixPath: string
@@ -16,6 +17,7 @@ export class TestSuite {
 
     public constructor () {
         this.storageFolder = path.join(__dirname, '..', '..', '..', '..', '.s')
+        this.extensionsFolder = path.join(this.storageFolder, 'extensions')
         this.mochaConfig = path.join(__dirname, '..', 'config', '.mocharc.js')
         const pjson = require(path.resolve('package.json')) // eslint-disable-line
         this.vsixPath = path.resolve(`${pjson.name}-${pjson.version}.vsix`) // eslint-disable-line
@@ -29,6 +31,7 @@ export class TestSuite {
             'MATLAB.installPath': MATLAB_PATH,
             'MATLAB.telemetry': false,
             'MATLAB.startDebuggerAutomatically': true,
+            'MATLAB.prewarmGraphics': process.env.MATLAB_DISABLE_PREWARM_GRAPHICS === undefined,
             'window.dialogStyle': 'custom',
             'window.titleBarStyle': 'custom',
             'terminal.integrated.copyOnSelection': true,
@@ -69,7 +72,7 @@ export class TestSuite {
     public async enqueueTests (tests: string[]): Promise<void> {
         let failed = false;
         let firstRun = true;
-        const exTester = new ExTester(this.storageFolder, this.releaseQuality, undefined)
+        const exTester = new ExTester(this.storageFolder, this.releaseQuality, this.extensionsFolder, false)
         await exTester.downloadCode(this.vscodeVersion)
         await exTester.downloadChromeDriver(this.vscodeVersion)
         await exTester.installVsix({ vsixFile: this.vsixPath })

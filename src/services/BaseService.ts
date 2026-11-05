@@ -1,5 +1,5 @@
 // Copyright 2026 The MathWorks, Inc.
-import { Disposable } from 'vscode';
+import { Disposable } from '../utils/Disposable';
 
 export default class BaseService extends Disposable {
     private _owned: Disposable[] = []
