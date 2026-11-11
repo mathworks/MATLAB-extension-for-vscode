@@ -1,10 +1,12 @@
 // Copyright 2025 The MathWorks, Inc.
 import { Key } from 'vscode-extension-tester';
 import { VSCodeTester } from '../tools/tester/VSCodeTester'
-import { before, afterEach, after } from 'mocha';
+import { EditorTester } from '../tools/tester/EditorTester'
+import { before, beforeEach, afterEach, after } from 'mocha';
 
 suite('Debugging UI Tests', () => {
     let vs: VSCodeTester
+    let editor: EditorTester
 
     before(async () => {
         vs = new VSCodeTester();
@@ -12,11 +14,19 @@ suite('Debugging UI Tests', () => {
         await vs.assertMATLABConnected()
         await vs.openMATLABTerminal()
         await vs.terminal.assertContains('>>', 'wait for ready prompt')
-        await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}'); clc`)
         await vs.closeActiveEditor()
     });
 
+    beforeEach(async () => {
+        // Add the path before every test (and retry): on CI the test-files folder has been seen dropping off the MATLAB path after the first test
+        await vs.terminal.executeCommand(`addpath('${vs.getTestFilesDirectory()}'); clc`)
+    });
+
     afterEach(async () => {
+        // Let the debug session end and MATLAB go idle before cleaning up, so the next test doesn't inherit a half-stopped state
+        await editor.debugger.stopDebugSession()
+        await vs.terminal.assertIdlePrompt('MATLAB should be idle after debugging')
+        await editor.debugger.removeAllBreakpoints()
         await vs.terminal.executeCommand('dbclear all, clc')
         await vs.closeActiveEditor()
     });
@@ -26,7 +36,7 @@ suite('Debugging UI Tests', () => {
     });
 
     test('Basic debugging operations', async () => {
-        const editor = await vs.openEditor('hScript2.m')
+        editor = await vs.openEditor('hScript2.m')
         await editor.debugger.setBreakpointOnLine(1)
         await editor.debugger.setBreakpointOnLine(3)
         await editor.type(Key.F5, 'F5 to run file');
@@ -42,7 +52,7 @@ suite('Debugging UI Tests', () => {
     })
 
     test('Basic debugging operations via terminal', async () => {
-        const editor = await vs.openEditor('hScript2.m')
+        editor = await vs.openEditor('hScript2.m')
         await vs.terminal.executeCommand('dbstop in hScript2 at 1')
         await vs.terminal.executeCommand('dbstop in hScript2 at 3')
         await editor.type(Key.F5, 'F5 to run file');
@@ -57,7 +67,7 @@ suite('Debugging UI Tests', () => {
     })
 
     test('Executing commands while debugging', async () => {
-        const editor = await vs.openEditor('hScript3.m')
+        editor = await vs.openEditor('hScript3.m')
         await editor.type(Key.F5, 'F5 to run file');
         await editor.debugger.assertStoppedAtLine(2) // hScript3.m has keyboard on line 2
         await vs.terminal.executeCommand('12+17')
@@ -67,7 +77,7 @@ suite('Debugging UI Tests', () => {
     })
 
     test('Test pause and resume while debugging', async () => {
-        const editor = await vs.openEditor('hScript3.m')
+        editor = await vs.openEditor('hScript3.m')
         await editor.type(Key.F5, 'F5 to run file');
         await editor.debugger.assertStoppedAtLine(2) // Ensure we are stopped in a debug session
         await editor.type(Key.F5, 'F5 to resume')
@@ -80,7 +90,7 @@ suite('Debugging UI Tests', () => {
     })
 
     test('WSB display and updates while debugging', async function (this: Mocha.Context) {
-        const editor = await vs.openEditor('hScript2.m')
+        editor = await vs.openEditor('hScript2.m')
         if (await vs.isMatlabVersionLessThan('R2023a')) {
             // Workspace browser only supported on R2023a and later - skip tests
             this.skip()
@@ -90,13 +100,18 @@ suite('Debugging UI Tests', () => {
         await editor.type(Key.F5, 'F5 to run file')
 
         await editor.debugger.assertStoppedAtLine(5)
+        // VS Code switches the sidebar to Run and Debug each time the debugger pauses, so reopen the WSB after every pause
+        await vs.openWorkspaceBrowser()
         await editor.type(Key.F10, 'F10 to step over')
+        await editor.debugger.assertStoppedAtLine(6)
+        await editor.debugger.assertDebugViewOpen()
         await vs.openWorkspaceBrowser()
         await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
         await vs.workspaceBrowser.assertVariableValue('e', '5', 'value should be 5')
 
-        await editor.debugger.assertStoppedAtLine(6)
+        // The current line stays on 6 after this step, so wait for the sidebar switch instead
         await editor.type(Key.F10, 'F10 to step over')
+        await editor.debugger.assertDebugViewOpen()
         await vs.openWorkspaceBrowser()
         await vs.workspaceBrowser.assertVariableExists('e', 'e should appear in workspace')
         await vs.workspaceBrowser.assertVariableValue('e', '6', 'value should be updated to 6')

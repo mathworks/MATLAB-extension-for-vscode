@@ -45,6 +45,92 @@ export class DebuggerTester {
     }
 
     /**
+     * Waits for VS Code to switch the sidebar to Run and Debug.
+     * With the default 'debug.openDebug' (openOnDebugBreak) this happens every time the debugger pauses,
+     * which hides other sidebar views such as the Workspace Browser.
+     */
+    public async assertDebugViewOpen (): Promise<void> {
+        return await this.vs.poll(this.isDebugViewOpen.bind(this), true, 'Expected Run and Debug view to open')
+    }
+
+    /**
+     * Stops the VS Code debug session if one is still active, and waits for it to end.
+     * A stale session makes F5 continue that session instead of running the file.
+     */
+    public async stopDebugSession (): Promise<void> {
+        if (await this.findCommand('Debug: Stop', true)) {
+            console.log('Stopping stale debug session')
+        }
+        // 'Debug: Stop' is only listed in the command palette while a session is active
+        return await this.vs.poll(async () => !(await this.findCommand('Debug: Stop', false)), true, 'Expected no active debug session')
+    }
+
+    /**
+     * Removes all breakpoints through VS Code so they stay in sync with MATLAB.
+     * 'dbclear all' alone clears MATLAB's breakpoints but leaves VS Code's in place.
+     */
+    public async removeAllBreakpoints (): Promise<void> {
+        // VS Code lists this command without a 'Debug:' category prefix
+        if (!(await this.findCommand('Remove All Breakpoints', true))) {
+            console.log('Command "Remove All Breakpoints" not found')
+        }
+        return await this.vs.pause(1500) // wait for the breakpoint change to sync to MATLAB
+    }
+
+    private async isDebugViewOpen (): Promise<boolean> {
+        try {
+            const control = await new vet.ActivityBar().getViewControl('Run and Debug')
+            if (control == null) return false
+            const klass = await control.getAttribute('class')
+            return klass.includes('checked') // the selected activity bar item has the 'checked' class
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * Returns true if the command palette lists a command with the given label, selecting it if requested.
+     * The palette closes when something else takes focus (e.g. a terminal read), so a read from a closed palette is retried.
+     */
+    private async findCommand (label: string, select: boolean): Promise<boolean> {
+        const attempts = 3
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+                return await this.tryFindCommand(label, select)
+            } catch (e) {
+                console.log(`Command palette closed while looking for "${label}" (attempt ${attempt} of ${attempts}): ${(e as Error).message}`)
+                await this.vs.pause(500)
+            }
+        }
+        throw new Error(`Command palette kept closing while looking for "${label}"`)
+    }
+
+    /**
+     * Single attempt for findCommand. Throws if the palette closed before its results could be trusted.
+     */
+    private async tryFindCommand (label: string, select: boolean): Promise<boolean> {
+        const prompt = await this.vs.workbench.openCommandPrompt() as vet.InputBox
+        await prompt.setText(`>${label}`)
+        await this.vs.pause(1000)
+        for (const pick of await prompt.getQuickPicks()) {
+            if (await pick.getLabel() === label) {
+                if (select) {
+                    await pick.select()
+                } else {
+                    await prompt.cancel()
+                }
+                return true
+            }
+        }
+        // An empty result only means "not found" if the palette was still open when it was read
+        if (!(await prompt.isDisplayed())) {
+            throw new Error('palette was not open when its results were read')
+        }
+        await prompt.cancel()
+        return false
+    }
+
+    /**
      * Extracts the numeric 'top' pixel value from a style string.
      */
     private extractTopPixel (styleString: string): string | null {
