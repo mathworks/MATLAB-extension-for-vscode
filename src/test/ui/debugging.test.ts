@@ -27,7 +27,12 @@ suite('Debugging UI Tests', () => {
         await editor.debugger.stopDebugSession()
         await vs.terminal.assertIdlePrompt('MATLAB should be idle after debugging')
         await editor.debugger.removeAllBreakpoints()
-        await vs.terminal.executeCommand('dbclear all, clc')
+        try {
+            await vs.terminal.executeCommand('dbclear all, clc')
+        } catch (e) {
+            // vet sends the command, then polls the terminal input, which goes stale if the terminal re-renders; the command already ran
+            if ((e as Error).name !== 'StaleElementReferenceError') throw e
+        }
         await vs.closeActiveEditor()
     });
 
