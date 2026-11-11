@@ -74,8 +74,13 @@ export class TerminalTester {
     }
 
     private async isAtIdlePrompt (): Promise<boolean> {
-        const content = await this.getTerminalContent()
-        return content.endsWith('>>') && !content.endsWith('K>>')
+        try {
+            const content = await this.getTerminalContent()
+            return content.endsWith('>>') && !content.endsWith('K>>')
+        } catch {
+            // getText() goes through the command palette, which can fail while a previous palette is still closing; the poll retries
+            return false
+        }
     }
 
     /**
