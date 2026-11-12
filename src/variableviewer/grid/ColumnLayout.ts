@@ -1,6 +1,6 @@
 // Copyright 2026 The MathWorks, Inc.
 
-import { LabelInfo } from '../types'
+import { ColumnWidthAdjustment, LabelInfo } from '../types'
 import { GridConfig, DEFAULT_CONFIG } from './GridConfig'
 
 /**
@@ -12,6 +12,7 @@ export class ColumnLayout {
     private colWidths: number[] = []
     private colOffsets: number[] = []
     private totalWidth: number = 0
+    private readonly adjustments: Map<number, number> = new Map()
 
     constructor (private readonly config: GridConfig = DEFAULT_CONFIG) {}
 
@@ -24,6 +25,7 @@ export class ColumnLayout {
     computeWidths (numCols: number, columnLabels?: readonly LabelInfo[]): void {
         this.colWidths = []
         this.colOffsets = []
+        this.adjustments.clear()
         let offset = 0
 
         for (let c = 0; c < numCols; c++) {
@@ -99,6 +101,7 @@ export class ColumnLayout {
     setWidth (col: number, width: number): void {
         if (col < 0 || col >= this.colWidths.length) return
         const clamped = Math.max(this.config.minColWidth, width)
+        this.adjustments.set(col, clamped)
         const delta = clamped - this.colWidths[col]
         if (delta === 0) return
         this.colWidths[col] = clamped
@@ -106,6 +109,27 @@ export class ColumnLayout {
             this.colOffsets[c] += delta
         }
         this.totalWidth += delta
+    }
+
+    /**
+     * Returns the columns whose width was set via setWidth since the last computeWidths, ordered by position.
+     * @returns The width adjustments keyed by 0-based column position.
+     */
+    getAdjustments (): ColumnWidthAdjustment[] {
+        return [...this.adjustments.entries()]
+            .sort(([a], [b]) => a - b)
+            .map(([index, width]) => ({ index, width }))
+    }
+
+    /**
+     * Re-applies previously recorded width adjustments. Adjustments for positions that no longer
+     * exist are dropped by setWidth's bounds check, so they are not carried forward.
+     * @param adjustments - Width adjustments keyed by 0-based column position.
+     */
+    applyAdjustments (adjustments: readonly ColumnWidthAdjustment[]): void {
+        for (const { index, width } of adjustments) {
+            this.setWidth(index, width)
+        }
     }
 
     /**

@@ -4,6 +4,10 @@ const path = require('path');
 const commonConfig = {
   target: 'web',
   mode: 'development',
+  devtool: 'source-map',
+  output: {
+    devtoolModuleFilenameTemplate: info => path.relative(path.resolve(__dirname, 'out'), info.absoluteResourcePath).replace(/\\/g, '/'),
+  },
   resolve: {
     extensions: ['.ts', '.js'],
   },
@@ -23,6 +27,7 @@ module.exports = [
     ...commonConfig,
     entry: './src/workspacebrowser/webview-main.ts',
     output: {
+      ...commonConfig.output,
       filename: 'bundle.js',
       path: path.resolve(__dirname, 'out'),
     },
@@ -31,6 +36,7 @@ module.exports = [
     ...commonConfig,
     entry: './src/variableviewer/webview-main.ts',
     output: {
+      ...commonConfig.output,
       filename: 'vv-bundle.js',
       path: path.resolve(__dirname, 'out'),
     },

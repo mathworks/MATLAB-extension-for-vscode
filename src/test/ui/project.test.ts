@@ -47,7 +47,8 @@ suite('Project UI Tests', () => {
         if (fs.existsSync(resourcesDir)) fs.rmSync(resourcesDir, { recursive: true })
     });
 
-    test('Test prompt when opening project with dependencies', async function () {
+    // Opening the Explorer context menu is unsupported by vscode-extension-tester on macOS.
+    (process.platform === 'darwin' ? test.skip : test)('Test prompt when opening project with dependencies', async function () {
         await vs.openMATLABTerminal()
 
         if (await vs.isMatlabVersionLessThan('R2026b')) {

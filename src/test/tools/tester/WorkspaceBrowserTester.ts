@@ -1,6 +1,7 @@
 // Copyright 2026 The MathWorks, Inc.
 import * as vet from 'vscode-extension-tester'
 import { WebDriver, By, until, Key } from 'selenium-webdriver'
+import { chromiumCoverage } from '../utils/ChromiumCoverage'
 import * as assert from 'assert'
 import { VSCodeTester } from './VSCodeTester'
 
@@ -189,6 +190,7 @@ export class WorkspaceBrowserTester {
     // ── Variable Viewer ───────────────────────────────────────────
 
     async openInVariableViewer (varName: string): Promise<void> {
+        await chromiumCoverage.capture()
         await this.switchToFrame()
         try {
             const cell = await this.driver.findElement(

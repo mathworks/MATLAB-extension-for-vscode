@@ -11,6 +11,9 @@ export class ScrollEngine {
     private scrollLeft: number = 0
     private debounceTimer: ReturnType<typeof setTimeout> | undefined
     private settleCallback: (() => void) | null = null
+    private throttleCallback: (() => void) | null = null
+    private throttleIntervalMs: number = 250
+    private lastThrottleFire: number = 0
 
     constructor (private readonly config: GridConfig = DEFAULT_CONFIG) {}
 
@@ -21,6 +24,17 @@ export class ScrollEngine {
      */
     onSettle (callback: () => void): void {
         this.settleCallback = callback
+    }
+
+    /**
+     * Registers a callback to be invoked at most once per intervalMs during active scrolling.
+     * Fires intermediate requests so that sustained keyboard navigation loads data progressively.
+     * @param callback - The function to call at throttled intervals.
+     * @param intervalMs - Minimum milliseconds between invocations.
+     */
+    onThrottledScroll (callback: () => void, intervalMs: number): void {
+        this.throttleCallback = callback
+        this.throttleIntervalMs = intervalMs
     }
 
     /**
@@ -41,6 +55,14 @@ export class ScrollEngine {
                 this.settleCallback()
             }
         }, this.config.scrollDebounceMs)
+
+        if (this.throttleCallback != null) {
+            const now = Date.now()
+            if (now - this.lastThrottleFire >= this.throttleIntervalMs) {
+                this.lastThrottleFire = now
+                this.throttleCallback()
+            }
+        }
     }
 
     /**
@@ -51,12 +73,13 @@ export class ScrollEngine {
         return { scrollTop: this.scrollTop, scrollLeft: this.scrollLeft }
     }
 
-    /** Cancels any pending debounce timer and removes the settle callback. */
+    /** Cancels any pending debounce timer and removes callbacks. */
     dispose (): void {
         if (this.debounceTimer != null) {
             clearTimeout(this.debounceTimer)
             this.debounceTimer = undefined
         }
         this.settleCallback = null
+        this.throttleCallback = null
     }
 }

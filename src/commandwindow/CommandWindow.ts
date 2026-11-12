@@ -1,13 +1,8 @@
 // Copyright 2024-2026 The MathWorks, Inc.
 
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as fsPromise from 'fs/promises';
-import * as path from 'path';
-
-import * as vscodeTextmate from 'vscode-textmate';
-import * as oniguruma from 'vscode-oniguruma';
-
+import { Disposable } from '../utils/Disposable';
+import { Emitter, Event } from '../utils/Emitter';
+import { CommandWindowHost, LineTokenizer } from './CommandWindowHost';
 import { Notifier } from './MultiClientNotifier';
 import { MVM, MatlabMVMConnectionState } from './MVM';
 import { TextEvent, PromptState } from './MVMInterface';
@@ -116,14 +111,9 @@ const PROMPTS = {
     BUSY_PROMPT: ''
 };
 
-const enum EncodedTokenDataConsts {
-    FOREGROUND_MASK = 0b00000000111111111000000000000000,
-    FOREGROUND_OFFSET = 15
-}
-
-// A modification of the word boundary regex being used by VS Code when replacing completions.
+// A modification of the word boundary regex being used by the editor when replacing completions.
 // The first part splits on numbers. The second/third parts split on quoted strings, ie. plot("Color"|
-// the fourth part splits on unquoted words (same as VS Code's original regex),
+// the fourth part splits on unquoted words (same as the editor's original regex),
 // And the fifth part splits on unfinished quotes. ie. plot("C|
 // eslint-disable-next-line no-useless-escape
 const WORD_REGEX = /(-?\d*\.\d\w*)|(\"[^\"]*\"?)|(\'[^\']*\'?)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)|(\"|\')/
@@ -144,12 +134,16 @@ interface AugmentedCompletionItem extends CompletionItem {
     extraData?: ExtraData
 }
 
+export interface TerminalDimensions {
+    columns: number
+    rows: number
+}
+
 /**
- * Represents command window. Is a pseudoterminal to be used as the input/output processor in a VS Code terminal.
+ * Represents command window. Is a pseudoterminal to be used as the input/output processor in a terminal.
  */
-export default class CommandWindow implements vscode.Pseudoterminal {
-    private readonly _context: vscode.ExtensionContext;
-    private readonly _writeEmitter: vscode.EventEmitter<string>;
+export default class CommandWindow {
+    private readonly _writeEmitter: Emitter<string>;
 
     private _initialized: boolean = false;
     private _currentPrompt: string = PROMPTS.BUSY_PROMPT;
@@ -173,8 +167,8 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     private _lastKnownCurrentLineForHistory: string = '';
     private _filteredCommandHistory: string[] = [];
 
-    private _terminalDimensions: vscode.TerminalDimensions;
-    private _lastSentTerminalDimensions: vscode.TerminalDimensions | null = null;
+    private _terminalDimensions: TerminalDimensions;
+    private _lastSentTerminalDimensions: TerminalDimensions | null = null;
 
     private _latestTabCompletionData?: CompletionList;
     private _cachedPromptStringFromLastCompletion?: string;
@@ -184,14 +178,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
     private _currentInputPromptString?: string;
 
-    private _tokenizer?: vscodeTextmate.IGrammar;
-    private _tokenizerRegistry?: vscodeTextmate.Registry;
+    private _tokenizer?: LineTokenizer;
+    private _disposed: boolean = false;
 
-    private readonly _eventHandlers: vscode.Disposable[] = []
+    private readonly _eventHandlers: Disposable[] = []
 
-    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier, context: vscode.ExtensionContext) {
-        this._context = context;
-
+    constructor (private readonly _mvm: MVM, private readonly _notifier: Notifier, private readonly _host: CommandWindowHost) {
         this._eventHandlers.push(
             this._mvm.on(MVM.Events.output, this.addOutput.bind(this)),
             this._mvm.on(MVM.Events.clc, this.clear.bind(this)),
@@ -204,7 +196,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
         this._initialized = false;
 
-        this._writeEmitter = new vscode.EventEmitter<string>();
+        this._writeEmitter = new Emitter<string>();
         this.onDidWrite = this._writeEmitter.event;
         this._terminalDimensions = { rows: 30, columns: 100 };
 
@@ -221,7 +213,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
      * Depending on MATLAB state we will either clear the terminal or write the current line again.
      * @param initialDimensions
      */
-    open (initialDimensions?: vscode.TerminalDimensions): void {
+    open (initialDimensions?: TerminalDimensions): void {
         if (initialDimensions != null) {
             this._terminalDimensions = initialDimensions;
         }
@@ -300,19 +292,16 @@ export default class CommandWindow implements vscode.Pseudoterminal {
 
         this._writeEmitter.fire(this._currentPrompt);
 
-        // Tokenize the prompt line. The tokenizeLine2 call returns the result in binary format containing,
-        // among other data, the start and end indices and foreground color to use based on the current theme
-        const lineTokens = this._tokenizer.tokenizeLine2(this._stripCurrentPrompt(this._currentPromptLine), vscodeTextmate.INITIAL);
+        // Tokenize the prompt line
+        const lineTokens = this._tokenizer.tokenizeLine(line);
         let selectionInProgress = false;
 
         // Iterate over each token and display it
-        for (let j = 0; j < lineTokens.tokens.length / 2; j++) {
+        for (let j = 0; j < lineTokens.length; j++) {
             // Unpack the current token data
-            const tokenStart = lineTokens.tokens[2 * j];
-            const tokenEnd = lineTokens.tokens[2 * j + 2] ?? line.length;
-            const tokenMetaData = lineTokens.tokens[2 * j + 1];
-            const foregroundId = ((tokenMetaData & EncodedTokenDataConsts.FOREGROUND_MASK) >>> EncodedTokenDataConsts.FOREGROUND_OFFSET);
-            const color = this._tokenizerRegistry?.getColorMap()[foregroundId];
+            const tokenStart = lineTokens[j].startIndex;
+            const tokenEnd = lineTokens[j + 1]?.startIndex ?? line.length;
+            const color = lineTokens[j].color;
 
             // If the current selection is entirely within the current token
             if (selectionStart >= tokenStart && selectionStart < tokenEnd && selectionEnd < tokenEnd) {
@@ -947,12 +936,12 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             : this._lastKnownCurrentLineForHistory;
     }
 
-    setDimensions (dimensions: vscode.TerminalDimensions): void {
+    setDimensions (dimensions: TerminalDimensions): void {
         this._terminalDimensions = dimensions;
     }
 
     private _sendTerminalDimensionsIfNeeded (): void {
-        if ((this._lastSentTerminalDimensions == null) || this._lastSentTerminalDimensions.columns !== this._terminalDimensions.columns || this._lastSentTerminalDimensions.rows !== this._terminalDimensions.rows) {
+        if ((this._host.alwaysSendDimensions === true) || (this._lastSentTerminalDimensions == null) || this._lastSentTerminalDimensions.columns !== this._terminalDimensions.columns || this._lastSentTerminalDimensions.rows !== this._terminalDimensions.rows) {
             const release = this._mvm.getMatlabRelease();
             if (release === null) {
                 return;
@@ -961,7 +950,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             if (match?.[1] !== undefined && Number.parseInt(match[1]) < 25) {
                 void this._mvm.eval(`try; if usejava('jvm'); com.mathworks.mde.cmdwin.CmdWinMLIF.setCWSize(${this._terminalDimensions.rows}, ${this._terminalDimensions.columns}); end; end;`, false);
             } else {
-                void this._mvm.eval(`settings_vscode__ = settings; settings_vscode__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.columns}, ${this._terminalDimensions.rows}]; clear settings_vscode__;`, false);
+                void this._mvm.eval(`settings_cmdwin__ = settings; settings_cmdwin__.matlab.commandwindow.WindowSize.TemporaryValue = [${this._terminalDimensions.columns}, ${this._terminalDimensions.rows}]; clear settings_cmdwin__;`, false);
             }
             this._lastSentTerminalDimensions = this._terminalDimensions;
         }
@@ -1006,7 +995,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     private _updateHasSelectionContext (): void {
-        void vscode.commands.executeCommand('setContext', 'matlab.terminalHasSelection', this._activeAnchorIndex !== undefined);
+        this._host.setHasSelection(this._activeAnchorIndex !== undefined);
     }
 
     private _handleCopy (): boolean {
@@ -1017,13 +1006,13 @@ export default class CommandWindow implements vscode.Pseudoterminal {
         const selectionStart = this._currentPrompt.length + Math.min(this._activeCursorIndex, this._activeAnchorIndex);
         const selectionEnd = this._currentPrompt.length + Math.max(this._activeCursorIndex, this._activeAnchorIndex);
         const selection = this._currentPromptLine.slice(selectionStart, selectionEnd);
-        void vscode.env.clipboard.writeText(selection);
+        this._host.writeClipboard(selection);
         return false;
     }
 
     private _handlePaste (): boolean {
         this._invalidateCompletionData();
-        vscode.env.clipboard.readText().then((text: string) => {
+        this._host.readClipboard().then((text: string) => {
             this.handleInput(text);
         }, () => {
             // Ignored
@@ -1180,7 +1169,7 @@ export default class CommandWindow implements vscode.Pseudoterminal {
             this._changePrompt(PROMPTS.BUSY_PROMPT);
         } else if (state === PromptState.INPUT) {
             // Bring command window to the front
-            void vscode.commands.executeCommand('matlab.openCommandWindow')
+            this._host.revealCommandWindow();
 
             this._changePrompt(this._currentInputPromptString ?? PROMPTS.FAKE_INPUT_PROMPT);
         } else {
@@ -1260,111 +1249,26 @@ export default class CommandWindow implements vscode.Pseudoterminal {
     }
 
     /**
-     * Initialize the textmate tokenizer. This is the same as what the VS Code Editor uses and should guarentee identical results.
+     * Initialize the tokenizer.
      */
     private async _initalizeTokenizer (): Promise<void> {
-        // Load the oniguruma regex library used by the tokenizer.
-        const wasmBin = fs.readFileSync(this._context.asAbsolutePath('node_modules/vscode-oniguruma/release/onig.wasm')).buffer;
-
-        const vscodeOnigurumaLib = oniguruma.loadWASM(wasmBin as any).then(() => {
-            return {
-                createOnigScanner (patterns: any) { return new oniguruma.OnigScanner(patterns); },
-                createOnigString (s: any) { return new oniguruma.OnigString(s); }
-            };
-        });
-
-        const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme') as string;
-
-        // Create a registry that can create a grammar from a scope name, providing it the MATLAB syntax file and the current theme.
-        const registry = new vscodeTextmate.Registry({
-            theme: this._processTheme(themeName),
-            onigLib: vscodeOnigurumaLib,
-            loadGrammar: async () => {
-                const languageFile = await fsPromise.readFile(this._context.asAbsolutePath('syntaxes/Matlab.tmbundle/Syntaxes/MATLAB.tmLanguage'));
-                return vscodeTextmate.parseRawGrammar(languageFile.toString());
-            }
-        });
-
-        // Handle theme changes by reprocessing the new theme and
-        vscode.window.onDidChangeActiveColorTheme(() => {
-            const themeName = vscode.workspace.getConfiguration('workbench').get('colorTheme') as string;
-            registry.setTheme(this._processTheme(themeName));
-        });
-        this._tokenizerRegistry = registry;
-
-        // Load the MATLAB grammar
-        this._tokenizer = await registry.loadGrammar('source.matlab') ?? undefined;
-    }
-
-    /**
-     * Convert the current VS Code theme into a form that can be used by the textmate tokenizer.
-     */
-    private _processTheme (themeName: string): vscodeTextmate.IRawTheme {
-        const theme: vscodeTextmate.IRawTheme = {
-            name: themeName,
-            settings: []
-        };
-
-        // Find the given theme extension.
-        let currentThemePath;
-        for (const extension of vscode.extensions.all) {
-            const themes = extension.packageJSON.contributes?.themes;
-            const currentTheme = themes?.find((theme: any) => theme.label === themeName || theme.id === themeName);
-            if (currentTheme) {
-                currentThemePath = path.join(extension.extensionPath, currentTheme.path);
-                break;
-            }
+        const tokenizer = await this._host.createTokenizer?.();
+        if (this._disposed) {
+            tokenizer?.dispose?.();
+            return;
         }
-
-        // Load the theme and all recursively included themes.
-        const themePaths = [];
-        const themeFiles = [];
-        if (currentThemePath) {
-            themePaths.push(currentThemePath);
-        }
-        while (themePaths.length > 0) {
-            const themePath: string = themePaths.pop()!;
-
-            let themeData: any;
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                themeData = require(themePath);
-            } catch (err) {
-                console.log('Error while loading and parsing theme file: ', themePath, err);
-                // Return the still empty theme in the case of an error.
-                return theme;
-            }
-
-            if (themeData !== undefined) {
-                themeFiles.push(themeData);
-                if (themeData.include) {
-                    themePaths.push(path.join(path.dirname(themePath), themeData.include));
-                }
-            }
-        }
-
-        // Create the data structure that maps from textmate paths to colors.
-        while (themeFiles.length > 0) {
-            const themeData = themeFiles.pop();
-            if (themeData.tokenColors) {
-                theme.settings.push(...themeData.tokenColors);
-            }
-        }
-
-        // Manually add parentheses, brackets, and braces to the theme, because this is usually handled by bracket matching, not syntax highlighting.
-        theme.settings.push({ scope: ['punctuation.section.parens', 'punctuation.section.brackets', 'punctuation.section.braces'], settings: { foreground: '#FFD703' } });
-
-        return theme;
+        this._tokenizer = tokenizer;
     }
 
     dispose (): void {
+        this._disposed = true;
         this._eventHandlers.forEach(eventHandler => eventHandler.dispose());
         this._writeEmitter.dispose();
-        this._tokenizerRegistry?.dispose();
+        this._tokenizer?.dispose?.();
     }
 
-    onDidWrite: vscode.Event<string>;
-    onDidOverrideDimensions?: vscode.Event<vscode.TerminalDimensions | undefined> | undefined;
-    onDidClose?: vscode.Event<number> | undefined;
-    onDidChangeName?: vscode.Event<string> | undefined;
+    onDidWrite: Event<string>;
+    onDidOverrideDimensions?: Event<TerminalDimensions | undefined> | undefined;
+    onDidClose?: Event<number> | undefined;
+    onDidChangeName?: Event<string> | undefined;
 }

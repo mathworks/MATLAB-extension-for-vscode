@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+.s/**
+coverage/**
 out/test/**
 
 src/**

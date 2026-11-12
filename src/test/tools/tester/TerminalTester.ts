@@ -67,6 +67,23 @@ export class TerminalTester {
     }
 
     /**
+     * Assert MATLAB is idle at the '>>' prompt (not busy and not at the debug 'K>>' prompt)
+     */
+    public async assertIdlePrompt (message: string): Promise<void> {
+        return await this.vs.poll(this.isAtIdlePrompt.bind(this), true, `Assertion on terminal content: ${message}`)
+    }
+
+    private async isAtIdlePrompt (): Promise<boolean> {
+        try {
+            const content = await this.getTerminalContent()
+            return content.endsWith('>>') && !content.endsWith('K>>')
+        } catch {
+            // getText() goes through the command palette, which can fail while a previous palette is still closing; the poll retries
+            return false
+        }
+    }
+
+    /**
      * Checks if the MATLAB terminal contains some content (no polling)
      */
     private async doesTerminalContain (expected: string): Promise<boolean> {
@@ -177,24 +194,29 @@ export class TerminalTester {
 
     public async assertMATLABTerminalNotVisible (timeout = 5000): Promise<void> {
         await this.vs.poll(
-            async () => !(await this.isPanelDisplayed()),
+            async () => !(await this.isTerminalPanelVisible()),
             true,
-            'Expected terminal panel to not be visible',
+            'Expected MATLAB terminal to not be visible',
             timeout
         )
     }
 
     public async assertMATLABTerminalVisible (timeout = 30000): Promise<void> {
         await this.vs.poll(
-            async () => await this.isPanelDisplayed(),
+            this.isTerminalPanelVisible.bind(this),
             true,
-            'Expected terminal panel to be visible',
+            'Expected MATLAB terminal to be visible',
             timeout
         )
     }
 
-    private async isPanelDisplayed (): Promise<boolean> {
-        const panel = new vet.BottomBarPanel()
-        return await panel.isDisplayed().catch(() => false)
+    private async isTerminalPanelVisible (): Promise<boolean> {
+        try {
+            const panel = new vet.BottomBarPanel()
+            return (await panel.getRect()).height > 0
+        } catch {
+            // The panel element may be missing or stale while the DOM is transitioning.
+            return false
+        }
     }
 }

@@ -718,8 +718,7 @@ suite('webview', () => {
 
             const state = getState()
             expect(state.selectedVarName).to.equal('beta')
-            const focused = document.activeElement as HTMLInputElement
-            expect(focused.classList.contains('wsb-name-input')).to.be.true
+            const focused = document.activeElement as HTMLElement
             expect(focused.closest('tr')?.getAttribute('data-var')).to.equal('beta')
         })
 

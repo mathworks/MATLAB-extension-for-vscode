@@ -3,6 +3,7 @@
 import * as vscode from 'vscode'
 
 import CommandWindow from './CommandWindow'
+import DefaultCommandWindowHost from './DefaultCommandWindowHost'
 import { Notifier } from './MultiClientNotifier'
 import { MVM } from './MVM'
 import Notification from '../notifications/Notifications'
@@ -27,7 +28,7 @@ export default class TerminalService extends BaseService {
 
         this._client = client;
 
-        this._commandWindow = new CommandWindow(mvm, this._client, context);
+        this._commandWindow = new CommandWindow(mvm, this._client, new DefaultCommandWindowHost(context));
         this._commandWindow.initialize();
 
         this._terminalOptions = {

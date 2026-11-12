@@ -1,10 +1,14 @@
 // Copyright 2026 The MathWorks, Inc.
 
-import { ContentRenderer, ExtToVVWebview, VVWebviewToExt, VariableMetadata, RendererType } from './types'
+import { ContentRenderer, ExtToVVWebview, VVWebviewToExt, GridViewState, VariableMetadata, RendererType } from './types'
 import { GridRenderer } from './webview-grid'
 import { UnsupportedRenderer } from './webview-unsupported'
 
-interface VsCodeApi { postMessage: (msg: VVWebviewToExt) => void }
+interface VsCodeApi {
+    postMessage: (msg: VVWebviewToExt) => void
+    getState: () => GridViewState | null
+    setState: (state: GridViewState | null) => void
+}
 
 /**
  * Top-level host running inside the Variable Viewer webview.
@@ -33,7 +37,7 @@ export class PanelHost {
         this.bannerMeta = document.querySelector('.vv-banner-meta') as HTMLElement
 
         this.contentRoot.setAttribute('aria-busy', 'true')
-        this.contentRoot.innerHTML = '<div class="vv-loading"><div class="vv-spinner"></div></div>'
+        this.contentRoot.innerHTML = '<div class="vv-loading"><div class="vv-spinner"></div><span class="sr-only">Loading variable data</span></div>'
 
         window.addEventListener('message', (e: MessageEvent) => {
             this.handleMessage(e.data as ExtToVVWebview)
@@ -146,11 +150,20 @@ export class PanelHost {
             this.currentRenderer = null
             this.currentRendererType = null
         }
+        this.api.setState(null)
         if (this.contentRoot != null) {
-            this.contentRoot.innerHTML = `<div class="vv-deleted-message" role="status">
+            this.contentRoot.innerHTML = `<div class="vv-deleted-message" role="status" tabindex="-1">
                 <h3>Variable Not Found</h3>
                 <p>The variable '${this.escapeHtml(deletedVarName)}' does not exist.</p>
             </div>`
+            const deletedMsg = this.contentRoot.querySelector<HTMLElement>('.vv-deleted-message')
+            if (deletedMsg != null) {
+                window.addEventListener('focus', () => {
+                    if (document.activeElement === document.body || document.activeElement === document.documentElement) {
+                        deletedMsg.focus()
+                    }
+                })
+            }
         }
     }
 

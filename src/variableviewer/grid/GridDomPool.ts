@@ -205,7 +205,8 @@ export class GridDomPool {
         selectionModel: SelectionModel,
         scrollTop: number,
         scrollLeft: number,
-        scaffold: GridScaffold
+        scaffold: GridScaffold,
+        varName: string
     ): void {
         const { startRow, startCol, renderedRows, renderedCols } = range
 
@@ -248,14 +249,27 @@ export class GridDomPool {
                         cell.style.width = `${colWidth}px`
                         cell.style.minWidth = `${colWidth}px`
 
+                        const rowLabel = rows?.labels != null && dataRow < rows.labels.length ? rows.labels[dataRow].name : String(dataRow + 1)
+                        const colLabel = columns?.labels != null && dataCol < columns.labels.length ? columns.labels[dataCol].name : String(dataCol + 1)
+
                         const raw = chunkCache.get(dataRow, dataCol)
                         if (raw == null) {
                             cell.className = isSelected ? 'vv-pool-cell vv-cell vv-cell-loading vv-cell-selected' : 'vv-pool-cell vv-cell vv-cell-loading'
                             if (cell.textContent !== '') {
                                 cell.textContent = ''
                             }
-                        } else if (cell.textContent !== raw) {
-                            cell.textContent = raw
+                            const loadingLabel = `${varName} row ${rowLabel} column ${colLabel} loading`
+                            if (cell.getAttribute('aria-label') !== loadingLabel) {
+                                cell.setAttribute('aria-label', loadingLabel)
+                            }
+                        } else {
+                            if (cell.textContent !== raw) {
+                                cell.textContent = raw
+                            }
+                            const cellLabel = `${varName} row ${rowLabel} column ${colLabel} value ${raw}`
+                            if (cell.getAttribute('aria-label') !== cellLabel) {
+                                cell.setAttribute('aria-label', cellLabel)
+                            }
                         }
                     } else {
                         cell.className = 'vv-pool-cell'
@@ -289,6 +303,7 @@ export class GridDomPool {
         }
 
         pool.colHeaderContainer.style.transform = `translateX(${viewportLeft - scrollLeft}px)`
+        const selectedCell = selectionModel.getSelected()
 
         for (let ci = 0; ci < pool.poolCols; ci++) {
             const header = pool.colHeaders[ci]
@@ -297,7 +312,8 @@ export class GridDomPool {
             if (ci < renderedCols) {
                 const colIdx = startCol + ci
                 const colWidth = columnLayout.getWidth(colIdx)
-                header.className = 'vv-pool-col-header vv-col-header'
+                const isActiveCol = selectedCell != null && colIdx === selectedCell.col - 1
+                header.className = 'vv-pool-col-header vv-col-header' + (isActiveCol ? ' vv-header-active' : '')
                 header.setAttribute('aria-colindex', String(colIdx + 1))
                 header.style.width = `${colWidth}px`
                 header.style.minWidth = `${colWidth}px`
@@ -323,7 +339,8 @@ export class GridDomPool {
             const header = pool.rowHeaders[ri]
             if (ri < renderedRows) {
                 const rowIdx = startRow + ri
-                header.className = 'vv-pool-row-header vv-row-header'
+                const isActiveRow = selectedCell != null && rowIdx === selectedCell.row - 1
+                header.className = 'vv-pool-row-header vv-row-header' + (isActiveRow ? ' vv-header-active' : '')
                 header.setAttribute('aria-rowindex', String(rowIdx + 1))
                 if (rows?.labels != null && rowIdx < rows.labels.length) {
                     header.textContent = rows.labels[rowIdx].name
